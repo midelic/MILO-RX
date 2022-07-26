@@ -3,7 +3,7 @@ New protocol based on SX128x LORA chip
 -2.4Ghz Receiver-
 
 This project is the receiver part of a new protocol  based on SX128x LORA RF chip.
-Protocol general characteristics:
+## General characteristics ##
 - Long range
 - Cheap HW(existing already)
 - 16 full channels(11bits/channel).
@@ -32,7 +32,9 @@ Discussion thread at rcgroups: https://www.rcgroups.com/forums/showthread.php?41
 ## Project Status ##
 
 The project is work in progress,in testing, and there is still a lot to go before it is completed.
+
 Main operation mode:
+
 - LORA modulation
 - Frame rate 142 HZ(7ms)
 - Data Rate ~76kb/s(-108dBm)
@@ -45,10 +47,10 @@ Main operation mode:
 
 ## Software Installation  -Flashing ##
 - Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding rx pins(TX ->RX and RX->TX) and upload the firmware.
-- OTA via WiFi,select WIFI-RX mode from TX handset  screen in protocol menu.
+- OTA via WiFi,select "WIFI-RX" mode from TX handset screen in protocol menu.
 
 ## Binding ##
-- Connect RX to power witoput starting Tx handset.After 30 seconds Rx enters in bind mode automatically.
+- Connect RX to power withput starting the Tx handset.After 30 seconds Rx enters in bind mode automatically.
 - Start Tx ,enter in protocol menu and start  bind process.
 
 
