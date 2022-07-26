@@ -32,10 +32,11 @@ Discussion thread at rcgroups: https://www.rcgroups.com/forums/showthread.php?41
 
 The project is work in progress,in testing, and there is still a lot to go before it is completed.
 Main operation mode:
-- 142 Hz frame rate(7ms)
-- data Rate ~76kb/s(-108dBm)
-- Bw-812; SF6 ; CR -LI -4/7 .
-- preamble 12 symbols
+- LORA modulation
+- Frame rate 142 HZ(7ms)
+- Data Rate ~76kb/s(-108dBm)
+- Bw-812; SF6 ; CR -LI -4/7 
+- Preamble 12 symbols
 - Fixed length packet format(implicit) -15 bytes
-- downlink telemetry rate(1:3)
-- uplink telemetry rate (1:6)
+- Sport downlink telemetry rate(1:3)
+- Sport uplink telemetry rate (1:6)
