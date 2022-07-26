@@ -44,9 +44,12 @@ Main operation mode:
 - Sport downlink telemetry rate(1:3)
 - Sport uplink telemetry rate (1:6)
 
+## Software Installation ##
+- Project built in arduino IDE(version > 1.8.13) under ESP8266 arduino core,Generic ESP8285 module;Built-in  LED 16;Flash size 2M(64KB);MMU 16KB cache +48 Kb RAM
+- Library for WiFi( WiFiManager - https://github.com/tzapu/WiFiManager#install-through-library-manager )
 
-## Software Installation  -Flashing ##
-- Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding rx pins(TX ->RX and RX->TX) and upload the firmware.
+## Flashing ##
+- Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding Receiver pins(TX ->RX and RX->TX) and power the receiver on with  button pressed .Release the button and upload the firmware.
 - OTA via WiFi,select "WIFI-RX" mode from TX handset screen in protocol menu.
 
 ## Binding ##
