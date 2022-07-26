@@ -4,13 +4,13 @@ New protocol based on SX128x LORA chip
 
 This project is the receiver part of a new protocol  based on SX128x LORA RF chip.
 Protocol general charcateristics:
-1.Long range
-2.Cheap HW(existing already)
-2.16 full channels(11bits/channel).
-3.Sport telemetry.
-4.SBUS output on receiver.
-5.Use of existing expresslrs hardware comercially available on the market.
-6 Compatible with multiprotocol.
+- Long range
+- Cheap HW(existing already)
+- 16 full channels(11bits/channel).
+- Sport telemetry.
+- SBUS output on receiver.
+- Use of existing expresslrs hardware comercially available on the market.
+- Compatible with multiprotocol.
 
 Ths receiver will bind with an  expresslrs hacked module attached to exiting TX OpenTX handsets(Taranis,Radiomaster,Jumper)
 The TX counterpart will be compatible and be attached to multiprotocol main code.
@@ -23,3 +23,16 @@ The hacked details of 2.4G BETAFPV -500 Tx module you will find on the same repo
 At the momebt the MILO Rx code is based on esp8285 target as most expresslrs receivers are.
 When developing the code I used for test an expresslrs receiver using the same pinout(I used Flywoo EL24P in this particular case).
 So in order to use this new protocol you have to buy and reflash an 2.4G expresslrs receiver.
+
+
+## Project Status ##
+
+The project is work in progress,in testing, and there is still a lot to go before it is completed.
+Main operation mode:
+- 142Hz frame rate(7ms)
+- data Rate ~76kb/s(-108dBm)
+- Bw-812; SF6 ; CR -LI -4/7 .
+- preamble 12 symbols
+- Fixed length packet format(implicit) -15 bytes
+- downlink telemetry rate(1:3)
+- uplink telemetry rate (1:6)
