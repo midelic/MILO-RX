@@ -11,6 +11,7 @@ Protocol general characteristics:
 - SBUS output on receiver.
 - Use of existing ExpressLRS hardware comercially available on the market.
 - Compatible with multiprotocol.
+- WiFi OTA update via webserver(config server)
 
 Ths receiver will bind with an Tx ExpressLRS hacked module attached to exiting TX OpenTX handsets(Taranis,Radiomaster,Jumper)
 The TX counterpart will be made compatible and be attached to multiprotocol main code.
@@ -40,3 +41,14 @@ Main operation mode:
 - Fixed length packet format(implicit) -15 bytes
 - Sport downlink telemetry rate(1:3)
 - Sport uplink telemetry rate (1:6)
+
+
+## Software Installation  -Flashing ##
+- Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding rx pins(TX ->RX and RX->TX) and upload the firmware.
+- OTA via WiFi,select WIFI-RX mode from TX handset  screen in protocol menu.
+
+## Binding ##
+- Connect RX to power witoput starting Tx handset.After 30 seconds Rx enters in bind mode automatically.
+- Start Tx ,enter in protocol menu and start  bind process.
+
+
