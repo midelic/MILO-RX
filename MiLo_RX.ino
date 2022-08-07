@@ -416,6 +416,8 @@ void loop()
 					
 				#endif
 				missingPackets++;
+				if(missingPackets >= 2)
+				t_tune = 0;
 				if(dwnlnkstart == true)
 				packet_count = (packet_count + 1)%3;
 				nextChannel(1);			
@@ -470,6 +472,7 @@ void loop()
 				frameReceived = false;
 				missingPackets = 0;
 				t_out = 1;
+				t_tune = 500;
 				FrameType = (RxData[0]&0x07);
 				#ifdef LOOP_TIME_AVG
 					//Serial.println(CalcAveragePacketTime());
@@ -539,7 +542,6 @@ void loop()
 		{
 			SX1280_TXnb();
 			telemetryRX = 0;
-			missingPackets = -1;
 			#ifdef STATISTIC
 				if ( aPacketSeen > 5)
 				{
