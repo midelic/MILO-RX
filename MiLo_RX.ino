@@ -76,7 +76,8 @@ uint8_t FrameType = 0;
 //uint16_t BackgroundTime;
 uint32_t debugTimer;
 char debug_buf[64];
-
+bool downlinkstart = false;
+uint8_t packet_count = 0;
 enum {
 	BIND_PACKET = 0,
 	CH1_8_PACKET1,
@@ -302,7 +303,7 @@ void loop()
 	static uint32_t interval = MiLo_currAirRate_Modparams->interval;
 	static uint8_t TLMinterval = MiLo_currAirRate_Modparams->TLMinterval;
 	static bool packetCount = false;	
-	
+	static uint8_t countUntilWiFi = 0;
 	if(bind_jumper()&&jumper==0
 		#ifdef TX_FAILSAFE 
 			&& setFSfromTx == false
@@ -394,6 +395,8 @@ void loop()
 					#endif
 					uplinkLQ = 0;
 					aPacketSeen = 0;
+					dwnlnkstart = false;
+					packet_count = 0;
 				}
 				if(jumper)
 				countFS ++;
@@ -413,6 +416,8 @@ void loop()
 					
 				#endif
 				missingPackets++;
+				if(dwnlnkstart == true)
+				packet_count = (packet_count + 1)%3;
 				nextChannel(1);			
 				SX1280_SetFrequencyReg(GetCurrFreq());			
 			}
@@ -457,8 +462,7 @@ void loop()
 		{
 			uint8_t const FIFOaddr = SX1280_GetRxBufferAddr();
 			SX1280_ReadBuffer(FIFOaddr,RxData, PayloadLength);	
-			SX1280_GetLastPacketStats();				
-			bindingTime = millis();					
+			SX1280_GetLastPacketStats();								
 			if((RxData[1] == MiLoStorage.txid[0])&&RxData[2] == MiLoStorage.txid[1])// Only if correct txid will pass
 			{
 				nextChannel(1);
@@ -476,8 +480,12 @@ void loop()
 				break;//if other receiver with different modelID				
 					if(aPacketSeen > 5)//when received some packets
 					if (RxData[3] & 0x40){//receive Flag from tx to start wifi server
+						if(++countUntilWiFi==2)
+						{
+						countUntilWiFi = 0;	
 						timer0_detachInterrupt();//timer0 is needed for wifi
 						startWifiManager();
+						}
 					}
 				}
 				
@@ -505,13 +513,15 @@ void loop()
 					{
 						if(RxData[3]>>7){
 							telemetryRX = 1;//next is downlink telemetry
+							packet_count = 1;
 						}
 					}
 					else{//TLM PACKET
-						telemetryRX = 1;//next is downlink telemetry			
+						telemetryRX = 1;//next is downlink telemetry
+						dwnlnkstart = true;
+						packet_count = 1;
 					}
 				#endif	
-				
 				packet = true;//flag ,packet ready to decode
 				
 				if(jumper==0)
@@ -525,7 +535,7 @@ void loop()
 	
 	
 	#if defined(TELEMETRY)	
-		if(telemetryRX)
+		if(telemetryRX || packet_count == 1)
 		{
 			SX1280_TXnb();
 			telemetryRX = 0;
@@ -543,14 +553,17 @@ void loop()
 		else
 	#endif
 	{
+		if(packet ==true || missingPackets > 0){
 		#ifdef HAS_PA_LNA
 			SX1280_SetTxRxMode(RX_EN);// do first to allow LNA stabilise
 		#endif
 		SX1280_SetMode(SX1280_MODE_RX);
+		}	
 	}
 	
 	if (packet) {	
-		
+		if(dwnlnkstart == true)
+	        packet_count = (packet_count + 1)%3;
 		FrameType = (RxData[0]&0x07);
 		
 		if(FrameType != TLM_PACKET)
