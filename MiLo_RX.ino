@@ -304,6 +304,7 @@ void loop()
 	static uint8_t TLMinterval = MiLo_currAirRate_Modparams->TLMinterval;
 	static bool packetCount = false;	
 	static uint8_t countUntilWiFi = 0;
+	static uint8_t sportCount = 0;
 	if(bind_jumper()&&jumper==0
 		#ifdef TX_FAILSAFE 
 			&& setFSfromTx == false
@@ -496,8 +497,7 @@ void loop()
 					if(FrameType == TLM_PACKET)
 					{
 						if ((RxData[3]&0x0F)> 0)
-						{//Frame type uplink telemetry and no. of sport bytes >0
-							uint8_t sportCount;
+						{//Frame type uplink telemetry and no. of sport bytes >0							
 							sportCount = (RxData[3]&0x0F);
 							UplinkTlmId = (RxData[3]>>4);
 							for (uint8_t i = 0;i <= sportCount;i++)
@@ -690,10 +690,10 @@ void loop()
 			}
 		}
 		#ifdef SPORT_TELEMETRY
-			uint8_t sportCount	=  ReceivedSportData[0];
 			if (sportCount > 0){
 				for (uint8_t i = 1;i <= sportCount;i++)
 				smartPortDataReceive(ReceivedSportData[i]);
+				sportCount = 0;
 			}
 		#endif
 		packet = false;
