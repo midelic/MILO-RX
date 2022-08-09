@@ -743,9 +743,6 @@ void loop()
 		callSportSerial();
 	#endif
 	
-	#ifdef SPORT_TELEMETRY
-	    ProcessSportData();
-	#endif
 }
 
 
@@ -931,14 +928,14 @@ void MiLoRxBind(void)
 		}
 		else
 		tx_sport_poll();
-		
-		if(missingPackets > MAX_MISSING_PKT){//only when connection lost every 12ms		
+		#ifdef SBUS
+		if(missingPackets > MAX_MISSING_PKT){//only when connection lost, every 12ms		
 		if(all_off == 0);
 				for(uint8_t i = 0; i< TXBUFFER_SIZE;i++){
 						Serial.write(sbus[i]);
-			}
+			}			
 		}
-		
+		#endif
 	}
 	
 #endif
@@ -1083,12 +1080,26 @@ void MiLoRxBind(void)
 	}
 		
 	#ifdef SW_SERIAL
-		void  ICACHE_RAM_ATTR callSportSerial(){
-			while(swSer.available() > 0){
-				if (sport_index < 16)
-				sRxData[sport_index++] = swSer.read();
-			}	
-		}			
+void  ICACHE_RAM_ATTR callSportSerial()
+	{
+         static uint32_t sportStuffTime = 0;
+              uint8_t c;      
+	     while(swSer.available() > 0)
+	        {
+				c = swSer.read();
+                                if ( c == START_STOP)      // reset the buffer when we get a 0x7E
+                                          sport_index = 0;
+                                if (sport_index < 16) 
+                                          sRxData[sport_index++] = c;
+		                if (sport_index >= 8)
+                                          sportStuffTime = micros();
+					
+		}
+                if(sport_index >= 8){
+                if (micros() - sportStuffTime) > 500)//If not receive any new sport data in time > 3 * time between consecutive bytes (~160us)	
+		 ProcessSportData();
+              }
+	}			
 	#endif
 #endif
 
