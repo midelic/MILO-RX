@@ -13,17 +13,24 @@ This project is the receiver part of a new protocol  based on SX128x LORA RF chi
 - Compatible with multiprotocol.
 - WiFi OTA update via webserver(config server)
 
-Ths receiver will bind with an Tx ExpressLRS hacked module attached to exiting TX OpenTX handsets(Taranis,Radiomaster,Jumper)
-The TX counterpart will be made compatible and be attached to multiprotocol main code.
-For testing I used a 2.4G BETAFPV - 500 expresslrs Tx module based on Esp32 chip.
+Ths receiver will bind with an Tx ExpressLRS module attached to exiting Tx OpenTX handsets(Taranis,Radiomaster,Jumper)
+The TX counterpart will be made compatible and be attached to the multiprotocol main code.
+There are several posibili ties to have acces to an Milo/multiprotocol compatible TX module.
 
-Another posibility is to make a DIY TX module based on ESP32.
+- First posibility - I used a hacked 2.4G BETAFPV - 500 expresslrs Tx module based on ESP32 chip.See below.
+ https://github.com/midelic/DIY-Multiprotocol-TX-Module/tree/ESP-32/docs/ESP32
+
+- Second  posibility is to make a DIY Tx module based on ESP32.
 The diagram details and pinout are on my repo https://github.com/midelic/DIY-Multiprotocol-TX-Module/tree/ESP-32/docs/ESP32
-The hacked details of 2.4G BETAFPV-500 Tx module you will find on the same repo.
+
+- Third posiblity is to use ExpressLRS RX as Tx module.Maybe it is better that way as as there is no need to hack any EXpressLRS tx module or make a DIY module.
+The Rx has enough I/O pins to connect to Tx handset.More details about that you may find below.
+https://www.rcgroups.com/forums/showpost.php?p=49637731&postcount=451
 
 At the moment the MILO Rx code is based on ESP8285 target as most Expresslrs receivers are.
 When developing the code I used for test an ExpressLRS receiver using the same pinout(I used Flywoo EL24P in this particular case).
 So in order to use this new protocol you have to buy and reflash an 2.4G expresslrs receiver.
+For now there is no DIY receiver.In the future I may make one if there is enough interest.
 
 ## Community ##
 
@@ -31,7 +38,7 @@ Discussion thread at rcgroups: https://www.rcgroups.com/forums/showthread.php?41
 
 ## Project Status ##
 
-The project is work in progress,in testing, and there is still a lot to go before it is completed.
+The project is work in progress,in testing, and there is more work and testing before it is completed.
 
 Main operation mode:
 
@@ -50,10 +57,15 @@ Main operation mode:
 
 ## Flashing ##
 - Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding Receiver pins(TX ->RX and RX->TX) and power the receiver on with  button pressed .Release the button and upload the firmware.
-- OTA via WiFi,select "WIFI-RX" mode from TX handset screen in protocol menu.
+- OTA via WiFi,select "WIFI-RX" mode from Tx handset screen in protocol menu.
 
 ## Binding ##
-- Connect RX to power withput starting the Tx handset.After 30 seconds Rx enters in bind mode automatically.
+- Connect Rx to power without starting the Tx handset.After 30 seconds Rx enters in bind mode automatically.This feature is available only at start and when RX is not bound with TX.
 - Start Tx ,enter in protocol menu and start  bind process.
 
+## Failsafe ##
+At the moment it is implemented only Failsafe from Rx.
+When Tx is bound with Rx, you position your sticks, pots(you can use the mixer menu) as you want the to be for failsafe( alternatively you can use a script) and press the Rx button. Rx will blink for several seconds. When blinking stopped the FS data will be saved in Rx memory.
+Aditionally you have the option to resetting FS data to "NO PULSE" when pressing button, while Rx is not bound.
+I planned to introduce also FS from Tx.It is not implemnted yet but it is intented to work the same as for FrSkyX(D16) protocol.
 
