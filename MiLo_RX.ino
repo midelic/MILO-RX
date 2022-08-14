@@ -318,7 +318,7 @@ void loop()
 	}	
 	
 		#ifdef USE_WIFI	
-			if((millis() - bindingTime) >30000 && aPacketSeen < 5){//only at start after 30 sec binding process
+			if((millis() - bindingTime) >30000 && aPacketSeen == 0){//only at start after 30 sec binding process
 				MiLoRxBinding(1);
 			}
 		#endif
@@ -395,7 +395,6 @@ void loop()
 						telemetryRX = 0;
 					#endif
 					uplinkLQ = 0;
-					aPacketSeen = 0;
 					dwnlnkstart = false;
 					packet_count = 0;
 				}
