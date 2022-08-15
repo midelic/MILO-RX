@@ -210,7 +210,7 @@ void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)
 		next = 0;
 	}
 	
-	if (next != SportTail)
+	if (next != idxOK)
 	{
 		SportData[SportHead] = value;
 		SportHead = next;
