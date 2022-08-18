@@ -52,9 +52,3 @@
 	
 	#define USE_SX1280_DCDC
 	
-	#define  cli() 			noInterrupts()
-	#define  sei() 			interrupts()
-	
-#endif
-
-
