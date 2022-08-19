@@ -551,7 +551,7 @@ int32_t ICACHE_RAM_ATTR SX1280_complement2( const uint32_t num, const uint8_t bi
 /* Steps for startup
 	1. If not in STDBY_RC mode, then go to this mode by sending the command:
 	SetStandby(STDBY_RC)
-	2. Define the LoRa® packet type by sending the command:
+	2. Define the LoRaÂ® packet type by sending the command:
 	SetPacketType(PACKET_TYPE_LORA)
 	3. Define the RF frequency by sending the command:
 	SetRfFrequency(rfFrequency)
