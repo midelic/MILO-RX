@@ -18,10 +18,10 @@ The TX counterpart will be made compatible and be attached to the multiprotocol 
 There are several posibili ties to have acces to an Milo/multiprotocol compatible TX module.
 
 - First posibility - I used a hacked 2.4G BETAFPV - 500 expresslrs Tx module based on ESP32 chip.See below.
- https://github.com/midelic/DIY-Multiprotocol-TX-Module/tree/ESP_COMMON
+https://github.com/midelic/DIY-Multiprotocol-TX-Module/tree/ESP_COMMON/docs/ESP32
 
 - Second  posibility is to make a DIY Tx module based on ESP32.
-The diagram details and pinout are on my repo https://github.com/midelic/DIY-Multiprotocol-TX-Module/tree/ESP_COMMON
+The diagram details and pinout are on my repo https://github.com/midelic/DIY-Multiprotocol-TX-Module/tree/ESP_COMMON/docs/ESP32
 
 - Third posiblity is to use ExpressLRS RX as Tx module.Maybe it is better that way as as there is no need to hack any EXpressLRS tx module or make a DIY module.
 The Rx has enough I/O pins to connect to Tx handset.More details about that you may find below.
