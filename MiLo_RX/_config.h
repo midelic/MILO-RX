@@ -19,11 +19,15 @@
 
 //Modules defs
 #define EL24P//flywoo RX
+//#define MATEK_RX
+//define BETA_FPV_RX
 #define SW_SERIAL
 //#define HC_BIND
 #define TELEMETRY
 //#define HC_SPORT
+//#ifdef MATEK_RX
 //#define DIVERSITY
+//#endif
 //#define SWAMPING
 //#define RSSI_AVG
 #define SPORT_TELEMETRY
