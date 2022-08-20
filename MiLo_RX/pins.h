@@ -17,12 +17,19 @@
 	#define SX1280_SPORT_TX_pin 3 // TX SPORT
 	#define SX1280_SBUS_TX_pin   1//SBUS 
 	//Frontend PA/LNA	
-        #ifndef EL24P
-        #define ANT_SEL_pin             9 
-	#define SX1280_TXEN_pin        10
-        #define POWER_OUTPUT_FIXED      3
-	#endif
-	
+        #ifdef MATEK_RX
+        #define SX1280_TXEN_pin   10
+        #define SX1280_ ANTENNA_SELECT_pin  9
+        #define POWER_OUTPUT_FIXED          3
+        #elif defined BETA_FPV_RX
+        #define SX1280_RXEN_pin      9 
+        #define SX1280_TXEN_pin      10
+        #define POWER_OUTPUT_FIXED      1 
+        #endif
+        #ifdef EL24P
+        #define POWER_OUTPUT_FIXED      13 
+        #endif
+
 	#define BIND_SET_INPUT		pinMode(BIND_pin,INPUT)
 	#define BIND_SET_PULLUP		digitalWrite(BIND_pin,HIGH)	
 	#define BIND_SET_OUTPUT		pinMode(BIND_pin,OUTPUT)
