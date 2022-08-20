@@ -761,9 +761,8 @@ void   SetupTarget()
 	SPI.setDataMode(SPI_MODE0);
 	SPI.setFrequency(10000000);
 	#ifdef HAS_PA_LNA
-	//if used SE2431
-	//pinMode(SX1280_TXEN_pin ,OUTPUT);//CTX
-	//pinMode(SX1280_RXEN_pin ,OUTPUT);//CPS
+	 pinMode(SX1280_TXEN_pin ,OUTPUT);
+	 pinMode(SX1280_RXEN_pin ,OUTPUT);
 	//pinMode(SX1280_CSD_pin ,OUTPUT);//CSD
 	//SX1280_CSD_on;// this is on all the time except in sleep mode of SE2431
 	//	
