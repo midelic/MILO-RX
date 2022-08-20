@@ -15,8 +15,10 @@
 	//Serial
 	#define SX1280_SPORT_RX_pin 3 // RX SPORT
 	#define SX1280_SPORT_TX_pin 3 // TX SPORT
-	#define SX1280_SBUS_TX_pin   1//SBUS 
-	//Frontend PA/LNA	
+	#define SX1280_SBUS_TX_pin   1//SBUS
+	//Frontend PA/LNA
+        #define SX1280_RXEN_pin      -1 
+        #define SX1280_TXEN_pin      -1
         #ifdef MATEK_RX
         #define SX1280_TXEN_pin   10
         #define SX1280_ ANTENNA_SELECT_pin  9
