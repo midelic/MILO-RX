@@ -768,7 +768,7 @@ void   SetupTarget()
 	//	
 	#endif
 	#if defined DIVERSITY
-		pinMode(ANT_SEL_pin ,OUTPUT);
+		pinMode(SX1280_ANTENNA_SELECT_pin ,OUTPUT);
 		ANT_SEL_on;
 	#endif
 	EEPROM.begin(EEPROM_SIZE);
@@ -958,8 +958,7 @@ void MiLoRxBind(void)
 	{
 		MiLoTlm_build_frame();
 		#ifdef HAS_PA_LNA
-		    SX1280_setPower(MaxPower);
-			SX1280_SetTxRxMode(TX_EN);//PA enabled
+		SX1280_SetTxRxMode(TX_EN);//PA enabled
 		#endif	
 		SX1280_WriteBuffer(0x00, frame, PayloadLength); //
 		SX1280_SetMode(SX1280_MODE_TX);
