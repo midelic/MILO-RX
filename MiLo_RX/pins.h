@@ -21,7 +21,7 @@
         #define SX1280_TXEN_pin      -1
         #ifdef MATEK_RX
         #define SX1280_TXEN_pin   10
-        #define SX1280_ ANTENNA_SELECT_pin  9
+        #define SX1280_ANTENNA_SELECT_pin  9
         #define POWER_OUTPUT_FIXED          3
         #elif defined BETA_FPV_RX
         #define SX1280_RXEN_pin      9 
