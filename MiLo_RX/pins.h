@@ -46,13 +46,14 @@
 	
 	#define	SX1280_RST_on	           digitalWrite(SX1280_RST_pin,HIGH)
 	#define	SX1280_RST_off	           digitalWrite(SX1280_RST_pin,LOW)
-	#define	SX1280_TXEN_on	       digitalWrite(SX1280_TXEN_pin,HIGH)
-	#define	SX1280_RXEN_on	       digitalWrite(SX1280_RXEN_pin,HIGH)
-	#define	SX1280_TXEN_off	       digitalWrite(SX1280_TXEN_pin,LOW)
-	#define	SX1280_RXEN_off	       digitalWrite(SX1280_RXEN_pin,LOW)
-		
-	#define SX1280_CSN_on            digitalWrite(SX1280_CSN_pin,HIGH)
-	#define SX1280_CSN_off            digitalWrite(SX1280_CSN_pin,LOW)
+	#define	SX1280_TXEN_on	           digitalWrite(SX1280_TXEN_pin,HIGH)
+	#define	SX1280_RXEN_on	           digitalWrite(SX1280_RXEN_pin,HIGH)
+	#define	SX1280_TXEN_off	           digitalWrite(SX1280_TXEN_pin,LOW)
+	#define	SX1280_RXEN_off	           digitalWrite(SX1280_RXEN_pin,LOW)
+	#define SX1280_ANT_SEL_on 	   digitalWrite(SX1280_ANTENNA_SELECT_pin,HIGH)
+	#define SX1280_ANT_SEL_off         digitalWrite(SX1280_ANTENNA_SELECT_pin,LOW)
+	#define SX1280_CSN_on              digitalWrite(SX1280_CSN_pin,HIGH)
+	#define SX1280_CSN_off             digitalWrite(SX1280_CSN_pin,LOW)
 	
 	#define	LED_on			               digitalWrite(LED_pin,HIGH)
 	#define	LED_off			               digitalWrite(LED_pin,LOW)
