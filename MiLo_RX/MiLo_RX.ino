@@ -376,11 +376,11 @@ void loop()
 					if(missingPackets >= 3){				
 						if(a_pass)
 						{
-							ANT_SEL_off;
+							SX1280_ANT_SEL_off;
 							antenna = 0;//ant 1
 						}
 						else{					
-							ANT_SEL_on;
+							SX1280_ANT_SEL_on;
 							antenna = 1;//ant2
 						}
 						a_pass = !a_pass;
@@ -769,7 +769,7 @@ void   SetupTarget()
 	#endif
 	#if defined DIVERSITY
 		pinMode(SX1280_ANTENNA_SELECT_pin ,OUTPUT);
-		ANT_SEL_on;
+		SX1280_ANT_SEL_on;
 	#endif
 	EEPROM.begin(EEPROM_SIZE);
 }
