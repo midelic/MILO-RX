@@ -26,14 +26,10 @@ enum
 	PWR_500mW = 5,
 	PWR_COUNT = 6,
 } ;
-#if defined EL24P
+
 	#define MinPower PWR_10mW
 	#define MaxPower PWR_10mW
 	static const int16_t powerValues[PWR_COUNT] = {13};//no PA/LNA
-	#else
-	//here ExpressLrs receivers with PA/LNA frontend
-#endif
-
 
 uint32_t BusyDelayStart;
 uint32_t BusyDelayDuration;
@@ -765,7 +761,11 @@ uint8_t  getPowerIndBm()
 void  ICACHE_RAM_ATTR POWER_init()
 {
 	CurrentPower = PWR_COUNT;	
-	SX1280_setPower(MinPower);
+        #ifdef POWER_OUTPUT_FIXED
+        SX1280_SetOutputPower(POWER_OUTPUT_FIXED);
+        #else
+        SX1280_setPower(MinPower);
+        #endif
 }
 
 uint8_t   SX1280_decPower()
