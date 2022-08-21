@@ -16,7 +16,7 @@
 */
 
 	
-// #define IRAM_ATTR IRAM_ATTR //  check if this definition is required as it is marked obsolete by gcc warning
+// #define ICACHE_RAM_ATTR IRAM_ATTR //  check if this definition is required as it is marked obsolete by gcc warning
 #define WORD_ALIGNED_ATTR __attribute__((aligned(4)))
 
 #include <SPI.h>

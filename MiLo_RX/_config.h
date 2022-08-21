@@ -21,7 +21,7 @@
 #define EL24P//flywoo RX
 //#define MATEK_RX
 //define BETA_FPV_RX
-#define SW_SERIAL
+//#define SW_SERIAL
 //#define HC_BIND
 #define TELEMETRY
 //#define HC_SPORT
