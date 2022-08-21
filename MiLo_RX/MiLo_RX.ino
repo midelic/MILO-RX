@@ -16,7 +16,7 @@
 */
 
 	
-// #define ICACHE_RAM_ATTR IRAM_ATTR //  check if this definition is required as it is marked obsolete by gcc warning
+#define ICACHE_RAM_ATTR IRAM_ATTR
 #define WORD_ALIGNED_ATTR __attribute__((aligned(4)))
 
 #include <SPI.h>
@@ -159,14 +159,14 @@ MiLo_statistics MiLoStats;
 
 #define NOP() __asm__ __volatile__("nop")
 
-void IRAM_ATTR dioISR();
+void ICACHE_RAM_ATTR dioISR();
 void SetupTarget(void);
-void IRAM_ATTR callSportSerial(void);
-void  IRAM_ATTR ISR_TIMER4_COMPA(void);
-void  IRAM_ATTR SX1280_TXnb(void);
-void  IRAM_ATTR MiLoTlm_build_frame(); 
-uint8_t  IRAM_ATTR MiLoTlm_append_sport_data(uint8_t *buf);
-uint8_t IRAM_ATTR DataLink(uint8_t pas);
+void ICACHE_RAM_ATTR callSportSerial(void);
+void  ICACHE_RAM_ATTR ISR_TIMER4_COMPA(void);
+void  ICACHE_RAM_ATTR SX1280_TXnb(void);
+void  ICACHE_RAM_ATTR MiLoTlm_build_frame(); 
+uint8_t  ICACHE_RAM_ATTR MiLoTlm_append_sport_data(uint8_t *buf);
+uint8_t ICACHE_RAM_ATTR DataLink(uint8_t pas);
 
 //MILO-SX1280 RF parameters
 uint8_t currOpmode = SX1280_MODE_SLEEP;
@@ -226,7 +226,7 @@ MiLo_rf_pref_params_s MiLo_AirRateRFperf[RATE_MAX] = {
 
 
 
-void  IRAM_ATTR MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link (hz) index values 
+void  ICACHE_RAM_ATTR MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link (hz) index values 
 {
 	
 	MiLo_mod_settings_s *const ModParams = &MiLo_AirRateConfig[index];
@@ -873,7 +873,7 @@ void MiLoRxBind(void)
 	
 	
 	
-	uint8_t  IRAM_ATTR MiLoTlm_append_sport_data(uint8_t *buf)
+	uint8_t  ICACHE_RAM_ATTR MiLoTlm_append_sport_data(uint8_t *buf)
 	{
 		uint16_t next;
 		uint8_t index = 0;
@@ -915,7 +915,7 @@ void MiLoRxBind(void)
 			interrupts();	 	   	  		
 	}
 	
-	void  IRAM_ATTR ISR_TIMER4_COMPA()
+	void  ICACHE_RAM_ATTR ISR_TIMER4_COMPA()
 	{		
 			timer0_write(ESP.getCycleCount() +(12000*80));//12ms
 
@@ -940,7 +940,7 @@ void MiLoRxBind(void)
 #endif
 
 #ifdef TELEMETRY
-	void  IRAM_ATTR MiLoTlm_build_frame() 
+	void  ICACHE_RAM_ATTR MiLoTlm_build_frame() 
 	{
 		uint8_t nbr_bytesIn;
 		TelemetryId = (RxData[0]>>3)&0x1F;
@@ -955,7 +955,7 @@ void MiLoRxBind(void)
 	}
 	
 	
-	void  IRAM_ATTR SX1280_TXnb()
+	void  ICACHE_RAM_ATTR SX1280_TXnb()
 	{
 		MiLoTlm_build_frame();
 		#ifdef HAS_PA_LNA
@@ -965,7 +965,7 @@ void MiLoRxBind(void)
 		SX1280_SetMode(SX1280_MODE_TX);
 	}
 	
-	uint8_t  IRAM_ATTR DataLink(uint8_t _pass)
+	uint8_t  ICACHE_RAM_ATTR DataLink(uint8_t _pass)
 	{
 		static uint8_t link = 0 ;
 		getRFlinkInfo();	
@@ -1078,7 +1078,7 @@ void MiLoRxBind(void)
 	}
 		
 	#ifdef SW_SERIAL
-void  IRAM_ATTR callSportSerial()
+void  ICACHE_RAM_ATTR callSportSerial()
 	{
          static uint32_t sportStuffTime = 0;
               uint8_t c;      
@@ -1110,7 +1110,7 @@ uint8_t bind_jumper(void){
 }
 
 
-void IRAM_ATTR dioISR()
+void ICACHE_RAM_ATTR dioISR()
 {
 	uint16_t irqStatus = SX1280_GetIrqStatus();
 	#ifdef DEBUG_LOOP_TIMING				
