@@ -51,7 +51,7 @@ uint16_t countFS = 0;
 
 
 //Channels
-#define NOPULSE  0
+#define NO_PULSE  0
 #define HOLD  2047
 #define MAX_MISSING_PKT 100
 
@@ -76,7 +76,7 @@ uint8_t FrameType = 0;
 //uint16_t BackgroundTime;
 uint32_t debugTimer;
 char debug_buf[64];
-bool downlinkstart = false;
+bool dwnlnkstart = false;
 uint8_t packet_count = 0;
 enum {
 	BIND_PACKET = 0,
@@ -176,6 +176,7 @@ uint8_t LoRaBandwidth;
 uint32_t FreqCorrection;
 uint32_t FreqCorrectionRegValue;
 uint16_t timeout = 0xFFFF;
+uint8_t packetLengthType;
 
 typedef struct MiLo_mod_settings_s
 {
@@ -479,8 +480,8 @@ void loop()
 				#endif
 				if(FrameType != TLM_PACKET)
 				{//only when no uplink telemetry				
-				if(RxData[3] & 0x3F) != MiLoStorage.rx_num)
-				break;//if other receiver with different modelID				
+				if((RxData[3] & 0x3F) != MiLoStorage.rx_num)
+				  break;//if other receiver with different modelID				
 					if(aPacketSeen > 5)//when received some packets
 					if (RxData[3] & 0x40){//receive Flag from tx to start wifi server
 						if(++countUntilWiFi==2)
@@ -855,7 +856,7 @@ void MiLoRxBind(void)
 		debugln("MP_id = %d",MProtocol_id);
 	#endif
 	for(uint8_t i = 0;i<16;i++){
-		MiLoStorage.FS_data[i] = NOPULSE;
+		MiLoStorage.FS_data[i] = NO_PULSE;
 	}	
 	
 	StoreEEPROMdata(address);			
@@ -920,7 +921,7 @@ void MiLoRxBind(void)
 
 		if(sportMSPframe)
 		{
-			memcpy(TxData, sportMSPdatastuff, idxs);
+			memcpy((void *)TxData, sportMSPdatastuff, idxs);
 			sendMSPpacket();
 			sportMSPframe = 0;
 		}
@@ -1092,13 +1093,13 @@ void  ICACHE_RAM_ATTR callSportSerial()
                                           sportStuffTime = micros();
 					
 		}
-                if(sport_index >= 8){
-                if (micros() - sportStuffTime) > 500)//If not receive any new sport data in time > 3 * time between consecutive bytes (~160us)	
-		 ProcessSportData();
-              }
+    if(sport_index >= 8){
+      if ((micros() - sportStuffTime) > 500)//If not receive any new sport data in time > 3 * time between consecutive bytes (~160us)	
+  		  ProcessSportData();
+    }
 	}			
-	#endif
-#endif
+	#endif // SW_SERIAL
+#endif // SPORT SERIAL
 
 uint8_t bind_jumper(void){
 	pinMode(BIND_pin, INPUT_PULLUP);
@@ -1198,10 +1199,3 @@ void ICACHE_RAM_ATTR dioISR()
 	#endif
 }
 #endif
-
-
-
-
-
-
-

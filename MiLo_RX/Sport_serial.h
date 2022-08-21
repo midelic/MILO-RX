@@ -130,20 +130,21 @@ void  ICACHE_RAM_ATTR tx_sport_poll()
 	#ifdef SW_SERIAL
 		swSer.flush();
 		swSer.enableTx(true); //for tx
-		swSer.write(TxData,sport_count);
+		swSer.write((uint8_t *)TxData,(size_t)sport_count);
 		swSer.enableTx(false);//for rx
 	#endif
 }
 
 
-void  ICACHE_RAM_ATTR sendMSPpacket(){
+void  ICACHE_RAM_ATTR sendMSPpacket()
+{
 	sport_index = 0 ;
 	sport_count = idxs;
 	idxs = 0;
 	#ifdef SW_SERIAL
 		swSer.flush();
 		swSer.enableTx(true); //for tx
-		swSer.write(TxData, sport_count);
+		swSer.write((uint8_t *)TxData, (size_t) sport_count);
 		swSer.enableTx(false);//for rx
 	#endif
 }
@@ -268,8 +269,3 @@ void ICACHE_RAM_ATTR ProcessSportData()
 		sport_index = 0 ;		
 	}	
 }
-
-
-
-
-

@@ -26,7 +26,7 @@
 	if (i <4)	
 	EEPROM.write(startAddress+i,*(uint8_t *)(MiLoStrgPtr+i));
 	else
-	EEPROMWriteInt(startAddress+4+2*i, MiLoStrgPtr->FS_data[i])
+	EEPROMWriteInt(startAddress+4+2*i, MiLoStrgPtr->FS_data[i]);
 	}
 		startAddress += sizeof(MiLoStorage);
 		

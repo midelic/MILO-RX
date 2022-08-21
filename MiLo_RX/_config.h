@@ -26,14 +26,14 @@
 #define TELEMETRY
 //#define HC_SPORT
 #ifdef MATEK_RX
-#define DIVERSITY
+  #define DIVERSITY
 #endif
 //#define SWAMPING
 //#define RSSI_AVG
 #define SPORT_TELEMETRY
 #define FAILSAFE
 #if defined MATEK_RX || defined BETA_FPV_RX
-#define HAS_PA_LNA
+  #define HAS_PA_LNA
 #endif
 #define SBUS
 //#define SBUS_INTERRUPT
