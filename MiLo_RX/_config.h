@@ -19,22 +19,29 @@
 
 //Modules defs
 #define EL24P//flywoo RX
-//#define MATEK_RX
-//define BETA_FPV_RX
+//#define MATEK_RX_R24D
+//#define MATEK_RX_R24S
+//define BETA_FPV_RX_NANO
+//#define NAMIMNO_RX_NANO_FLASH
+
 #define SW_SERIAL
 //#define HC_BIND
 #define TELEMETRY
 //#define HC_SPORT
-#ifdef MATEK_RX
+
+#if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH
   #define DIVERSITY
 #endif
+
 //#define SWAMPING
 //#define RSSI_AVG
 #define SPORT_TELEMETRY
 #define FAILSAFE
-#if defined MATEK_RX || defined BETA_FPV_RX
+
+#if defined DIVERSITY || defined MATEK_RX_R24S || defined BETA_FPV_RX_NANO
   #define HAS_PA_LNA
 #endif
+
 #define SBUS
 //#define SBUS_INTERRUPT
 //#define TX_FAILSAFE
