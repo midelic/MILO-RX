@@ -26,7 +26,7 @@
   #elif defined BETA_FPV_RX_NANO || defined MATEK_RX_R24S
     #define SX1280_RXEN_pin      9 
     #define SX1280_TXEN_pin      10
-    #define POWER_OUTPUT_FIXED   1 
+    #define POWER_OUTPUT_FIXED   3
   #elif defined NAMIMNO_RX_FLASH_NANO
     #define SX1280_TXEN_pin            0
     #define SX1280_ANTENNA_SELECT_pin  9
