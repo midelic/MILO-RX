@@ -921,7 +921,7 @@ void MiLoRxBind(void)
 
 		if(sportMSPframe)
 		{
-			memcpy(TxData, sportMSPdatastuff, idxs);
+			memcpy((void *)&TxData, sportMSPdatastuff, idxs);
 			sendMSPpacket();
 			sportMSPframe = 0;
 		}
@@ -1093,13 +1093,13 @@ void  ICACHE_RAM_ATTR callSportSerial()
                                           sportStuffTime = micros();
 					
 		}
-                if(sport_index >= 8){
-                if (micros() - sportStuffTime) > 500)//If not receive any new sport data in time > 3 * time between consecutive bytes (~160us)	
-		 ProcessSportData();
-              }
+    if(sport_index >= 8){
+      if ((micros() - sportStuffTime) > 500)//If not receive any new sport data in time > 3 * time between consecutive bytes (~160us)	
+  		  ProcessSportData();
+    }
 	}			
-	#endif
-#endif
+	#endif // SW_SERIAL
+#endif // SPORT SERIAL
 
 uint8_t bind_jumper(void){
 	pinMode(BIND_pin, INPUT_PULLUP);
