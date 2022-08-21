@@ -921,7 +921,7 @@ void MiLoRxBind(void)
 
 		if(sportMSPframe)
 		{
-			memcpy((void *)&TxData, sportMSPdatastuff, idxs);
+			memcpy((void *)TxData, sportMSPdatastuff, idxs);
 			sendMSPpacket();
 			sportMSPframe = 0;
 		}
