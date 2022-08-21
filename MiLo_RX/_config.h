@@ -38,7 +38,7 @@
 #define SPORT_TELEMETRY
 #define FAILSAFE
 
-#if defined DIVERSITY || defined MATEK_RX_R24S || defined BETA_FPV_RX_NANO
+#if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined MATEK_RX_R24S || defined BETA_FPV_RX_NANO
   #define HAS_PA_LNA
 #endif
 
