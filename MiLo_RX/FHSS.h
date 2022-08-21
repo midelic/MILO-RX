@@ -178,7 +178,7 @@ const uint8_t* fhss_bind_channel_list;
 #endif
 
 
-void ICACHE_RAM_ATTR Fhss_Init()
+void IRAM_ATTR Fhss_Init()
 {
 	fhss_freq_list = fhss_freq_list_2p4;
 	fhss_bind_channel_list = fhss_bind_channel_list_2p4;
@@ -190,7 +190,7 @@ void ICACHE_RAM_ATTR Fhss_Init()
 	_seed = 0;
 }
 
-uint16_t ICACHE_RAM_ATTR prng(void)
+uint16_t IRAM_ATTR prng(void)
 {
     const uint32_t a = 214013;
     const uint32_t c = 2531011;
@@ -201,7 +201,7 @@ uint16_t ICACHE_RAM_ATTR prng(void)
     return _seed >> 16;
 }
 
-void ICACHE_RAM_ATTR Fhss_generate(uint32_t seed)//
+void IRAM_ATTR Fhss_generate(uint32_t seed)//
 {
 	_seed = seed;
 	
@@ -272,16 +272,16 @@ void ICACHE_RAM_ATTR Fhss_generate(uint32_t seed)//
 	
 	}
 	
-	void ICACHE_RAM_ATTR nextChannel(uint8_t skip )
+	void IRAM_ATTR nextChannel(uint8_t skip )
 	{
 	curr_i  = (curr_i + skip)%cnt;
 	}
 	
-	uint32_t ICACHE_RAM_ATTR GetInitialFreq(){
+	uint32_t IRAM_ATTR GetInitialFreq(){
 	return fhss_freq_list[fhss_bind_channel_list[0]];
 	}
 	
-	uint32_t  ICACHE_RAM_ATTR GetCurrFreq(void)
+	uint32_t  IRAM_ATTR GetCurrFreq(void)
 	{
 	if (is_in_binding) 
 	return fhss_freq_list[fhss_bind_channel_list[0]];
@@ -289,7 +289,7 @@ void ICACHE_RAM_ATTR Fhss_generate(uint32_t seed)//
 	return fhss_list[curr_i];
 	}
 	
-	uint32_t ICACHE_RAM_ATTR bestX(void)
+	uint32_t IRAM_ATTR bestX(void)
 	{
 	uint8_t i_best = 0;
 	for (uint8_t i = 0; i < cnt; i++) {

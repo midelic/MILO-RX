@@ -62,7 +62,7 @@ uint8_t SportHead;
 uint8_t SportTail;
 uint8_t idxOK;
 
-uint8_t  ICACHE_RAM_ATTR nextID()
+uint8_t  IRAM_ATTR nextID()
 {
 	uint8_t i ;
 	uint8_t poll_idx ; 
@@ -120,7 +120,7 @@ uint8_t  ICACHE_RAM_ATTR nextID()
 	return poll_idx ;
 }
 
-void  ICACHE_RAM_ATTR tx_sport_poll()
+void  IRAM_ATTR tx_sport_poll()
 {
     sport_count = 2;
 	sport_index = 0;
@@ -136,7 +136,8 @@ void  ICACHE_RAM_ATTR tx_sport_poll()
 }
 
 
-void  ICACHE_RAM_ATTR sendMSPpacket(){
+void  IRAM_ATTR sendMSPpacket()
+{
 	sport_index = 0 ;
 	sport_count = idxs;
 	idxs = 0;
@@ -156,7 +157,7 @@ void initSportUart( )
 }
 
 
-uint8_t ICACHE_RAM_ATTR CheckSportData()
+uint8_t IRAM_ATTR CheckSportData()
 {
 	volatile uint8_t *packet = sRxData ;
 	uint16_t crc = 0 ;
@@ -174,7 +175,7 @@ uint8_t ICACHE_RAM_ATTR CheckSportData()
 }
 
 
-uint8_t ICACHE_RAM_ATTR unstuff()
+uint8_t IRAM_ATTR unstuff()
 {
 	uint8_t i ;
 	uint8_t j ;	
@@ -201,7 +202,7 @@ uint8_t ICACHE_RAM_ATTR unstuff()
 }
 
 
-void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)
+void  IRAM_ATTR StoreSportDataByte(uint8_t value)
 {
 	
 	uint16_t next = SportHead + 1;
@@ -218,7 +219,7 @@ void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)
 }
 
 
-void ICACHE_RAM_ATTR StuffSportBytes(uint8_t a)
+void IRAM_ATTR StuffSportBytes(uint8_t a)
 {
 	if(a ==START_STOP||a ==BYTE_STUFF){
 		StoreSportDataByte(BYTE_STUFF);
@@ -227,7 +228,7 @@ void ICACHE_RAM_ATTR StuffSportBytes(uint8_t a)
     StoreSportDataByte(a); 
 }
 
-void ICACHE_RAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
+void IRAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
 {
 	StoreSportDataByte(START_STOP);
 	StoreSportDataByte(0x1A);
@@ -241,7 +242,7 @@ void ICACHE_RAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
 	
 }
 
-void ICACHE_RAM_ATTR ProcessSportData()
+void IRAM_ATTR ProcessSportData()
 {
 	sport_index = unstuff();
 	
@@ -268,8 +269,3 @@ void ICACHE_RAM_ATTR ProcessSportData()
 		sport_index = 0 ;		
 	}	
 }
-
-
-
-
-
