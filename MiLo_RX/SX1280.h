@@ -1,5 +1,3 @@
-
-
 uint16_t ICACHE_RAM_ATTR SX1280_GetIrqStatus( void );
 void ICACHE_RAM_ATTR SX1280_ClearIrqStatus( uint16_t irqMask );
 bool  ICACHE_RAM_ATTR SX1280_Begin(void);

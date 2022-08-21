@@ -13,27 +13,22 @@
 	volatile uint16_t sbus[TXBUFFER_SIZE];
 	uint16_t channel[16];
 	volatile uint32_t sbus_timer;
-	
-	
+
 	void init_SBUS()
 	{
-	
 		Serial.begin(100000,SERIAL_8E2,SERIAL_TX_ONLY);
 		USC0(UART0) |= BIT(UCTXI);//inverted signal
-	
 	}
 	
 	#ifdef SBUS_INTERRUPT
-		
 		void Serial_write(uint8_t data)
 		{
 			uint8_t t = tx_head;
 			if(++t >= TXBUFFER_SIZE)
-			t = 0;
+                t = 0;
 			tx_buff[t]=data;
 			tx_head = t;
 		}
-				
 	#endif
 	
 	void  SBUS_frame()
@@ -71,4 +66,4 @@
 		
 		sbus[24] = SBUS_ENDBYTE;//endbyte	
 	}	
-#endif
+#endif //SBUS

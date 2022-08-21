@@ -1,11 +1,8 @@
-
-
 #include "iface_sx1280.h"
 #include "pins.h"
 
 #define RX_TIMEOUT_PERIOD_BASE SX1280_RADIO_TICK_SIZE_0015_US
 #define RX_TIMEOUT_PERIOD_BASE_NANOS 15625
-
 
 #ifdef USE_SX1280_DCDC
 	#ifndef OPT_USE_SX1280_DCDC
@@ -14,7 +11,6 @@
 	#else
 	  #define OPT_USE_SX1280_DCDC false
 #endif
-
 
 enum
 {
@@ -27,9 +23,9 @@ enum
 	PWR_COUNT = 6,
 } ;
 
-	#define MinPower PWR_10mW
-	#define MaxPower PWR_10mW
-	static const int16_t powerValues[PWR_COUNT] = {13};//no PA/LNA
+#define MinPower PWR_10mW
+#define MaxPower PWR_10mW
+static const int16_t powerValues[PWR_COUNT] = {13};//no PA/LNA
 
 uint32_t BusyDelayStart;
 uint32_t BusyDelayDuration;
@@ -37,7 +33,8 @@ static int8_t powerCaliValues[PWR_COUNT] = {0};
 int8_t CurrentSX1280Power = 0;
 uint8_t CurrentPower;
 
-enum TXRX_State {
+enum TXRX_State 
+{
 	TXRX_OFF,
 	TX_EN,
 	RX_EN
@@ -46,15 +43,11 @@ enum TXRX_State {
 
 void  ICACHE_RAM_ATTR SX1280_WriteReg(uint16_t address, uint8_t data)
 {
-	
 	SX1280_WriteRegisterMulti(address, &data, 1);
 }
 
-
-
 void  ICACHE_RAM_ATTR SX1280_WriteRegisterMulti(uint16_t address, uint8_t *data, uint8_t size)
 {
-	
     uint8_t OutBuffer[size + 3];
     OutBuffer[0] = (SX1280_RADIO_WRITE_REGISTER);
     OutBuffer[1] = ((address & 0xFF00) >> 8);
@@ -65,9 +58,7 @@ void  ICACHE_RAM_ATTR SX1280_WriteRegisterMulti(uint16_t address, uint8_t *data,
     SPI.transfer(OutBuffer, (uint8_t)sizeof(OutBuffer));
     digitalWrite(SX1280_CSN_pin,HIGH);
     BusyDelay(15);
-	
 }
-
 
 uint8_t  ICACHE_RAM_ATTR SX1280_ReadReg(uint16_t address)
 {
@@ -78,24 +69,21 @@ uint8_t  ICACHE_RAM_ATTR SX1280_ReadReg(uint16_t address)
 
 void  ICACHE_RAM_ATTR SX1280_ReadRegisterMulti(uint16_t address, uint8_t *data, uint8_t size)
 { 
-	
     uint8_t OutBuffer[size + 4];
     OutBuffer[0] = (SX1280_RADIO_READ_REGISTER);
     OutBuffer[1] = ((address & 0xFF00) >> 8);
     OutBuffer[2] = (address & 0x00FF);
     OutBuffer[3] = 0x00;
-	
+
 	WaitOnBusy();
 	digitalWrite(SX1280_CSN_pin,LOW);
 	SPI.transfer(OutBuffer, uint8_t(sizeof(OutBuffer)));
 	memcpy(data, OutBuffer + 4, size);
 	digitalWrite(SX1280_CSN_pin,HIGH);
-	
 }
 
 void  ICACHE_RAM_ATTR SX1280_WriteBuffer(uint8_t offset, volatile uint8_t *buffer, uint8_t size)
 {
-	
 	uint8_t localbuf[size];
 	
     for (int i = 0; i < size; i++) // todo check if this is the right want to handle volatiles
@@ -117,12 +105,10 @@ void  ICACHE_RAM_ATTR SX1280_WriteBuffer(uint8_t offset, volatile uint8_t *buffe
     digitalWrite(SX1280_CSN_pin,HIGH);	;
 	
     BusyDelay(15);
-	
 }
 
 void  ICACHE_RAM_ATTR SX1280_ReadBuffer( uint8_t offset, volatile uint8_t *buffer, uint8_t size)
 {
-	
 	uint8_t OutBuffer[size + 3];
     uint8_t localbuf[size];
 	
@@ -142,16 +128,15 @@ void  ICACHE_RAM_ATTR SX1280_ReadBuffer( uint8_t offset, volatile uint8_t *buffe
     {
         buffer[i] = localbuf[i];
 	}
-	
 }
 
-void  ICACHE_RAM_ATTR SX1280_WriteCommand(uint8_t command, uint8_t val,uint32_t busyDelay){
+void  ICACHE_RAM_ATTR SX1280_WriteCommand(uint8_t command, uint8_t val,uint32_t busyDelay)
+{
 	SX1280_WriteCommandMulti(command ,&val,1,busyDelay);//15ms
 }
 
 void  ICACHE_RAM_ATTR SX1280_WriteCommandMulti(uint8_t command, uint8_t *data, uint16_t size,uint32_t busyDelay)
 {
-	
     uint8_t OutBuffer[size + 1];
 	
     OutBuffer[0] = (uint8_t)command;
@@ -171,7 +156,6 @@ void  ICACHE_RAM_ATTR SX1280_ReadCommand(uint8_t command, uint8_t data)
 
 void  ICACHE_RAM_ATTR SX1280_ReadCommandMulti(uint8_t command, uint8_t *data, uint8_t size)
 {
-	
 	uint8_t OutBuffer[size + 2];
     #define RADIO_GET_STATUS_BUF_SIZEOF 3 // special case for command == SX1280_RADIO_GET_STATUS, fixed 3 bytes packet size
 	
@@ -195,7 +179,6 @@ void  ICACHE_RAM_ATTR SX1280_ReadCommandMulti(uint8_t command, uint8_t *data, ui
         memcpy(data, OutBuffer + 2, size);
 	}
 	digitalWrite(SX1280_CSN_pin,HIGH);	
-	
 }
 
 
@@ -203,7 +186,6 @@ void  ICACHE_RAM_ATTR SX1280_ReadCommandMulti(uint8_t command, uint8_t *data, ui
 
 void  ICACHE_RAM_ATTR SX1280_Reset()
 {
-	
 	pinMode(SX1280_RST_pin, OUTPUT);
 	delay(50);
 	digitalWrite(SX1280_RST_pin,LOW);
@@ -213,25 +195,21 @@ void  ICACHE_RAM_ATTR SX1280_Reset()
 }
 
 
-
-
 uint16_t ICACHE_RAM_ATTR SX1280_GetFirmwareVersion( void )
 {
 	return( ( ( (uint16_t)SX1280_ReadReg( REG_LR_FIRMWARE_VERSION_MSB ) ) << 8 ) | ( SX1280_ReadReg( REG_LR_FIRMWARE_VERSION_MSB + 1 ) ) );
 }
 
-
 #ifdef RF_PA_LNA
-	
 	void SX1280_SetTxRxMode(uint8_t mode)
 	{
-		//                                                  CPS   CSD   CTX  ANT_SEL
-		//0 All off (sleep mode) (Note 2)       0      0     0     X
+		//                                        CPS   CSD   CTX  ANT_SEL
+		//0 All off (sleep mode) (Note 2)         0      0     0     X
 		//1 Rx or Tx bypass mode                  0      1     0     X
-		//2 Rx LNA mode                               1      1     0     X
-		//3 Tx mode                                       X      1     1     X
-		//ANT1 port enabled                          X      1     X     0
-		//ANT2 port enabled                          X      1     X     1
+		//2 Rx LNA mode                           1      1     0     X
+		//3 Tx mode                               X      1     1     X
+		//ANT1 port enabled                       X      1     X     0
+		//ANT2 port enabled                       X      1     X     1
 		//SE2431 PA/LNA frontend
 		if(mode == RX_EN)
 		{	
@@ -243,7 +221,6 @@ uint16_t ICACHE_RAM_ATTR SX1280_GetFirmwareVersion( void )
 		{
 			SX1280_RXEN_off;
 			SX1280_TXEN_on;
-			
 		}
 		else
 		{
@@ -251,7 +228,6 @@ uint16_t ICACHE_RAM_ATTR SX1280_GetFirmwareVersion( void )
 			SX1280_RXEN_off;
 		}
 	}
-	
 #endif
 
 void ICACHE_RAM_ATTR SX1280_SetFrequency(uint32_t frequency)
@@ -284,8 +260,6 @@ void ICACHE_RAM_ATTR SX1280_SetFIFOaddr(uint8_t txBaseAddr, uint8_t rxBaseAddr)
 	SX1280_WriteCommandMulti(SX1280_RADIO_SET_BUFFERBASEADDRESS, buf, sizeof(buf),15);
 }
 
-
-
 void ICACHE_RAM_ATTR SX1280_SetMode(uint8_t  OPmode)
 {
 	if (OPmode == currOpmode)
@@ -296,58 +270,56 @@ void ICACHE_RAM_ATTR SX1280_SetMode(uint8_t  OPmode)
 	uint8_t buf[3];
 	switch (OPmode)
 	{
-		
 		case SX1280_MODE_SLEEP:
-		//hal.WriteCommand(SX1280_RADIO_SET_SLEEP, (uint8_t)0x01);
-		SX1280_WriteCommand(SX1280_RADIO_SET_SLEEP,(uint8_t)0x01,15);
-		
-		break;
-		
+            //hal.WriteCommand(SX1280_RADIO_SET_SLEEP, (uint8_t)0x01);
+            SX1280_WriteCommand(SX1280_RADIO_SET_SLEEP,(uint8_t)0x01,15);
+            break;
+
 		case SX1280_MODE_CALIBRATION:
-		break;
+            break;
 		
 		case SX1280_MODE_STDBY_RC:
-		//hal.WriteCommand(SX1280_RADIO_SET_STANDBY, SX1280_STDBY_RC, 1500);
-		SX1280_WriteCommand(SX1280_RADIO_SET_STANDBY, SX1280_STDBY_RC,1500);
-		//delayMicroseconds(1500);
-		break;
+            //hal.WriteCommand(SX1280_RADIO_SET_STANDBY, SX1280_STDBY_RC, 1500);
+            SX1280_WriteCommand(SX1280_RADIO_SET_STANDBY, SX1280_STDBY_RC,1500);
+            //delayMicroseconds(1500);
+            break;
 		
 		case SX1280_MODE_STDBY_XOSC:
-		//hal.WriteCommand(SX1280_RADIO_SET_STANDBY, SX1280_STDBY_XOSC, 50);
-		SX1280_WriteCommand(SX1280_RADIO_SET_STANDBY, SX1280_STDBY_XOSC,50);
-		//delayMicroseconds(50);
-		break;
+            //hal.WriteCommand(SX1280_RADIO_SET_STANDBY, SX1280_STDBY_XOSC, 50);
+            SX1280_WriteCommand(SX1280_RADIO_SET_STANDBY, SX1280_STDBY_XOSC,50);
+            //delayMicroseconds(50);
+            break;
 		
 		case SX1280_MODE_FS:
-		//hal.WriteCommand(SX1280_RADIO_SET_FS, (uint8_t)0x00, 70);
-		SX1280_WriteCommand(SX1280_RADIO_SET_FS,(uint8_t)0x00,70);
-		//delayMicroseconds(70);
-		break;
+            //hal.WriteCommand(SX1280_RADIO_SET_FS, (uint8_t)0x00, 70);
+            SX1280_WriteCommand(SX1280_RADIO_SET_FS,(uint8_t)0x00,70);
+            //delayMicroseconds(70);
+            break;
 		
 		case SX1280_MODE_RX:
-		buf[0] = RX_TIMEOUT_PERIOD_BASE;
-		buf[1] = timeout >> 8;
-		buf[2] = timeout & 0xFF;
-		//hal.WriteCommand(SX1280_RADIO_SET_RX, buf, sizeof(buf), 100);
-		SX1280_WriteCommandMulti(SX1280_RADIO_SET_RX, buf, sizeof(buf),100);
-		//delayMicroseconds(100);
-		break;
+            buf[0] = RX_TIMEOUT_PERIOD_BASE;
+            buf[1] = timeout >> 8;
+            buf[2] = timeout & 0xFF;
+            //hal.WriteCommand(SX1280_RADIO_SET_RX, buf, sizeof(buf), 100);
+            SX1280_WriteCommandMulti(SX1280_RADIO_SET_RX, buf, sizeof(buf),100);
+            //delayMicroseconds(100);
+            break;
 		
 		case SX1280_MODE_TX:
-		//uses timeout Time-out duration = periodBase * periodBaseCount
-		buf[0] = RX_TIMEOUT_PERIOD_BASE;
-		buf[1] = 0xFF; // no timeout set for now
-		buf[2] = 0xFF; // TODO dynamic timeout based on expected on air time
-		//hal.WriteCommand(SX1280_RADIO_SET_TX, buf, sizeof(buf), 100);
-		SX1280_WriteCommandMulti(SX1280_RADIO_SET_TX, buf, sizeof(buf),100);
-		//delayMicroseconds(100);
-		break;
+            //uses timeout Time-out duration = periodBase * periodBaseCount
+            buf[0] = RX_TIMEOUT_PERIOD_BASE;
+            buf[1] = 0xFF; // no timeout set for now
+            buf[2] = 0xFF; // TODO dynamic timeout based on expected on air time
+            //hal.WriteCommand(SX1280_RADIO_SET_TX, buf, sizeof(buf), 100);
+            SX1280_WriteCommandMulti(SX1280_RADIO_SET_TX, buf, sizeof(buf),100);
+            //delayMicroseconds(100);
+            break;
 		
 		case SX1280_MODE_CAD:
-		break;
+            break;
 		
 		default:
-		break;
+            break;
 	}
 	
 	currOpmode = OPmode;
@@ -368,23 +340,21 @@ void ICACHE_RAM_ATTR SX1280_ConfigModParamsLoRa(uint8_t bw, uint8_t sf, uint8_t 
 		case SX1280_LORA_SF5:
 		case SX1280_LORA_SF6:
 		
-		SX1280_WriteReg(SX1280_REG_SF_ADDITIONAL_CONFIG, 0x1E);
-		break;
+            SX1280_WriteReg(SX1280_REG_SF_ADDITIONAL_CONFIG, 0x1E);
+            break;
 		case SX1280_LORA_SF7:
 		case SX1280_LORA_SF8:
-		SX1280_WriteReg(SX1280_REG_SF_ADDITIONAL_CONFIG, 0x37); // for SF7 or SF8
-		break;
+            SX1280_WriteReg(SX1280_REG_SF_ADDITIONAL_CONFIG, 0x37); // for SF7 or SF8
+            break;
 		default:
-		SX1280_WriteReg(SX1280_REG_SF_ADDITIONAL_CONFIG, 0x32); // for SF9, SF10, SF11, SF12
+            SX1280_WriteReg(SX1280_REG_SF_ADDITIONAL_CONFIG, 0x32); // for SF9, SF10, SF11, SF12
 	}
 	// Enable frequency compensation
 	SX1280_WriteReg(SX1280_REG_FREQ_ERR_CORRECTION, 0x1);
 }
 
-
 void ICACHE_RAM_ATTR SX1280_SetPacketParamsLoRa(uint8_t PreambleLength, uint8_t HeaderType,
-	uint8_t PayloadLength, uint8_t crc,
-uint8_t InvertIQ)
+	uint8_t PayloadLength, uint8_t crc, uint8_t InvertIQ)
 {
 	uint8_t buf[7];
 	
@@ -399,9 +369,6 @@ uint8_t InvertIQ)
 	SX1280_WriteCommandMulti(SX1280_RADIO_SET_PACKETPARAMS, buf, sizeof(buf),20);
 	//delayMicroseconds(20);
 }
-
-
-
 
 void ICACHE_RAM_ATTR SX1280_SetDioIrqParams( uint16_t irqMask, uint16_t dio1Mask, uint16_t dio2Mask, uint16_t dio3Mask )
 {
@@ -418,14 +385,12 @@ void ICACHE_RAM_ATTR SX1280_SetDioIrqParams( uint16_t irqMask, uint16_t dio1Mask
 	SX1280_WriteCommandMulti( SX1280_RADIO_SET_DIOIRQPARAMS, buf, 8, 15 );
 }
 
-
 uint16_t ICACHE_RAM_ATTR SX1280_GetIrqStatus( void )
 {
 	uint8_t irqStatus[2];
 	SX1280_ReadCommandMulti( SX1280_RADIO_GET_IRQSTATUS, irqStatus, 2 );
 	return ( irqStatus[0] << 8 ) | irqStatus[1];
 }
-
 
 void ICACHE_RAM_ATTR SX1280_ClearIrqStatus( uint16_t irqMask )
 {
@@ -435,8 +400,6 @@ void ICACHE_RAM_ATTR SX1280_ClearIrqStatus( uint16_t irqMask )
 	buf[1] = ( uint8_t )( ( uint16_t )irqMask & 0x00FF );
 	SX1280_WriteCommandMulti( SX1280_RADIO_CLR_IRQSTATUS, buf, 2 ,15);
 }
-
-
 
 uint8_t ICACHE_RAM_ATTR SX1280_GetRxBufferAddr()
 {
@@ -451,7 +414,6 @@ uint8_t  ICACHE_RAM_ATTR SX1280_GetStatus()
 	SX1280_ReadCommandMulti(SX1280_RADIO_GET_STATUS, (uint8_t *)&status, 1);
 	return status;
 }
-
 
 int8_t ICACHE_RAM_ATTR SX1280_GetRssiInst( void )
 {
@@ -483,7 +445,6 @@ uint8_t ICACHE_RAM_ATTR SX1280_GetPacketType(){
 
 bool ICACHE_RAM_ATTR WaitOnBusy()
 {
-	
 	uint32_t wtimeoutUS = 1000U;
 	uint32_t startTime = micros();
 	//if(SX1280_BUSY_pin != -1)
@@ -526,11 +487,6 @@ void ICACHE_RAM_ATTR BusyDelay(uint32_t duration)
 	}
 }
 
-
-
-
-
-
 int32_t ICACHE_RAM_ATTR SX1280_complement2( const uint32_t num, const uint8_t bitCnt )
 {
 	int32_t retVal = ( int32_t )num;
@@ -540,7 +496,6 @@ int32_t ICACHE_RAM_ATTR SX1280_complement2( const uint32_t num, const uint8_t bi
 	}
 	return retVal;
 }
-
 
 //*********************************
 //*********************************
@@ -570,8 +525,6 @@ bool  ICACHE_RAM_ATTR SX1280_Begin()
 	uint16_t firmwareRev = SX1280_GetFirmwareVersion();
 	
 	currOpmode = SX1280_MODE_SLEEP;
-	
-	
 	
 	if ((firmwareRev == 0) || (firmwareRev == 65535))
 	{
@@ -616,9 +569,7 @@ void  ICACHE_RAM_ATTR SX1280_Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t
 	SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, irqs);
 	
 	//SX1280_SetRxTimeoutUs(interval);//for Rx using micros()in main
-	
 }
-
 
 void ICACHE_RAM_ATTR  SX1280_SetRxTimeoutUs(uint32_t interval)
 {
@@ -638,30 +589,29 @@ bool  ICACHE_RAM_ATTR SX1280_GetFrequencyErrorbool()
 	uint8_t feiMsb = SX1280_ReadReg(SX1280_REG_LR_ESTIMATED_FREQUENCY_ERROR_MSB);
 	// fei & (1 << 19) and flip sign if IQinverted
 	if (feiMsb & 0x08)
-	return IQinverted;
+        return IQinverted;
 	else
-	return !IQinverted;
+        return !IQinverted;
 }
 
 void  ICACHE_RAM_ATTR getRFlinkInfo()
 {
 	int32_t rssiDBM = LastPacketRSSI;
 	if (antenna = 0){
-		if (rssiDBM > 0) rssiDBM = 0;
+		if (rssiDBM > 0) 
+            rssiDBM = 0;
 		// BetaFlight/iNav expect positive values for -dBm (e.g. -80dBm -> sent as 80)
 		MiLoStats.uplink_RSSI_1 = -rssiDBM;
 	}
-	
-	else{
-		if (rssiDBM > 0) rssiDBM = 0;
+	else
+    {
+		if (rssiDBM > 0) 
+            rssiDBM = 0;
 		MiLoStats.uplink_RSSI_2 = -rssiDBM;
 	}
 	MiLoStats.uplink_SNR = LastPacketSNR;
 	MiLoStats.uplink_Link_quality = uplinkLQ;
 }
-
-
-
 
 /*
 	void SX1280_IsrCallback()//can be on DIO1 interrupt;
@@ -762,9 +712,9 @@ void  ICACHE_RAM_ATTR POWER_init()
 {
 	CurrentPower = PWR_COUNT;	
         #ifdef POWER_OUTPUT_FIXED
-        SX1280_SetOutputPower(POWER_OUTPUT_FIXED);
+            SX1280_SetOutputPower(POWER_OUTPUT_FIXED);
         #else
-        SX1280_setPower(MinPower);
+            SX1280_setPower(MinPower);
         #endif
 }
 
@@ -790,7 +740,7 @@ uint8_t   SX1280_incPower()
 void  ICACHE_RAM_ATTR SX1280_setPower(uint8_t Power)
 {	
 	if (Power == CurrentPower)
-	return;
+        return;
 	
 	if (Power < MinPower)
 	{
@@ -811,14 +761,14 @@ void  ICACHE_RAM_ATTR SX1280_SetOutputPower( int8_t power )//default values 13 -
 	// The power value to send on SPI/UART is in the range [0..31] and the
 	// physical output power is in the range [-18..13]dBm
 	uint8_t buf[2];
-	if (power < -18) power = -18;
-	else if (13 < power) power = 13;
+	if (power < -18) 
+        power = -18;
+	else if (13 < power) 
+        power = 13;
 	buf[0] = power + 18;
 	buf[1] = (uint8_t)SX1280_RADIO_RAMP_04_US;
 	SX1280_WriteCommandMulti( SX1280_RADIO_SET_TXPARAMS, buf, 2,15 );
 }
-
-
 
 int32_t ICACHE_RAM_ATTR SX1280_GetLoRaBandwidth( )
 {
@@ -827,19 +777,19 @@ int32_t ICACHE_RAM_ATTR SX1280_GetLoRaBandwidth( )
     switch(LoRaBandwidth )
     {
         case LORA_BW_0200:
-		bwValue = 203125;
-		break;
+            bwValue = 203125;
+            break;
         case LORA_BW_0400:
-		bwValue = 406250;
-		break;
+            bwValue = 406250;
+            break;
         case LORA_BW_0800:
-		bwValue = 812500;
-		break;
+            bwValue = 812500;
+            break;
         case LORA_BW_1600:
-		bwValue = 1625000;
-		break;
+            bwValue = 1625000;
+            break;
         default:
-		bwValue = 0;
+            bwValue = 0;
 	}
     return bwValue;
 }
