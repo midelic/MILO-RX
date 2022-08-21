@@ -22,10 +22,10 @@
 		
 	void StoreEEPROMdata(uint32_t startAddress)
 	{	
-	MiLoStrgPtr = (uint8_t *)&MiLoStorage;
+	MiLoStrgPtr = &MiLoStorage;
 	for(uint8_t i = 0;i<sizeof(MiLoStorage);i++){
 	if (i <4)	
-	EEPROM.write(startAddress+i,(uint8_t *)(MiLoStrgPtr+i));
+	EEPROM.write(startAddress+i,*(uint8_t *)(MiLoStrgPtr+i));
 	else
 	EEPROMWriteInt(startAddress+4+2*i, MiLoStrgPtr->FS_data[i])
 	}
@@ -39,10 +39,10 @@
 	void ReadEEPROMdata(uint32_t startAddress)
 	{  
 	
-	MiLoStrgPtr = (uint8_t *)&MiLoStorage;
+	MiLoStrgPtr = &MiLoStorage;
 	for(uint8_t i = 0;i<sizeof(MiLoStorage);i++){
 	if (i <4)
-	MiLoStrgPtr++ = EEPROM.read(startAddress+i);
+	*(uint8_t *)MiLoStrgPtr++ = EEPROM.read(startAddress+i);
 	else 
 	MiLoStrgPtr->FS_data[i] = EEPROMReadInt(startAddress+4+2*i);
 	}
