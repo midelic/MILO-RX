@@ -12,7 +12,7 @@
 		#define OPT_USE_SX1280_DCDC true
 	#endif
 	#else
-	#define OPT_USE_SX1280_DCDC false
+	  #define OPT_USE_SX1280_DCDC false
 #endif
 
 
