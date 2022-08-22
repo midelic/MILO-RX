@@ -19,8 +19,6 @@ unsigned int  time_out   = 120; // seconds to run for
 unsigned int  startTime;
 bool portalRunning      = false;
 bool startAP            = true; // start AP and webserver if true, else start only webserver
-extern uint8_t bind_jumper(void);
-extern void  MiLoRxBinding(uint8_t bind);
 void doWiFiManager(void);
 bool first_time = true;
 bool second_time = true;
