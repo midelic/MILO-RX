@@ -938,7 +938,7 @@ void MiLoRxBind(void)
 		#ifdef SBUS
 		if(missingPackets > MAX_MISSING_PKT)
         {//only when connection lost, every 12ms		
-            if(all_off == 0); // @TODO this line does nothing, check if curly braces are required or semicolon needs deleting
+            if(all_off == 0)
                 for(uint8_t i = 0; i< TXBUFFER_SIZE;i++)
                 {
                     Serial.write(sbus[i]);
