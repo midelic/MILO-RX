@@ -1,17 +1,17 @@
 /*
- This project is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
+This project is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
- Multiprotocol is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+Multiprotocol is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
- You should have received a copy of the GNU General Public License
- along with Multiprotocol.  If not, see <http://www.gnu.org/licenses/>.
- */
+You should have received a copy of the GNU General Public License
+along with Multiprotocol.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #ifndef _IFACE_SX1280_H_
 
@@ -106,40 +106,40 @@ enum
 };
 
 
- enum
+enum
 {
     SX1280_RADIO_TICK_SIZE_0015_US = 0x00,
     SX1280_RADIO_TICK_SIZE_0062_US = 0x01,
     SX1280_RADIO_TICK_SIZE_1000_US = 0x02,
     SX1280_RADIO_TICK_SIZE_4000_US = 0x03,
 };
-	
-	
+    
+    
 typedef struct TickTime_s
 {
     uint16_t  PeriodBase;                            //!< The base time of ticktime
     uint16_t PeriodBaseCount;
-	    /*!
-     * \brief The number of periodBase for ticktime
-     * Special values are:
-     *     - 0x0000 for single mode
-     *     - 0xFFFF for continuous mode
-	  * @code
- * Time = PeriodBase * PeriodBaseCount
- * Example:
- * PeriodBase = RADIO_TICK_SIZE_4000_US( 4 ms )
- * PeriodBaseCount = 1000
- * Time = 4e-3 * 1000 = 4 seconds
- * @endcode
- */
-	 
-		
+        /*!
+    * \brief The number of periodBase for ticktime
+    * Special values are:
+    *     - 0x0000 for single mode
+    *     - 0xFFFF for continuous mode
+    * @code
+* Time = PeriodBase * PeriodBaseCount
+* Example:
+* PeriodBase = RADIO_TICK_SIZE_4000_US( 4 ms )
+* PeriodBaseCount = 1000
+* Time = 4e-3 * 1000 = 4 seconds
+* @endcode
+*/
+    
+        
 }TickTime_t;
-	
+    
 #define SX1280_RX_TX_CONTINUOUS ( TickTime_t ){ RADIO_TICK_SIZE_0015_US, 0xFFFF }
 #define SX1280_RX_TX_SINGLE     ( TickTime_t ){ RADIO_TICK_SIZE_0015_US, 0 }
 
-	
+    
 enum
 {
     SX1280_RADIO_RAMP_02_US = 0x00,
@@ -215,21 +215,21 @@ enum
     SX1280_IRQ_RADIO_ALL = 0xFFFF,
 };
 
- enum
+enum
 {
-   SX1280_RADIO_DIO1 = 0x02,
+SX1280_RADIO_DIO1 = 0x02,
     SX1280_RADIO_DIO2 = 0x04,
-   SX1280_RADIO_DIO3 = 0x08,
+SX1280_RADIO_DIO3 = 0x08,
 } ;
 
 enum
 {
-   SX1280_USE_LDO = 0x00,  //! Use LDO (default value)
+SX1280_USE_LDO = 0x00,  //! Use LDO (default value)
     SX1280_USE_DCDC = 0x01, //! Use DCDC
 } ;
 
 
- enum
+enum
 {
     SX1280_PACKET_TYPE_GFSK = 0x00,
     SX1280_PACKET_TYPE_LORA,//1
@@ -282,13 +282,13 @@ enum
 };
 
 enum {
-	LORA_BW_0200 = 0,
-	LORA_BW_0400,
-	LORA_BW_0800,
-	LORA_BW_1600,
+    LORA_BW_0200 = 0,
+    LORA_BW_0400,
+    LORA_BW_0800,
+    LORA_BW_1600,
 };
 
- enum
+enum
 {
     RATE_LORA_4HZ = 0,
     RATE_LORA_25HZ,
@@ -314,5 +314,5 @@ enum {
         SX1280_RX_CRC_FAIL  = 1 << 0,
         SX1280_RX_TIMEOUT   = 1 << 1,
     };
-	
+    
 #endif

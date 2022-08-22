@@ -25,81 +25,81 @@ bool second_time = true;
 
 void setupWifiManager()
 {
-	startTime = millis();
-	WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP  
-	// put your setup code here, to run once
-	Serial.begin(115200);
-	Serial.setDebugOutput(true);
-	delay(1000);
-	Serial.println("\n Starting");
-	wm.setHostname("MILO_TX");
-	wm.autoConnect();
+    startTime = millis();
+    WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP  
+    // put your setup code here, to run once
+    Serial.begin(115200);
+    Serial.setDebugOutput(true);
+    delay(1000);
+    Serial.println("\n Starting");
+    wm.setHostname("MILO_TX");
+    wm.autoConnect();
 }
 
 
 
 void startWifiManager() 
 {
-	if(first_time)
+    if(first_time)
     {//at start only
-		setupWifiManager();
-		first_time = false;
+        setupWifiManager();
+        first_time = false;
     }
 
-	while(1)
+    while(1)
     {
         #ifdef ESP8266_PLATFORM
             MDNS.update();
         #endif
-		doWiFiManager();
-		// put your main code here, to run repeatedly:
-		unsigned long currentMillis = millis();
-		if (currentMillis - previousMillis >= 50) 
+        doWiFiManager();
+        // put your main code here, to run repeatedly:
+        unsigned long currentMillis = millis();
+        if (currentMillis - previousMillis >= 50) 
         {//fast blinking
-			previousMillis = currentMillis;
-			LED_toggle;
-		}
-	} 
+            previousMillis = currentMillis;
+            LED_toggle;
+        }
+    } 
 }
 
 
 
 void doWiFiManager(){
-	// is auto timeout portal running
-	if(portalRunning){
-		wm.process(); // do processing
+    // is auto timeout portal running
+    if(portalRunning){
+        wm.process(); // do processing
 
-		// check for timeout
-		if((millis()-startTime) > (time_out*1000)){
-			Serial.println("portaltimeout");
-			portalRunning = false;
-			if(startAP){
-				wm.stopConfigPortal();
-			}
-			else{
-				wm.stopWebPortal();
-			} 
-		}
-	}
-	if (second_time)
+        // check for timeout
+        if((millis()-startTime) > (time_out*1000)){
+            Serial.println("portaltimeout");
+            portalRunning = false;
+            if(startAP){
+                wm.stopConfigPortal();
+            }
+            else{
+                wm.stopWebPortal();
+            } 
+        }
+    }
+    if (second_time)
     {  // is configuration portal requested?
-		if(!portalRunning)
+        if(!portalRunning)
         {
-			if(startAP)
+            if(startAP)
             {
-				Serial.println(" Starting Config Portal");
-				wm.setConfigPortalBlocking(false);
-				wm.startConfigPortal();
-			}  
-			else
+                Serial.println(" Starting Config Portal");
+                wm.setConfigPortalBlocking(false);
+                wm.startConfigPortal();
+            }  
+            else
             {
-				Serial.println("Starting Web Portal");
-				wm.startWebPortal();
-			}  
-			portalRunning = true;
-			startTime = millis();
-		}
-		second_time = false;
-	}
+                Serial.println("Starting Web Portal");
+                wm.startWebPortal();
+            }  
+            portalRunning = true;
+            startTime = millis();
+        }
+        second_time = false;
+    }
 }
 
