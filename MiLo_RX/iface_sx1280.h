@@ -115,7 +115,7 @@ enum
 };
 	
 	
-	typedef struct TickTime_s
+typedef struct TickTime_s
 {
     uint16_t  PeriodBase;                            //!< The base time of ticktime
     uint16_t PeriodBaseCount;

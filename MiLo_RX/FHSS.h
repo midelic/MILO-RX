@@ -13,7 +13,6 @@
 // #define SX1280_FREQ_HZ_TO_REG(f_hz)       ((uint32_t)( (double)f_hz / (double)SX1280_FREQ_STEP ))
 // the pow(x,y) is ugly, and using GHz units is more convenient
 
-
 const uint32_t fhss_freq_list_2p4[] = {
     SX1280_FREQ_GHZ_TO_REG(2.406), // channel 0
     SX1280_FREQ_GHZ_TO_REG(2.407),
@@ -94,7 +93,6 @@ const uint32_t fhss_freq_list_2p4[] = {
 const uint8_t fhss_bind_channel_list_2p4[] = {
     46 //,14, 33, 61 // just pick some
 };
-
 
 // https://en.wikipedia.org/wiki/Linear_congruential_generator: Microsoft Visual/Quick C/C++
 // also used by ELRS
@@ -208,23 +206,25 @@ void ICACHE_RAM_ATTR Fhss_generate(uint32_t seed)//
 	bool used_flag[FREQ_LIST_LEN];
 	
 	for (uint8_t ch = 0; ch < FREQ_LIST_LEN; ch++) 
-	used_flag[ch] = false;
+        used_flag[ch] = false;
 	
 	uint8_t k = 0;
-	while (k < cnt) {
-		
+	while (k < cnt) 
+    {
 		uint8_t rn = prng() % (FREQ_LIST_LEN - k); // get a random number in the remaining range
 		
 		uint8_t i = 0;
 		uint8_t ch;
 		
-		for (ch = 0; ch < FREQ_LIST_LEN; ch++) {
+		for (ch = 0; ch < FREQ_LIST_LEN; ch++) 
+        {
 			if (used_flag[ch]) continue;
 			if (i == rn) break; // ch is our next index
 			i++;
 		}
 		
-		if (ch >= FREQ_LIST_LEN) { // argh, must not happen !
+		if (ch >= FREQ_LIST_LEN) 
+        { // argh, must not happen !
 			ch = 0;
 		}
 		
@@ -232,21 +232,28 @@ void ICACHE_RAM_ATTR Fhss_generate(uint32_t seed)//
 		bool is_bind_channel = false;
 		for (uint8_t bi = 0; bi < FHSS_BIND_CHANNEL_LIST_LEN; bi++) {
 			if (ch == fhss_bind_channel_list[bi])
-			is_bind_channel = true;
+                is_bind_channel = true;
 		}
-		if (is_bind_channel) continue;
+		if (is_bind_channel) 
+            continue;
 		
 		// ensure it is not too close to the previous
 		bool is_too_close = false;
-		if (k > 0) {
+		if (k > 0) 
+        {
 			int8_t last_ch = ch_list[k - 1];
-			if (last_ch == 0) { // special treatment for this case
-				if (ch < 2) is_too_close = true;
-				} else {
-				if ((ch >= last_ch - 1) && (ch <= last_ch + 1)) is_too_close = true;
-			}
+			if (last_ch == 0) 
+            { // special treatment for this case
+				if (ch < 2) 
+                    is_too_close = true;
+			} 
+			else 
+            {
+                if ((ch >= last_ch - 1) && (ch <= last_ch + 1)) is_too_close = true;
+            }
 		}
-		if (is_too_close) continue;
+		if (is_too_close) 
+            continue;
 		
 		// we got a new ch, so register it
 		ch_list[k] = ch;//ch index
@@ -260,59 +267,45 @@ void ICACHE_RAM_ATTR Fhss_generate(uint32_t seed)//
 	curr_i = 0;
 	
 	//mark all channels as equally bad
-	for (uint8_t k = 0; k < cnt; k++) {
-	fhss_last_rssi[k] = -128 ;
+	for (uint8_t k = 0; k < cnt; k++) 
+    {
+        fhss_last_rssi[k] = -128 ;
 	}
 	
 	#ifdef DEBUG_FHSS
-	delay(1000);
-	for (uint8_t i = 0; i < cnt; i++) 
-	Serial.println(fhss_list[i]); 
+        delay(1000);
+        for (uint8_t i = 0; i < cnt; i++) 
+            Serial.println(fhss_list[i]); 
 	#endif
+}
 	
-	}
-	
-	void ICACHE_RAM_ATTR nextChannel(uint8_t skip )
-	{
+void ICACHE_RAM_ATTR nextChannel(uint8_t skip )
+{
 	curr_i  = (curr_i + skip)%cnt;
-	}
+}
 	
-	uint32_t ICACHE_RAM_ATTR GetInitialFreq(){
+uint32_t ICACHE_RAM_ATTR GetInitialFreq()
+{
 	return fhss_freq_list[fhss_bind_channel_list[0]];
-	}
+}
 	
-	uint32_t  ICACHE_RAM_ATTR GetCurrFreq(void)
-	{
-	if (is_in_binding) 
-	return fhss_freq_list[fhss_bind_channel_list[0]];
+uint32_t  ICACHE_RAM_ATTR GetCurrFreq(void)
+{
+if (is_in_binding) 
+    return fhss_freq_list[fhss_bind_channel_list[0]];
+
+return fhss_list[curr_i];
+}
 	
-	return fhss_list[curr_i];
-	}
-	
-	uint32_t ICACHE_RAM_ATTR bestX(void)
-	{
+uint32_t ICACHE_RAM_ATTR bestX(void)
+{
 	uint8_t i_best = 0;
-	for (uint8_t i = 0; i < cnt; i++) {
-	if (fhss_last_rssi[i] > fhss_last_rssi[i_best]) i_best = i;
-	}
+	for (uint8_t i = 0; i < cnt; i++) 
+    {
+        if (fhss_last_rssi[i] > fhss_last_rssi[i_best]) 
+            i_best = i;
+    }
 	
 	curr_i = i_best;
 	return fhss_list[curr_i];
-	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-		
+}

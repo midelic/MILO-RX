@@ -17,7 +17,6 @@
 */
 
 //SPORT routines
-
 #define MAX_SMARTPORT_BUFFER_SIZE  64
 #define MAX_SERIAL_BYTES  16
 //
@@ -39,11 +38,12 @@
 #define A4_LAST_ID       0x091f
 
 
-const uint8_t sport_ID[] = {0x00, 0xA1, 0x22, 0x83, 0xE4, 0x45,
+const uint8_t sport_ID[] = {
+    0x00, 0xA1, 0x22, 0x83, 0xE4, 0x45,
 	0xC6, 0x67, 0x48, 0xE9, 0x6A, 0xCB,
 	0xAC, 0x0D, 0x8E, 0x2F, 0xD0, 0x71,
 	0xF2, 0x53, 0x34, 0x95, 0x16, 0xB7,
-0x98, 0x39, 0xBA, 0x1B } ;
+    0x98, 0x39, 0xBA, 0x1B } ;
 
 
 
@@ -204,7 +204,6 @@ uint8_t ICACHE_RAM_ATTR unstuff()
 
 void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)
 {
-	
 	uint16_t next = SportHead + 1;
 	
 	if(next >= MAX_SMARTPORT_BUFFER_SIZE){
@@ -217,7 +216,6 @@ void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)
 		SportHead = next;
 	}
 }
-
 
 void ICACHE_RAM_ATTR StuffSportBytes(uint8_t a)
 {
@@ -239,7 +237,6 @@ void ICACHE_RAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
 	StuffSportBytes((v >> 8) & 0xFF);
 	StuffSportBytes((v >> 16) & 0xFF);
 	StuffSportBytes((v >> 24) & 0xFF);
-	
 }
 
 void ICACHE_RAM_ATTR ProcessSportData()

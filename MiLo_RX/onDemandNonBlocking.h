@@ -8,9 +8,9 @@
 #include "pins.h"
 // include MDNS
 #ifdef ESP8266
-#include <ESP8266mDNS.h>
+    #include <ESP8266mDNS.h>
 #elif defined(ESP32)
-#include <ESPmDNS.h>
+    #include <ESPmDNS.h>
 #endif
 
 WiFiManager wm;
@@ -19,13 +19,12 @@ unsigned int  time_out   = 120; // seconds to run for
 unsigned int  startTime;
 bool portalRunning      = false;
 bool startAP            = true; // start AP and webserver if true, else start only webserver
-extern uint8_t bind_jumper(void);
-extern void  MiLoRxBinding(uint8_t bind);
 void doWiFiManager(void);
 bool first_time = true;
 bool second_time = true;
 
-void setupWifiManager(){
+void setupWifiManager()
+{
 	startTime = millis();
 	WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP  
 	// put your setup code here, to run once
@@ -39,21 +38,24 @@ void setupWifiManager(){
 
 
 
-void startWifiManager() {
-	
-	if(first_time){//at start only
+void startWifiManager() 
+{
+	if(first_time)
+    {//at start only
 		setupWifiManager();
 		first_time = false;
-	}
+    }
 
-	while(1){
-#ifdef ESP8266_PLATFORM
-		MDNS.update();
-#endif
+	while(1)
+    {
+        #ifdef ESP8266_PLATFORM
+            MDNS.update();
+        #endif
 		doWiFiManager();
 		// put your main code here, to run repeatedly:
 		unsigned long currentMillis = millis();
-		if (currentMillis - previousMillis >= 50) {//fast blinking
+		if (currentMillis - previousMillis >= 50) 
+        {//fast blinking
 			previousMillis = currentMillis;
 			LED_toggle;
 		}
@@ -79,15 +81,18 @@ void doWiFiManager(){
 			} 
 		}
 	}
-	if (second_time){
-		// is configuration portal requested?
-		if(!portalRunning){
-			if(startAP){
+	if (second_time)
+    {  // is configuration portal requested?
+		if(!portalRunning)
+        {
+			if(startAP)
+            {
 				Serial.println(" Starting Config Portal");
 				wm.setConfigPortalBlocking(false);
 				wm.startConfigPortal();
 			}  
-			else{
+			else
+            {
 				Serial.println("Starting Web Portal");
 				wm.startWebPortal();
 			}  
