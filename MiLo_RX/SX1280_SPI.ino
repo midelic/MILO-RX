@@ -597,7 +597,7 @@ bool  ICACHE_RAM_ATTR SX1280_GetFrequencyErrorbool()
 void  ICACHE_RAM_ATTR getRFlinkInfo()
 {
     int32_t rssiDBM = LastPacketRSSI;
-    if (antenna = 0){
+    if (antenna == 0){
         if (rssiDBM > 0) 
             rssiDBM = 0;
         // BetaFlight/iNav expect positive values for -dBm (e.g. -80dBm -> sent as 80)
