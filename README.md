@@ -1,6 +1,6 @@
 # MILO-RX
 New protocol based on SX128x LORA chip
--2.4Ghz Receiver-
+**2.4Ghz Receiver**
 
 This project is the receiver part of a new protocol  based on SX128x LORA RF chip.
 ## General characteristics ##
@@ -29,7 +29,7 @@ https://www.rcgroups.com/forums/showpost.php?p=49637731&postcount=451
 
 At the moment the MILO Rx code is based on ESP8285 target as most Expresslrs receivers are.
 When developing the code I used for test an ExpressLRS receiver using the same pinout(I used Flywoo EL24P in this particular case).
-So in order to use this new protocol you have to buy and reflash an 2.4G expresslrs receiver.
+So in order to use this new protocol you have to buy and reflash an 2.4G ExpressLRS receiver.
 For now there is no DIY receiver.In the future I may make one if there is enough interest.
 
 ## Community ##
@@ -43,20 +43,26 @@ The project is work in progress,in testing, and there is more work and testing b
 Main operation mode:
 
 - LORA modulation
-- Frame rate 142 HZ(7ms)
-- Data Rate ~76kb/s(-108dBm)
-- Bw-812; SF6 ; CR -LI -4/7 
+- Frame rate 142 HZ (7ms)
+- Data Rate ~76kb/s (-108dBm)
+- Bw-812 ; SF6 ; CR - LI - 4/7 
 - Preamble 12 symbols
-- Fixed length packet format(implicit) -15 bytes
-- Sport downlink telemetry rate(1:3)
+- Fixed length packet format(implicit)->15 bytes
+- Sport downlink telemetry rate (1:3)
 - Sport uplink telemetry rate (1:6)
 
 ## Software Installation ##
-- Project built in arduino IDE(version > 1.8.13) under ESP8266 arduino core,Generic ESP8285 module;Built-in  LED 16;Flash size 2M(64KB);MMU 16KB cache +48 Kb RAM
+- Project built in arduino IDE(version > 1.8.13) under ESP8266 arduino core ,select **Tools, ESP8266-cores**
+
+       - Board "Generic ESP8285 module";
+       - Builtin  Led "16";
+       - Flash size "2M(FS:64KB ~ OTA 992KB)";
+       - MMU: "16KB cache + 48 KB RAM(IRAM)"
+       
 - Library for WiFi( WiFiManager - https://github.com/tzapu/WiFiManager#install-through-library-manager )
 
 ## Flashing ##
-- Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding Receiver pins(TX ->RX and RX->TX) and power the receiver on with  button pressed .Release the button and upload the firmware.
+- Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding receiver pins(TX ->RX and RX->TX) and power the receiver on with button pressed .Release the button and upload the firmware.
 - OTA via WiFi,select "WIFI-RX" mode from Tx handset screen in protocol menu.
 
 ## Binding ##
@@ -65,7 +71,7 @@ Main operation mode:
 
 ## Failsafe ##
 At the moment it is implemented only Failsafe from Rx.
-When Tx is bound with Rx, you position your sticks, pots(you can use the mixer menu) as you want the to be for failsafe( alternatively you can use a script) and press the Rx button. Rx will blink for several seconds. When blinking stopped the FS data will be saved in Rx memory.
+When Tx is bound with Rx, you position your sticks, pots(you can use the mixer menu) as you want the to be for failsafe( alternatively you can use a script) and press the Rx button. Rx Led will blink for several seconds. When Led blinking stopped the FS data will be saved in Rx memory.
 Aditionally you have the option to resetting FS data to "NO PULSE" when pressing button, while Rx is not bound.
 I planned to introduce also FS from Tx.It is not implemnted yet but it is intented to work the same as for FrSkyX(D16) protocol.
 
