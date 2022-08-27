@@ -487,12 +487,12 @@ void ICACHE_RAM_ATTR BusyDelay(uint32_t duration)
     }
 }
 
-int32_t ICACHE_RAM_ATTR SX1280_complement2( const uint32_t num, const uint8_t bitCnt )
+int32_t ICACHE_RAM_ATTR SX1280_complement2( const uint32_t num, const uint8_t bitCnt ) // convert bitCnt bitlength number in 2-complement notation to int32_t
 {
-    int32_t retVal = ( int32_t )num;
-    if( num >= 2<<( bitCnt - 2 ) )
+    int32_t retVal = ( int32_t )num; //cast bitCnt length number to int32
+    if( retVal & (1<<(bitCnt-1)) ) // check for sign bit at position bitCnt, if not set return value as is, else...
     {
-        retVal -= 2<<( bitCnt - 1 );
+        retVal -= 1<<bitCnt;       // convert from bitCnt 2-complement to 32bit 2-complement format by inverting all bits and subtracting 1, done by subtrating binary value of 1 followed by bitCnt zeroes
     }
     return retVal;
 }
@@ -597,7 +597,7 @@ bool  ICACHE_RAM_ATTR SX1280_GetFrequencyErrorbool()
 void  ICACHE_RAM_ATTR getRFlinkInfo()
 {
     int32_t rssiDBM = LastPacketRSSI;
-    if (antenna = 0){
+    if (antenna == 0){
         if (rssiDBM > 0) 
             rssiDBM = 0;
         // BetaFlight/iNav expect positive values for -dBm (e.g. -80dBm -> sent as 80)
@@ -794,17 +794,6 @@ int32_t ICACHE_RAM_ATTR SX1280_GetLoRaBandwidth( )
     return bwValue;
 }
 
-int32_t ICACHE_RAM_ATTR complement2( const uint32_t num, const uint8_t bitCnt )
-{
-    int32_t retVal = ( int32_t )num;
-    if( num >= 2<<( bitCnt - 2 ) )
-    {
-        retVal -= 2<<( bitCnt - 1 );
-    }
-    return retVal;
-}
-
-
 double ICACHE_RAM_ATTR SX1280_GetFrequencyError( )
 {
     uint8_t efeRaw[3] = {0};
@@ -816,6 +805,6 @@ double ICACHE_RAM_ATTR SX1280_GetFrequencyError( )
     efeRaw[2] = SX1280_ReadReg( SX1280_REG_LR_ESTIMATED_FREQUENCY_ERROR_MSB + 2 );
     efe = ( efeRaw[0]<<16 ) | ( efeRaw[1]<<8 ) | efeRaw[2];
     efe &= SX1280_REG_LR_ESTIMATED_FREQUENCY_ERROR_MASK;
-    efeHz = 1.55 * ( double )complement2( efe, 20 ) / ( 1600.0 / ( double ) SX1280_GetLoRaBandwidth( ) * 1000.0 );
+    efeHz = 1.55 * ( double )SX1280_complement2( efe, 20 ) / ( 1600.0 / ( double ) SX1280_GetLoRaBandwidth( ) * 1000.0 );
     return efeHz;
 }
