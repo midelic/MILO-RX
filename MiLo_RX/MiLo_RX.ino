@@ -281,9 +281,12 @@ void setup()
         MiLo_SetRFLinkRate(RATE_150HZ);
         SX1280_SetFrequencyReg(currFreq);	
         PayloadLength = MiLo_currAirRate_Modparams->PayloadLength;
-        POWER_init();
         #ifdef HAS_PA_LNA
-            SX1280_SetTxRxMode(RX_EN);//LNA enable
+	     POWER_init();
+             SX1280_SetTxRxMode(RX_EN);//LNA enable
+	 #else
+	     CurrentPower = POWER_OUTPUT_FIXED;
+             SX1280_setPower(CurrentPower);
         #endif
         SX1280_SetMode(SX1280_MODE_RX);	
         frameReceived = false;			 
@@ -369,6 +372,10 @@ void loop()
     {
         if ((micros() - packetTimer) >= ((t_out *interval) +t_tune))
         {
+           		   #ifdef HAS_PA_LNA
+                           CurrentPower = PWR_100mW;
+			   SX1280_setPower(CurrentPower);
+		           #endif
             if(t_out == 1)
             {
                 #if defined DIVERSITY						
@@ -473,7 +480,12 @@ void loop()
             if((RxData[1] == MiLoStorage.txid[0])&&RxData[2] == MiLoStorage.txid[1])// Only if correct txid will pass
             {
                 nextChannel(1);
-                SX1280_SetFrequencyReg(GetCurrFreq());	
+                SX1280_SetFrequencyReg(GetCurrFreq());
+		#ifdef HAS_PA_LNA   
+                #ifdef EU_LBT
+                BeginClearChannelAssessment();
+	        #endif
+		#endif
                 frameReceived = false;
                 missingPackets = 0;
                 t_out = 1;
@@ -549,6 +561,13 @@ void loop()
     #if defined(TELEMETRY)	
         if(telemetryRX || packet_count == 1)
         {
+	  #ifdef HAS_PA_LNA
+           #ifdef EU_LBT
+            if (!ChannelIsClear()){
+	          SX1280_setPower(PWR_10mW);
+	         }	
+           #endif	
+           #endif
             SX1280_TXnb();
             telemetryRX = 0;
             #ifdef STATISTIC
@@ -826,13 +845,16 @@ void MiLoRxBind(void)
     is_in_binding = true;
     #ifndef TUNE_FREQ
         currFreq = GetInitialFreq(); //set frequency first or an error will occur!!!
-        SX1280_Begin();//config
-        POWER_init();
+        SX1280_Begin();//config	       
         MiLo_SetRFLinkRate(RATE_BINDING);	
     #endif
     SX1280_SetFrequencyReg(currFreq);
     #ifdef HAS_PA_LNA
-        SX1280_SetTxRxMode(RX_EN);// do first to enable LNA 
+        POWER_init();
+        SX1280_SetTxRxMode(RX_EN);// do first to enable LNA
+    #else
+        CurrentPower = POWER_OUTPUT_FIXED;
+        SX1280_setPower(CurrentPower);
     #endif
     SX1280_SetMode(SX1280_MODE_RX);
     
@@ -1174,9 +1196,12 @@ void ICACHE_RAM_ATTR dioISR()
         SX1280_Begin();//config
         MiLo_SetRFLinkRate(RATE_BINDING);
         //SX1280_setPower(MinPower);
-        POWER_init();
         #ifdef HAS_PA_LNA
+	    POWER_init();
             SX1280_SetTxRxMode(RX_EN);// do first to enable LNA
+	#else
+	    CurrentPower = POWER_OUTPUT_FIXED;
+            SX1280_setPower(CurrentPower);
         #endif
         Sx1280_SetMode(SX1280_MODE_RX);
         uint32_t  t_tune = millis();
