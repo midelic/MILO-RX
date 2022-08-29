@@ -369,6 +369,8 @@ void loop()
     {
         if ((micros() - packetTimer) >= ((t_out *interval) +t_tune))
         {
+            CurrentPower = PWR_100mW;
+			   SX1280_setPower(CurrentPower);
             if(t_out == 1)
             {
                 #if defined DIVERSITY						
@@ -473,7 +475,10 @@ void loop()
             if((RxData[1] == MiLoStorage.txid[0])&&RxData[2] == MiLoStorage.txid[1])// Only if correct txid will pass
             {
                 nextChannel(1);
-                SX1280_SetFrequencyReg(GetCurrFreq());	
+                SX1280_SetFrequencyReg(GetCurrFreq());
+                #ifdef EU_LBT
+                BeginClearChannelAssessment();
+			       #endif
                 frameReceived = false;
                 missingPackets = 0;
                 t_out = 1;
@@ -549,6 +554,12 @@ void loop()
     #if defined(TELEMETRY)	
         if(telemetryRX || packet_count == 1)
         {
+           #ifdef EU_LBT
+            if (!ChannelIsClear()){
+	          SX1280_setPower(PWR_10mW);
+	         }	
+           #endif	
+           
             SX1280_TXnb();
             telemetryRX = 0;
             #ifdef STATISTIC
