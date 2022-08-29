@@ -747,7 +747,7 @@ void  ICACHE_RAM_ATTR SX1280_setPower(uint8_t Power)
         Power = MaxPower;
     }
     #ifdef POWER_OUTPUT_FIXED
-	CurrentSX1280Power = power;
+	CurrentSX1280Power = Power;
 	#else
 	CurrentSX1280Power = powerValues[Power - MinPower];
 	#endif
