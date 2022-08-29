@@ -710,12 +710,8 @@ uint8_t  getPowerIndBm()
 
 void  ICACHE_RAM_ATTR POWER_init()
 {
-    CurrentPower = PWR_COUNT;	
-        #ifdef POWER_OUTPUT_FIXED
-            SX1280_SetOutputPower(POWER_OUTPUT_FIXED);
-        #else
-            SX1280_setPower(MinPower);
-        #endif
+     CurrentPower = PWR_COUNT;	
+     SX1280_setPower(MinPower);//min 10mW
 }
 
 uint8_t   SX1280_decPower()
@@ -729,7 +725,7 @@ uint8_t   SX1280_decPower()
 
 uint8_t   SX1280_incPower()
 {
-    if (CurrentPower > MinPower)
+    if (CurrentPower < MaxPower)
     {
         SX1280_setPower((uint8_t)CurrentPower + 1);
     }
@@ -750,8 +746,11 @@ void  ICACHE_RAM_ATTR SX1280_setPower(uint8_t Power)
     {
         Power = MaxPower;
     }
-    
-    CurrentSX1280Power = powerValues[Power - MinPower];//10mW
+    #ifdef POWER_OUTPUT_FIXED
+	CurrentSX1280Power = power;
+	#else
+	CurrentSX1280Power = powerValues[Power - MinPower];
+	#endif
     SX1280_SetOutputPower(CurrentSX1280Power);
     CurrentPower = Power;
 }
