@@ -12,17 +12,6 @@
     #define OPT_USE_SX1280_DCDC false
 #endif
 
-enum
-{
-    PWR_10mW = 0,
-    PWR_25mW = 1,
-    PWR_50mW = 2,
-    PWR_100mW = 3,
-    PWR_250mW = 4,
-    PWR_500mW = 5,
-    PWR_COUNT = 6,
-} ;
-
 #define MinPower PWR_10mW
 #define MaxPower PWR_10mW
 static const int16_t powerValues[PWR_COUNT] = {13};//no PA/LNA
