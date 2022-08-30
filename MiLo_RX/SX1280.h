@@ -22,10 +22,7 @@ void ICACHE_RAM_ATTR SX1280_SetFIFOaddr(uint8_t txBaseAddr, uint8_t rxBaseAddr);
 void ICACHE_RAM_ATTR SX1280_ConfigModParamsLoRa(uint8_t bw, uint8_t sf, uint8_t cr);
 void ICACHE_RAM_ATTR SX1280_SetPacketParamsLoRa(uint8_t PreambleLength, uint8_t HeaderType,uint8_t PayloadLength, uint8_t crc,uint8_t InvertIQ);
 //void ICACHE_RAM_ATTR SX1280_SetDioIrqParams( uint16_t irqMask, uint16_t dio1Mask, uint16_t dio2Mask, uint16_t dio3Mask );
-void ICACHE_RAM_ATTR SX1280_SetDioIrqParams(uint16_t irqMask,
-uint16_t dio1Mask=SX1280_IRQ_RADIO_NONE,
-uint16_t dio2Mask=SX1280_IRQ_RADIO_NONE,
-uint16_t dio3Mask=SX1280_IRQ_RADIO_NONE);
+//void ICACHE_RAM_ATTR SX1280_SetDioIrqParams(uint16_t irqMask, uint16_t dio1Mask, uint16_t dio2Mask, uint16_t dio3Mask);
 uint8_t ICACHE_RAM_ATTR SX1280_GetRxBufferAddr();
 uint8_t  ICACHE_RAM_ATTR SX1280_GetStatus(void);
 int8_t ICACHE_RAM_ATTR SX1280_GetRssiInst( void );

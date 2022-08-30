@@ -530,7 +530,7 @@ bool  ICACHE_RAM_ATTR SX1280_Begin()
     
     SX1280_SetFrequencyReg(currFreq);                                                                                                    //Set Freq
     SX1280_SetFIFOaddr(0x00, 0x00);                                                                                                      //Config FIFO addr
-    SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, SX1280_IRQ_TX_DONE | SX1280_IRQ_RX_DONE);  //set IRQ to both RXdone/TXdone on DIO1
+    SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, SX1280_IRQ_TX_DONE | SX1280_IRQ_RX_DONE, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);  //set IRQ to both RXdone/TXdone on DIO1
     if (OPT_USE_SX1280_DCDC)
     {
         SX1280_WriteCommand(SX1280_RADIO_SET_REGULATORMODE, SX1280_USE_DCDC,15);
@@ -555,7 +555,7 @@ void  ICACHE_RAM_ATTR SX1280_Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t
     packetLengthType = SX1280_LORA_PACKET_FIXED_LENGTH;
     SX1280_SetPacketParamsLoRa(PreambleLength, packetLengthType,_PayloadLength, SX1280_LORA_CRC_ON, InvertIQ);
     SX1280_SetFrequencyReg(freq);
-    SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, irqs);
+    SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, irqs, SX1280_IRQ_RADIO_ALL, SX1280_IRQ_RADIO_ALL);
     
     //SX1280_SetRxTimeoutUs(interval);//for Rx using micros()in main
 }
@@ -691,7 +691,7 @@ uint8_t  getPowerIndBm()
         case PWR_50mW: return 17;
         case PWR_100mW: return 20;
         case PWR_250mW: return 24;
-        case PWR_500mW: return 27;
+        // case PWR_500mW: return 27;
         default:
         return 0;
     }
