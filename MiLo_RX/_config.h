@@ -50,7 +50,7 @@
 //#define STATISTIC
 //#define SERVO_RATE
 //#define PARALLEL_SERVO
-//#define EU_LBT
+#define EU_LBT
 #define USE_WIFI
 
 #ifdef USE_WIFI
