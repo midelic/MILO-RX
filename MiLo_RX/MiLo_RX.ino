@@ -177,6 +177,7 @@ uint32_t FreqCorrection;
 uint32_t FreqCorrectionRegValue;
 uint16_t timeout = 0xFFFF;
 uint8_t packetLengthType;
+extern uint8_t CurrentPower;
 
 typedef struct MiLo_mod_settings_s
 {
@@ -319,8 +320,8 @@ void loop()
     }	
     
     #ifdef USE_WIFI	
-        if((millis() - bindingTime) >30000 && aPacketSeen == 0)
-        {//only at start after 30 sec binding process
+        if((millis() - bindingTime) >20000 && aPacketSeen == 0)
+        {//only at start after 20 sec binding process
             MiLoRxBinding(1);
         }
     #endif
