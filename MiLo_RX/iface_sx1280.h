@@ -303,6 +303,16 @@ enum
     RATE_FLRC_1000HZ,
 };
 
+enum
+{
+	PWR_10mW = 0,
+	PWR_25mW = 1,
+	PWR_50mW = 2,
+	PWR_100mW = 3,
+	PWR_250mW = 4,
+	PWR_COUNT = 5,
+} ;
+
 enum {
     RADIO_TYPE_SX128x_LORA = 1,
     RADIO_TYPE_SX128x_FLRC,
