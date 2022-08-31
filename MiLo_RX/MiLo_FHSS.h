@@ -112,9 +112,8 @@ const uint8_t fhss_bind_channel_list_2p4[] =
 // redpine:
 // same prng as spektrum, picks 50 channels, ensures not close and not 0,1
 
-#define FHSS_FREQ_LIST_MAX_LEN  80 
-#define FHSS_MAX_NUM    68  // must be <= FHSS_FREQ_LIST_MAX_LEN
-#define FHSS_CHANNELS_NUM  47  // must be <= FHSS_MAX_NUM
+#define FHSS_MAX_NUM    80  
+#define FHSS_CHANNELS_NUM  68  
 
 uint32_t _seed;
 bool is_in_binding;
