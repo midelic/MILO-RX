@@ -23,7 +23,7 @@
 #include "_config.h"
 #include "pins.h"
 #include "iface_sx1280.h"
-#include "FHSS.h"
+#include "MiLo_FHSS.h"
 #include "SX1280.h"
 
 #ifdef SW_SERIAL
@@ -876,7 +876,7 @@ void MiLoRxBind(void)
                 FreqCorrection = SX1280_GetFrequencyError();// get frequency offset in HZ
                 // =(83ppm =199200Hz) at 2.4 GHZ
                 FreqCorrection /= 1.0E9;
-                FreqCorrectionRegValue = SX1280_FREQ_GHZ_TO_REG((double)FreqCorrection/1.0E9);			
+                FreqCorrectionRegValue = SX1280_FREQ_GHZ_TO_REG(FreqCorrection);			
                 break;
             }
         }
@@ -886,7 +886,8 @@ void MiLoRxBind(void)
     #if defined(DEBUG_BIND)
         debugln("txid1 = %d,txid2= %d,rx_num = %d,chanskip = %d", MiLoStorage.txid[0],MiLoStorage.txid[1],MiLoStorage.rx_num,MiLoStorage.chanskip);
         debugln("Rx_data[2] = %d ,Rx_data[3] = %d ",Rx_data[2],Rx_data[3]);
-        debugln("FreqCorr = %d ",FreqCorrection);						
+        debugln("FreqCorr = %d ",FreqCorrection);
+	debugln("FreqCorrRegV = %d ",FreqCorrectionRegValue);
         debugln("MP_id = %d",MProtocol_id);
     #endif
     for(uint8_t i = 0;i<16;i++)
