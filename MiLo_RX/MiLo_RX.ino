@@ -875,8 +875,8 @@ void MiLoRxBind(void)
                 LoRaBandwidth = LORA_BW_0800; 
                 FreqCorrection = SX1280_GetFrequencyError();// get frequency offset in HZ
                 // =(83ppm =199200Hz) at 2.4 GHZ
-                FreqCorrection /= 1.0E9;
-                FreqCorrectionRegValue = SX1280_FREQ_GHZ_TO_REG(FreqCorrection);			
+                FreqCorrection /= 1.0E6;
+                FreqCorrectionRegValue = SX1280_FREQ_MHZ_TO_REG(FreqCorrection);			
                 break;
             }
         }
