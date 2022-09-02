@@ -30,7 +30,8 @@ https://www.rcgroups.com/forums/showpost.php?p=49637731&postcount=451
 At the moment the MILO Rx code is based on ESP8285 target as most Expresslrs receivers are.
 When developing the code I used for test an ExpressLRS receiver using the same pinout(I used Flywoo EL24P in this particular case).
 So in order to use this new protocol you have to buy and reflash an 2.4G ExpressLRS receiver.
-For now there is no DIY receiver.In the future I may make one if there is enough interest.
+For now there is no DIY receiver.In the future I may make one if there is enough interest.A good candidate for DIY receiver I found a diversity module on Aliexpress
+https://nl.aliexpress.com/item/1005004493252273.html?spm=a2g0o.productlist.0.0.60365557RBwXoW&algo_pvid=93500978-b51b-4ecb-868e-ee74ff17a57a&algo_exp_id=93500978-b51b-4ecb-868e-ee74ff17a57a-5&pdp_ext_f=%7B%22sku_id%22%3A%2212000029349714709%22%7D&pdp_npi=2%40dis%21EUR%2112.48%2111.85%21%21%213.56%21%21%402100bb5116617854190017455ea104%2112000029349714709%21sea&curPageLogUid=mPXKkaUXRYpz
 
 ## Community ##
 
