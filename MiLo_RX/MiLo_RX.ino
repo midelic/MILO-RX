@@ -23,7 +23,7 @@
 #include "_config.h"
 #include "pins.h"
 #include "iface_sx1280.h"
-#include "FHSS.h"
+#include "Milo_hoppingTableGen.h"
 #include "SX1280.h"
 
 #ifdef SW_SERIAL
@@ -429,7 +429,7 @@ void loop()
                     t_tune = 0;
                 if(dwnlnkstart == true)
                     packet_count = (packet_count + 1)%3;
-                nextChannel(1);			
+                nextChannel();			
                 SX1280_SetFrequencyReg(GetCurrFreq());			
             }
             else
@@ -467,7 +467,7 @@ void loop()
                     jumper = 0;  
                     
                 }
-                nextChannel(3);
+                nextChannel();
                 SX1280_SetFrequencyReg(GetCurrFreq());				
             }
             break;	
@@ -480,7 +480,7 @@ void loop()
             SX1280_GetLastPacketStats();								
             if((RxData[1] == MiLoStorage.txid[0])&&RxData[2] == MiLoStorage.txid[1])// Only if correct txid will pass
             {
-                nextChannel(1);
+                nextChannel();
                 SX1280_SetFrequencyReg(GetCurrFreq());
 		#ifdef HAS_PA_LNA   
                 #ifdef EU_LBT
@@ -876,7 +876,7 @@ void MiLoRxBind(void)
                 FreqCorrection = SX1280_GetFrequencyError();// get frequency offset in HZ
                 // =(83ppm =199200Hz) at 2.4 GHZ
                 FreqCorrection /= 1.0E9;
-                FreqCorrectionRegValue = SX1280_FREQ_GHZ_TO_REG((double)FreqCorrection/1.0E9);			
+                FreqCorrectionRegValue = SX1280_FREQ_MHZ_TO_REG((double)FreqCorrection/1.0E6);			
                 break;
             }
         }
