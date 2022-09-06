@@ -55,14 +55,14 @@ uint16_t countFS = 0;
 #define HOLD  2047
 #define MAX_MISSING_PKT 100
 
-volatile uint16_t ServoData[16];
+uint16_t ServoData[16];
 volatile int32_t missingPackets = 0;
 bool packet = false;
 uint8_t jumper = 0;
 uint16_t c[8];
 uint32_t t_out = 50;
 uint32_t t_tune = 500;
-int16_t wordTemp;
+uint16_t wordTemp;
 volatile uint8_t all_off = 0;
 uint32_t packetTimer;
 volatile bool frameReceived = false;
@@ -252,7 +252,7 @@ void setup()
 	SetupTarget();
 	delay(10);//wait for stabilization
 	
-	#if defined(DEBUG) || defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)
+	#if defined(DEBUG) || defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_DATA)
 		#undef SBUS
 		Serial.begin(230400, SERIAL_8N1, SERIAL_TX_ONLY);
 		#define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}
@@ -354,7 +354,8 @@ void loop()
 				}
 				
 				#if defined(SBUS)
-					channel[i] = ServoData[i];
+					channel[i] = (ServoData[i]-881)*1.6;//881-2159 to 0-2047
+					channel[i] = constrain(channel[i],0,2047);
 				#endif
 			}
 			#if defined SBUS
@@ -572,6 +573,7 @@ void loop()
 			#endif
 			SX1280_TXnb();
 			telemetryRX = 0;
+			sbus_counter++;
 			#ifdef STATISTIC
 				if ( aPacketSeen > 5)
 				{
@@ -588,6 +590,7 @@ void loop()
 	{
 		if (packet == true || missingPackets > 0)
 	     {
+	        sbus_counter++;
 			#ifdef HAS_PA_LNA
 				SX1280_SetTxRxMode(RX_EN);// do first to allow LNA stabilise
 			#endif
@@ -597,20 +600,22 @@ void loop()
 	
 	if (packet)
 	{
+         uint8_t inputbitsavailable = 0;
+		 uint32_t inputbits = 0 ;
 		//if (dwnlnkstart == true)
 		//packet_count = (packet_count + 1) % 3;
 		FrameType = (RxData[0] & 0x07);
 		
 		if (FrameType != TLM_PACKET)
-		{
-			c[0]  = (uint16_t)(RxData[4] | ((RxData[5]  << 8) & 0x07FF));
-			c[1]  = (uint16_t)((RxData[5]  >> 3 ) | (( RxData[6] << 5) & 0x07FF));
-			c[2]  = (uint16_t)((RxData[6]  >> 6 ) | (RxData[7]  << 2 ) | ((RxData[8] << 10) & 0x07FF));
-			c[3]  = (uint16_t)((RxData[8]  >> 1) | ((RxData[9]  << 7) & 0x07FF));
-			c[4]  = (uint16_t)((RxData[9]  >> 4) | ((RxData[10]  << 4) & 0x07FF));
-			c[5]  = (uint16_t)((RxData[10]  >> 7) | (RxData[11]  << 1)  | ((RxData[12] << 9 ) & 0x07FF));
-			c[6]  = (uint16_t)((RxData[12]  >> 2) | ((RxData[13] << 6) & 0x07FF));
-			c[7]  = (uint16_t)((RxData[13] >> 5) | ((RxData[14] << 3) & 0x07FF));
+		{	
+			c[0]  = (uint16_t)((RxData[4] | RxData[5]  << 8) & 0x07FF);
+			c[1]  = (uint16_t)((RxData[5]  >> 3  |  RxData[6] << 5) & 0x07FF);
+			c[2]  = (uint16_t)((RxData[6]  >> 6  | RxData[7]  << 2  | RxData[8] << 10) & 0x07FF);
+			c[3]  = (uint16_t)((RxData[8]  >> 1 | RxData[9]  << 7) & 0x07FF);
+		    c[4]  = (uint16_t)((RxData[9]  >> 4 | RxData[10]  << 4) & 0x07FF);
+			c[5]  = (uint16_t)((RxData[10]  >> 7 | RxData[11]  << 1  | RxData[12] << 9 ) & 0x07FF);
+			c[6]  = (uint16_t)((RxData[12]  >> 2 | RxData[13] << 6) & 0x07FF);
+			c[7]  = (uint16_t)((RxData[13] >> 5 | RxData[14] << 3) & 0x07FF);
 			
 			uint8_t j = 0;
 			#if defined TX_FAILSAFE
@@ -646,6 +651,8 @@ void loop()
 				if (fs_started)
 				chan = (chan + 1) % 8;
 			#endif
+			
+			
 			for (uint8_t i = 0; i < 8; i++)
 			{
 				wordTemp = c[i];
@@ -675,14 +682,15 @@ void loop()
 					else
 				#endif
 				{
-					if (wordTemp > 700 && wordTemp < 2300)
+					if (wordTemp > 800 && wordTemp < 2200)
 					{
 						ServoData[i + j] = wordTemp;
 						#ifdef DEBUG_DATA
-							debugln(" ServoData = %d", ServoData[i]);
+							//debugln(" S2 = %d", ServoData[2]);
 						#endif
 						#if defined SBUS
-							channel[i + j] = wordTemp;
+					channel[i+j] = (ServoData[i+j]-881)*1.6;//881-2159 to 0-2047
+					channel[i+j] = constrain(channel[i],0,2047);
 						#endif
 						#ifdef PARALLEL_SERVO
 							ServoSortedData[i] = (wordTemp << 1);
@@ -691,7 +699,7 @@ void loop()
 				}
 				
 			}
-			
+				
 			if (jumper
 				#ifdef TX_FAILSAFE
 					&& fs_started == false
@@ -757,9 +765,9 @@ void loop()
 	}
 	
 	#if defined  SBUS
-		if ((millis() - sbus_timer) > 14)
-		{ //sent out sbus on TLM packet every 7000*2 us
-			sbus_timer = millis();
+	if (sbus_counter == 2)//sent out sbus on  every 14ms (timed by interval)
+		{ 
+			sbus_counter = 0;
 			if (all_off == 0)
 			{
 				for (uint8_t i = 0; i < TXBUFFER_SIZE; i++)

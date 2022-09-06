@@ -27,7 +27,8 @@
 //#define DEBUG_EEPROM
 //#define DEBUG_LOOP_TIMING	
 //#define DEBUG_BIND
-#define SW_SERIAL
+//#define DEBUG_DATA
+//#define SW_SERIAL
 //#define HC_BIND
 #define TELEMETRY
 //#define HC_SPORT
@@ -39,7 +40,7 @@
 //#define SWAMPING
 //#define RSSI_AVG
 #define SPORT_TELEMETRY
-//#define FAILSAFE
+#define FAILSAFE
 
 #if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined MATEK_RX_R24S || defined BETA_FPV_RX_NANO
 #define HAS_PA_LNA

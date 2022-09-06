@@ -13,6 +13,7 @@
     volatile uint16_t sbus[TXBUFFER_SIZE];
     uint16_t channel[16];
     volatile uint32_t sbus_timer;
+	uint8_t sbus_counter = 0;
 
     void init_SBUS()
     {
