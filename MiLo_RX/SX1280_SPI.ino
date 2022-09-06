@@ -18,7 +18,7 @@ static const int16_t powerValues[PWR_COUNT] = {13};//no PA/LNA
 
 uint32_t BusyDelayStart;
 uint32_t BusyDelayDuration;
-static int8_t powerCaliValues[PWR_COUNT] = {0};
+//static int8_t powerCaliValues[PWR_COUNT] = {0};
 int8_t CurrentSX1280Power = 0;
 uint8_t CurrentPower;
 
@@ -436,8 +436,8 @@ bool ICACHE_RAM_ATTR WaitOnBusy()
 {
     uint32_t wtimeoutUS = 1000U;
     uint32_t startTime = micros();
-    //if(SX1280_BUSY_pin != -1)
-    //{
+    if(SX1280_BUSY_pin != -1)
+    {
     while (IS_SX1280_BUSY_on) // wait untill not busy or until wtimeoutUS
     {
         if ((micros() - startTime) > wtimeoutUS)
@@ -450,18 +450,18 @@ bool ICACHE_RAM_ATTR WaitOnBusy()
         }
     }
     
-    //}
-    //else
-    //{
+    }
+    else
+    {
     // observed BUSY time for Write* calls are 12-20uS after NSS de-assert
     // and state transitions require extra time depending on prior state
-    //	if (BusyDelayDuration)
-    //	{
-    //		while ((micros() - BusyDelayStart) < BusyDelayDuration)
-    //		NOP();
-    //		BusyDelayDuration = 0;
-    //	}
-    //}
+    	if (BusyDelayDuration)
+    	{
+    		while ((micros() - BusyDelayStart) < BusyDelayDuration)
+    		NOP();
+    		BusyDelayDuration = 0;
+    	}
+    }
     return true;
 }
 
@@ -469,7 +469,7 @@ bool ICACHE_RAM_ATTR WaitOnBusy()
 
 void ICACHE_RAM_ATTR BusyDelay(uint32_t duration)
 {
-    if (IS_SX1280_BUSY_off)
+    if (SX1280_BUSY_pin == -1)
     {
         BusyDelayStart = micros();
         BusyDelayDuration = duration;
@@ -506,7 +506,7 @@ int32_t ICACHE_RAM_ATTR SX1280_complement2( const uint32_t num, const uint8_t bi
 bool  ICACHE_RAM_ATTR SX1280_Begin()
 {
     #ifdef  SX1280_DIO1_pin
-        attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //attch interrupt to DIO1
+        attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //attach interrupt to DIO1 pin
     #endif
     SX1280_Reset();
     delay(100);
@@ -555,7 +555,7 @@ void  ICACHE_RAM_ATTR SX1280_Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t
     packetLengthType = SX1280_LORA_PACKET_FIXED_LENGTH;
     SX1280_SetPacketParamsLoRa(PreambleLength, packetLengthType,_PayloadLength, SX1280_LORA_CRC_ON, InvertIQ);
     SX1280_SetFrequencyReg(freq);
-    SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, irqs, SX1280_IRQ_RADIO_ALL, SX1280_IRQ_RADIO_ALL);
+    SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, irqs, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);
     
     //SX1280_SetRxTimeoutUs(interval);//for Rx using micros()in main
 }

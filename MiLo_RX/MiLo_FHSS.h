@@ -3,8 +3,9 @@
 //https://github.com/olliw42/mLRS/
 // 2406.0 ... 2473.0  in 1 MHz steps
 // = 68 channels//BW is 812Khz so band resolution of 1Mhz is suitable and no adiacent chanels so they will be randomized
+//**********************************************************************************************
 #define SX1280_FREQ_XTAL_MHZ               52
-#define SX1280_FREQ_GHZ_TO_REG(f_mhz)     (uint32_t)(((double)f_mhz/(double)SX1280_FREQ_XTAL_MHZ)*(double)(1 << 18))
+#define SX1280_FREQ_MHZ_TO_REG(f_mhz)     (uint32_t)(((double)(2402+f_mhz)*(double)(1 << 18))/SX1280_FREQ_XTAL_MHZ)
 // this is what is suggested by Semtech
 // #include <math.h>
 // #define SX1280_FREQ_STEP                  ((double)(SX1280_FREQ_XTAL_HZ / pow(2.0,18.0))) // 198.3642578
@@ -12,88 +13,88 @@
 // the pow(x,y) is ugly, and using GHz units is more convenient
 
 // channel list expanded to match list in Bluetooth core specification 5.3 page 389: f=2402+k MHz, k=0..78
-const uint32_t fhss_freq_list_2p4[] = 
-{
-    SX1280_FREQ_GHZ_TO_REG(2402+0),  // channel 0, 2402 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+1),  // channel 1, 2403 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+2),  // channel 2, 2404 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+3),  // channel 3, 2405 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+4),  // channel 4, 2406 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+5),  // channel 5, 2407 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+6),  // channel 6, 2408 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+7),  // channel 7, 2409 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+8),  // channel 8, 2410 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+9),  // channel 9, 2411 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+10),  // channel 10, 2412 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+11),  // channel 11, 2413 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+12),  // channel 12, 2414 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+13),  // channel 13, 2415 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+14),  // channel 14, 2416 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+15),  // channel 15, 2417 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+16),  // channel 16, 2418 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+17),  // channel 17, 2419 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+18),  // channel 18, 2420 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+19),  // channel 19, 2421 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+20),  // channel 20, 2422 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+21),  // channel 21, 2423 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+22),  // channel 22, 2424 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+23),  // channel 23, 2425 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+24),  // channel 24, 2426 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+25),  // channel 25, 2427 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+26),  // channel 26, 2428 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+27),  // channel 27, 2429 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+28),  // channel 28, 2430 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+29),  // channel 29, 2431 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+30),  // channel 30, 2432 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+31),  // channel 31, 2433 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+32),  // channel 32, 2434 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+33),  // channel 33, 2435 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+34),  // channel 34, 2436 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+35),  // channel 35, 2437 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+36),  // channel 36, 2438 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+37),  // channel 37, 2439 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+38),  // channel 38, 2440 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+39),  // channel 39, 2441 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+40),  // channel 40, 2442 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+41),  // channel 41, 2443 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+42),  // channel 42, 2444 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+43),  // channel 43, 2445 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+44),  // channel 44, 2446 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+45),  // channel 45, 2447 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+46),  // channel 46, 2448 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+47),  // channel 47, 2449 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+48),  // channel 48, 2450 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+49),  // channel 49, 2451 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+50),  // channel 50, 2452 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+51),  // channel 51, 2453 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+52),  // channel 52, 2454 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+53),  // channel 53, 2455 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+54),  // channel 54, 2456 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+55),  // channel 55, 2457 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+56),  // channel 56, 2458 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+57),  // channel 57, 2459 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+58),  // channel 58, 2460 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+59),  // channel 59, 2461 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+60),  // channel 60, 2462 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+61),  // channel 61, 2463 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+62),  // channel 62, 2464 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+63),  // channel 63, 2465 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+64),  // channel 64, 2466 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+65),  // channel 65, 2467 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+66),  // channel 66, 2468 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+67),  // channel 67, 2469 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+68),  // channel 68, 2470 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+69),  // channel 69, 2471 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+70),  // channel 70, 2472 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+71),  // channel 71, 2473 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+72),  // channel 72, 2474 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+73),  // channel 73, 2475 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+74),  // channel 74, 2476 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+75),  // channel 75, 2477 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+76),  // channel 76, 2478 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+77),  // channel 77, 2479 MHz
-    SX1280_FREQ_GHZ_TO_REG(2402+78),  // channel 78, 2480 MHz
-};
+    const uint32_t fhss_freq_list_2p4[] = 
+    {
+        SX1280_FREQ_MHZ_TO_REG(0),  // channel 0, 2402 MHz
+        SX1280_FREQ_MHZ_TO_REG(1),  // channel 1, 2403 MHz
+        SX1280_FREQ_MHZ_TO_REG(2),  // channel 2, 2404 MHz
+        SX1280_FREQ_MHZ_TO_REG(3),  // channel 3, 2405 MHz
+        SX1280_FREQ_MHZ_TO_REG(4),  // channel 4, 2406 MHz
+        SX1280_FREQ_MHZ_TO_REG(5),  // channel 5, 2407 MHz
+        SX1280_FREQ_MHZ_TO_REG(6),  // channel 6, 2408 MHz
+        SX1280_FREQ_MHZ_TO_REG(7),  // channel 7, 2409 MHz
+        SX1280_FREQ_MHZ_TO_REG(8),  // channel 8, 2410 MHz
+        SX1280_FREQ_MHZ_TO_REG(9),  // channel 9, 2411 MHz
+        SX1280_FREQ_MHZ_TO_REG(10),  // channel 10, 2412 MHz
+        SX1280_FREQ_MHZ_TO_REG(11),  // channel 11, 2413 MHz
+        SX1280_FREQ_MHZ_TO_REG(12),  // channel 12, 2414 MHz
+        SX1280_FREQ_MHZ_TO_REG(13),  // channel 13, 2415 MHz
+        SX1280_FREQ_MHZ_TO_REG(14),  // channel 14, 2416 MHz
+        SX1280_FREQ_MHZ_TO_REG(15),  // channel 15, 2417 MHz
+        SX1280_FREQ_MHZ_TO_REG(16),  // channel 16, 2418 MHz
+        SX1280_FREQ_MHZ_TO_REG(17),  // channel 17, 2419 MHz
+        SX1280_FREQ_MHZ_TO_REG(18),  // channel 18, 2420 MHz
+        SX1280_FREQ_MHZ_TO_REG(19),  // channel 19, 2421 MHz
+        SX1280_FREQ_MHZ_TO_REG(20),  // channel 20, 2422 MHz
+        SX1280_FREQ_MHZ_TO_REG(21),  // channel 21, 2423 MHz
+        SX1280_FREQ_MHZ_TO_REG(22),  // channel 22, 2424 MHz
+        SX1280_FREQ_MHZ_TO_REG(23),  // channel 23, 2425 MHz
+        SX1280_FREQ_MHZ_TO_REG(24),  // channel 24, 2426 MHz
+        SX1280_FREQ_MHZ_TO_REG(25),  // channel 25, 2427 MHz
+        SX1280_FREQ_MHZ_TO_REG(26),  // channel 26, 2428 MHz
+        SX1280_FREQ_MHZ_TO_REG(27),  // channel 27, 2429 MHz
+        SX1280_FREQ_MHZ_TO_REG(28),  // channel 28, 2430 MHz
+        SX1280_FREQ_MHZ_TO_REG(29),  // channel 29, 2431 MHz
+        SX1280_FREQ_MHZ_TO_REG(30),  // channel 30, 2432 MHz
+        SX1280_FREQ_MHZ_TO_REG(31),  // channel 31, 2433 MHz
+        SX1280_FREQ_MHZ_TO_REG(32),  // channel 32, 2434 MHz
+        SX1280_FREQ_MHZ_TO_REG(33),  // channel 33, 2435 MHz
+        SX1280_FREQ_MHZ_TO_REG(34),  // channel 34, 2436 MHz
+        SX1280_FREQ_MHZ_TO_REG(35),  // channel 35, 2437 MHz
+        SX1280_FREQ_MHZ_TO_REG(36),  // channel 36, 2438 MHz
+        SX1280_FREQ_MHZ_TO_REG(37),  // channel 37, 2439 MHz
+        SX1280_FREQ_MHZ_TO_REG(38),  // channel 38, 2440 MHz
+        SX1280_FREQ_MHZ_TO_REG(39),  // channel 39, 2441 MHz
+        SX1280_FREQ_MHZ_TO_REG(40),  // channel 40, 2442 MHz
+        SX1280_FREQ_MHZ_TO_REG(41),  // channel 41, 2443 MHz
+        SX1280_FREQ_MHZ_TO_REG(42),  // channel 42, 2444 MHz
+        SX1280_FREQ_MHZ_TO_REG(43),  // channel 43, 2445 MHz
+        SX1280_FREQ_MHZ_TO_REG(44),  // channel 44, 2446 MHz
+        SX1280_FREQ_MHZ_TO_REG(45),  // channel 45, 2447 MHz
+        SX1280_FREQ_MHZ_TO_REG(46),  // channel 46, 2448 MHz
+        SX1280_FREQ_MHZ_TO_REG(47),  // channel 47, 2449 MHz
+        SX1280_FREQ_MHZ_TO_REG(48),  // channel 48, 2450 MHz
+        SX1280_FREQ_MHZ_TO_REG(49),  // channel 49, 2451 MHz
+        SX1280_FREQ_MHZ_TO_REG(50),  // channel 50, 2452 MHz
+        SX1280_FREQ_MHZ_TO_REG(51),  // channel 51, 2453 MHz
+        SX1280_FREQ_MHZ_TO_REG(52),  // channel 52, 2454 MHz
+        SX1280_FREQ_MHZ_TO_REG(53),  // channel 53, 2455 MHz
+        SX1280_FREQ_MHZ_TO_REG(54),  // channel 54, 2456 MHz
+        SX1280_FREQ_MHZ_TO_REG(55),  // channel 55, 2457 MHz
+        SX1280_FREQ_MHZ_TO_REG(56),  // channel 56, 2458 MHz
+        SX1280_FREQ_MHZ_TO_REG(57),  // channel 57, 2459 MHz
+        SX1280_FREQ_MHZ_TO_REG(58),  // channel 58, 2460 MHz
+        SX1280_FREQ_MHZ_TO_REG(59),  // channel 59, 2461 MHz
+        SX1280_FREQ_MHZ_TO_REG(60),  // channel 60, 2462 MHz
+        SX1280_FREQ_MHZ_TO_REG(61),  // channel 61, 2463 MHz
+        SX1280_FREQ_MHZ_TO_REG(62),  // channel 62, 2464 MHz
+        SX1280_FREQ_MHZ_TO_REG(63),  // channel 63, 2465 MHz
+        SX1280_FREQ_MHZ_TO_REG(64),  // channel 64, 2466 MHz
+        SX1280_FREQ_MHZ_TO_REG(65),  // channel 65, 2467 MHz
+        SX1280_FREQ_MHZ_TO_REG(66),  // channel 66, 2468 MHz
+        SX1280_FREQ_MHZ_TO_REG(67),  // channel 67, 2469 MHz
+        SX1280_FREQ_MHZ_TO_REG(68),  // channel 68, 2470 MHz
+        SX1280_FREQ_MHZ_TO_REG(69),  // channel 69, 2471 MHz
+        SX1280_FREQ_MHZ_TO_REG(70),  // channel 70, 2472 MHz
+        SX1280_FREQ_MHZ_TO_REG(71),  // channel 71, 2473 MHz
+        SX1280_FREQ_MHZ_TO_REG(72),  // channel 72, 2474 MHz
+        SX1280_FREQ_MHZ_TO_REG(73),  // channel 73, 2475 MHz
+        SX1280_FREQ_MHZ_TO_REG(74),  // channel 74, 2476 MHz
+        SX1280_FREQ_MHZ_TO_REG(75),  // channel 75, 2477 MHz
+        SX1280_FREQ_MHZ_TO_REG(76),  // channel 76, 2478 MHz
+        SX1280_FREQ_MHZ_TO_REG(77),  // channel 77, 2479 MHz
+        SX1280_FREQ_MHZ_TO_REG(78),  // channel 78, 2480 MHz
+    };
 
 const uint8_t fhss_bind_channel_list_2p4[] = 
 {

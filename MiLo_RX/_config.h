@@ -19,24 +19,27 @@
 
 //Modules defs
 #define EL24P//flywoo RX
+//#define DIY_RX
 //#define MATEK_RX_R24D
 //#define MATEK_RX_R24S
 //define BETA_FPV_RX_NANO
 //#define NAMIMNO_RX_NANO_FLASH
-
+//#define DEBUG_EEPROM
+//#define DEBUG_LOOP_TIMING	
+//#define DEBUG_BIND
 #define SW_SERIAL
 //#define HC_BIND
 #define TELEMETRY
 //#define HC_SPORT
 
-#if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH
+#if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined DIY_RX
 #define DIVERSITY
 #endif
 
 //#define SWAMPING
 //#define RSSI_AVG
 #define SPORT_TELEMETRY
-#define FAILSAFE
+//#define FAILSAFE
 
 #if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined MATEK_RX_R24S || defined BETA_FPV_RX_NANO
 #define HAS_PA_LNA
@@ -50,14 +53,22 @@
 //#define STATISTIC
 //#define SERVO_RATE
 //#define PARALLEL_SERVO
-#define EU_LBT
+//#define EU_LBT
 #define USE_WIFI
 
 #ifdef USE_WIFI
     #include "onDemandNonBlocking.h"
 #endif
 
-
+#ifdef DEBUG_LOOP_TIMING	
+	void callMicrosSerial(){
+		static uint32_t tim = 0 ;
+		static uint32_t timt = 0 ;	
+		timt = micros();
+		Serial.println(timt - tim);
+		tim = micros();	
+	}
+#endif
 /*
     Protocol description:
     2.4Ghz LORA modulation

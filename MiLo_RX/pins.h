@@ -32,8 +32,14 @@
     #define SX1280_ANTENNA_SELECT_pin  9
     #define POWER_OUTPUT_FIXED         3   
 #endif
+
 #ifdef EL24P
-    #define POWER_OUTPUT_FIXED      13 
+    #define POWER_OUTPUT_FIXED      13	
+#endif
+
+#ifdef DIY_RX
+	#define POWER_OUTPUT_FIXED      13
+	#define SX1280_ANTENNA_SELECT_pin  9
 #endif
 
 #define BIND_SET_INPUT		pinMode(BIND_pin,INPUT)
