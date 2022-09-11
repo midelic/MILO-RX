@@ -53,6 +53,7 @@ Main operation mode:
 - Sport uplink telemetry rate (1:6)
 
 ## Software Installation ##
+Bofore compiling uncomment the line coresponding to your ExpressLRS receiver in _config.h file.
 - Project built in arduino IDE(version > 1.8.13) under ESP8266 arduino core ,select **Tools, ESP8266-cores**
 
        - Board "Generic ESP8285 module";
@@ -67,7 +68,7 @@ Main operation mode:
 - OTA via WiFi,select "WIFI-RX" mode from Tx handset screen in protocol menu.
 
 ## Binding ##
-- Connect Rx to power without starting the Tx handset.After 30 seconds Rx enters in bind mode automatically.This feature is available only at start and when RX is not bound with TX.
+- Connect Rx to power without starting the Tx handset.After 20 seconds Rx enters in bind mode automatically.This feature is available only at start and when RX is not bound with TX.
 - Start Tx ,enter in protocol menu and start  bind process.
 
 ## Failsafe ##
