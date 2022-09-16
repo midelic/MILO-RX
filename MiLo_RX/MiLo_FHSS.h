@@ -130,61 +130,7 @@ uint8_t fhss_bind_channel_list_len;
 const uint32_t* fhss_freq_list;
 const uint8_t* fhss_bind_channel_list;
 
-#ifdef USE_HC_FHSS
-    uint32_t fhss_list_hc[47] = 
-    {
-        12345974,
-        12421592,
-        12174572,
-        12164489,
-        12305644,
-        12325809,
-        12386304,
-        12204819,
-        12245149,
-        12179613,
-        12416551,
-        12356056,
-        12184654,
-        12169531,
-        12265314,
-        12330850,
-        12255232,
-        12235067,
-        12320768,
-        12300603,
-        12426633,
-        12159448,
-        12290520,
-        12129201,
-        12351015,
-        12214902,
-        12280438,
-        12446798,
-        12340932,
-        12381262,
-        12461922,
-        12371180,
-        12451840,
-        12366139,
-        12396386,
-        12315726,
-        12376221,
-        12230025,
-        12154407,
-        12406468,
-        12441757,
-        12456881,
-        12209860,
-        12219943,
-        12199778,
-        12295561,
-        12335891,
-    };
-#endif
-
-
-void ICACHE_RAM_ATTR Fhss_Init()
+void  Fhss_Init()
 {
     fhss_freq_list = fhss_freq_list_2p4;
     fhss_bind_channel_list = fhss_bind_channel_list_2p4;
@@ -196,7 +142,7 @@ void ICACHE_RAM_ATTR Fhss_Init()
     _seed = 0;
 }
 
-uint16_t ICACHE_RAM_ATTR prng(void)
+uint16_t prng(void)
 {
     const uint32_t a = 214013;
     const uint32_t c = 2531011;
@@ -207,7 +153,7 @@ uint16_t ICACHE_RAM_ATTR prng(void)
     return _seed >> 16;
 }
 
-void ICACHE_RAM_ATTR Fhss_generate(uint32_t seed)//
+void  Fhss_generate(uint32_t seed)//
 {
     _seed = seed;
     
@@ -308,7 +254,7 @@ uint32_t  ICACHE_RAM_ATTR GetCurrFreq(void)
     return fhss_list[curr_i];
 }
     
-uint32_t ICACHE_RAM_ATTR bestX(void)
+uint32_t  bestX(void)
 {
     uint8_t i_best = 0;
     for (uint8_t i = 0; i < cnt; i++) 

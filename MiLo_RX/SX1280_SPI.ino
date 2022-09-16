@@ -13,13 +13,11 @@
 #endif
 
 #define MinPower PWR_10mW
-#define MaxPower PWR_10mW
-static const int16_t powerValues[PWR_COUNT] = {13};//no PA/LNA
+#define MaxPower PWR_100mW
 
 uint32_t BusyDelayStart;
 uint32_t BusyDelayDuration;
 //static int8_t powerCaliValues[PWR_COUNT] = {0};
-int8_t CurrentSX1280Power = 0;
 uint8_t CurrentPower;
 
 enum TXRX_State 
@@ -542,7 +540,7 @@ bool  ICACHE_RAM_ATTR SX1280_Begin()
 
 
 
-void  ICACHE_RAM_ATTR SX1280_Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t freq,uint8_t PreambleLength, bool InvertIQ, uint8_t _PayloadLength, uint32_t interval)
+void  ICACHE_RAM_ATTR SX1280_Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t freq,uint8_t PreambleLength, bool InvertIQ, uint8_t _PayloadLength)
 {
     uint8_t irqs = SX1280_IRQ_TX_DONE | SX1280_IRQ_RX_DONE;
     uint8_t const mode = SX1280_PACKET_TYPE_LORA;
@@ -556,21 +554,8 @@ void  ICACHE_RAM_ATTR SX1280_Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t
     SX1280_SetPacketParamsLoRa(PreambleLength, packetLengthType,_PayloadLength, SX1280_LORA_CRC_ON, InvertIQ);
     SX1280_SetFrequencyReg(freq);
     SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, irqs, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);
-    
-    //SX1280_SetRxTimeoutUs(interval);//for Rx using micros()in main
 }
 
-void ICACHE_RAM_ATTR  SX1280_SetRxTimeoutUs(uint32_t interval)
-{
-    if (interval)
-    {
-        timeout = interval * 1000 / RX_TIMEOUT_PERIOD_BASE_NANOS; // number of periods for the SX1280 to timeout
-    }
-    else
-    {
-        timeout = 0xFFFF;   // no timeout, continuous mode
-    }
-}
 
 bool  ICACHE_RAM_ATTR SX1280_GetFrequencyErrorbool()
 {
@@ -697,51 +682,21 @@ uint8_t  getPowerIndBm()
     }
 }
 
-void  ICACHE_RAM_ATTR POWER_init()
+void  POWER_init()
 {
-     CurrentPower = PWR_COUNT;	
-     SX1280_setPower(MinPower);//min 10mW
+	 CurrentPower = 0;
+	#ifdef POWER_OUTPUT_FIXED
+	CurrentPower = POWER_OUTPUT_FIXED;
+   #endif
+     SX1280_setPower(CurrentPower);//min 10mW
 }
-
-uint8_t   SX1280_decPower()
-{
-    if (CurrentPower > MinPower)
-    {
-        SX1280_setPower((uint8_t)CurrentPower - 1);
-    }
-    return CurrentPower;
-}
-
-uint8_t   SX1280_incPower()
-{
-    if (CurrentPower < MaxPower)
-    {
-        SX1280_setPower((uint8_t)CurrentPower + 1);
-    }
-    return CurrentPower;
-}
-
 
 void  ICACHE_RAM_ATTR SX1280_setPower(uint8_t Power)
 {	
     if (Power == CurrentPower)
-        return;
-    
-    if (Power < MinPower)
-    {
-        Power = MinPower;
-    }
-    else if (Power > MaxPower)
-    {
-        Power = MaxPower;
-    }
-    #ifdef POWER_OUTPUT_FIXED
-	CurrentSX1280Power = Power;
-	#else
-	CurrentSX1280Power = powerValues[Power - MinPower];
-	#endif
-    SX1280_SetOutputPower(CurrentSX1280Power);
-    CurrentPower = Power;
+        return; 
+     CurrentPower = Power;
+    SX1280_SetOutputPower( CurrentPower);
 }
 
 void  ICACHE_RAM_ATTR SX1280_SetOutputPower( int8_t power )//default values 13 ->12.5dbm;no external PA
