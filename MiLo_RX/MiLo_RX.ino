@@ -53,17 +53,17 @@ uint16_t countFS = 0;
 //Channels
 #define NO_PULSE  0
 #define HOLD  2047
-#define MAX_MISSING_PKT 100
+#define MAX_MISSING_PKT 100 // when missingPackets reachs this value, failsafe is ON and connection is lost
 
-uint16_t ServoData[16];
+uint16_t ServoData[16]; // rc channels to be used for Sbus (received from Tx or failsafe)
 volatile int32_t missingPackets = 0;
-bool packet = false;
+bool packet = false; // true means that a packet (any type) has been received from Tx and must be decoded
 uint8_t jumper = 0;
 uint16_t c[8];
-uint32_t t_out = 50;
+uint32_t t_out = FHSS_CHANNELS_NUM;
 uint32_t t_tune = 500;
 uint16_t wordTemp;
-volatile uint8_t all_off = 0;
+volatile uint8_t all_off = 0;   // 1 means NO pulse
 uint32_t packetTimer;
 volatile bool frameReceived = false;
 uint16_t LED_count = 0;
@@ -78,7 +78,7 @@ uint32_t debugTimer;
 char debug_buf[64];
 bool dwnlnkstart = false;
 uint8_t packet_count = 0;
-enum {
+enum { // types of packet being received from TX
 	BIND_PACKET = 0,
 	CH1_8_PACKET1,
 	CH1_8_PACKET2,
@@ -137,10 +137,9 @@ MiLo_statistics MiLoStats;
 
 //TELEMETRY
 #ifdef TELEMETRY
-	uint8_t frame[15];
-	bool a_pass = false;
+	uint8_t frame[15];// frame to be sent to TX
 	uint8_t pass = 0;
-	uint8_t telemetryRX = 0;
+	uint8_t telemetryRX = 0;// when 1 next slot is downlink telemetry
 	uint8_t TelemetryExpectedId;
 	uint8_t TelemetryId;
 	uint8_t UplinkTlmId = 0;
@@ -150,7 +149,7 @@ MiLo_statistics MiLoStats;
 	uint8_t sportMSPdata[16];
 	volatile uint8_t idxs = 0;
 	uint8_t smartPortRxBytes = 0;
-	uint8_t ReceivedSportData[11];
+	uint8_t ReceivedSportData[11];//transfer all sport telemetry data received from TX in a buffer including No. of bytes in sport telemetry frame(uplink frame)
 #endif
 
 #ifdef SPORT_TELEMETRY
@@ -196,11 +195,11 @@ typedef struct MiLo_mod_settings_s
 typedef struct MiLo_rf_pref_params_s
 {
 	uint8_t index;
-	uint8_t frame_rate;
-	int32_t RXsensitivity;                // expected RF sensitivity based on
-	uint32_t TOA;                         // time on air in microseconds
-	uint32_t DisconnectTimeoutMs;         // Time without a packet before receiver goes to disconnected (ms) - from ExpressLRS
-	uint32_t RxLockTimeoutMs;             // Max time to go from tentative -> connected state on receiver (ms) - from ExpressLRS
+	uint8_t frame_rate;                    // not used by MILO
+	int32_t RXsensitivity;                // expected RF sensitivity based on - not used
+	uint32_t TOA;                         // time on air in microseconds - not used
+	uint32_t DisconnectTimeoutMs;         // Time without a packet before receiver goes to disconnected (ms) - from ExpressLRS - not used
+	uint32_t RxLockTimeoutMs;             // Max time to go from tentative -> connected state on receiver (ms) - from ExpressLRS - not used
 } MiLo_rf_pref_params_t;
 
 enum
@@ -237,10 +236,9 @@ void  ICACHE_RAM_ATTR MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link 
 		&& (RFperf == MiLo_currAirRate_RFperfParams)
 	&& (invertIQ == IQinverted))
     return;
-	uint32_t interval = ModParams->interval;
 	//uint32_t interval = 0XFFFF;//use micros() instead
 	SX1280_Config(ModParams->bw, ModParams->sf, ModParams->cr, GetCurrFreq(),
-	ModParams->PreambleLen, invertIQ, ModParams->PayloadLength, interval);
+	ModParams->PreambleLen, invertIQ, ModParams->PayloadLength);
 	
 	MiLo_currAirRate_Modparams = ModParams;
 	MiLo_currAirRate_RFperfParams = RFperf;
@@ -259,16 +257,16 @@ void setup()
 	#endif
 	
 	#ifdef SBUS
-		init_SBUS();
+		init_SBUS(); // sbus uses Serial.begin with inverted signal
 	#endif
 	#if defined SPORT_TELEMETRY
-		initSportUart();//SW serial
+		initSportUart();// sport to sensort uses SW serial with the same pin for TX and Rx, signal is inverted
 		SportHead = SportTail = 0;
 	#endif
 	
-	Fhss_Init();
-	MiLoRxBinding(0);
-	Fhss_generate(MProtocol_id);
+	Fhss_Init();// setup some fhss fixed variables
+	MiLoRxBinding(0); // ReadEEPROMdata and set is_in_binding = false;
+	Fhss_generate(MProtocol_id); // generates the used frequency (based on param in EEPROM)
 	currFreq = GetCurrFreq(); //set frequency first or an error will occur!!!
 	bool init_success = SX1280_Begin();
 	if (!init_success)
@@ -286,14 +284,12 @@ void setup()
 			POWER_init();
 			SX1280_SetTxRxMode(RX_EN);//LNA enable
 			#else
-			CurrentPower = POWER_OUTPUT_FIXED;
-			SX1280_setPower(CurrentPower);
+			SX1280_setPower(POWER_OUTPUT_FIXED);
 		#endif
 		SX1280_SetMode(SX1280_MODE_RX);
 		frameReceived = false;
 		bindingTime = millis() ;
 		#ifdef SPORT_TELEMETRY
-			if (!jumper)
 			ConfigTimer();
 		#endif
 		
@@ -305,7 +301,7 @@ void loop()
 	static uint32_t interval = MiLo_currAirRate_Modparams->interval;
 	static uint8_t countUntilWiFi = 0;
 	static uint8_t sportCount = 0;
-	if (bind_jumper() && jumper == 0
+	if (bind_jumper() && jumper == 0// when button is pushed and previously it was not pressed
 		#ifdef TX_FAILSAFE
 			&& setFSfromTx == false
 		#endif
@@ -334,23 +330,15 @@ void loop()
 				if (word == NO_PULSE) //no pulse
 				{
 					ServoData[i] = 0;
-					#ifdef PARALLEL_SERVO
-						Servo_sorted_data[i] = 0;
-					#endif
 					all_off = 1;
 				}
 				else if (word == HOLD) //2047 equivalent is hold value so no update data.
 				{
-					#ifdef PARALLEL_SERVO
-						Servo_sorted_data[i] = (ServoData[i] << 1);
-					#endif
+					//do nothing
 				}
 				else
 				{
 					ServoData[i] = word;
-					#ifdef PARALLEL_SERVO
-						Servo_sorted_data[i] = (word << 1);
-					#endif
 				}
 				
 				#if defined(SBUS)
@@ -368,17 +356,16 @@ void loop()
 	while (1)
 	{
 		if ((micros() - packetTimer) >= ((t_out * interval) + t_tune))
-		{
+		{// if timeout occurs (after 1 or FHSS_CHANNELS_NUM *( interval = 7ms) or 476 msec)
 			#ifdef HAS_PA_LNA
-				CurrentPower = PWR_100mW;
-				SX1280_setPower(CurrentPower);
+				SX1280_setPower(PWR_100mW);
 			#endif
-			if (t_out == 1)
+			if (t_out == 1)// if we where connected and just waited for 1 interval = 7 msec
 			{
-				#if defined DIVERSITY
+				#ifdef DIVERSITY
 					if (missingPackets >= 3)
 					{
-						if (a_pass)
+						if (antenna ==1)
 						{
 							SX1280_ANT_SEL_off;
 							antenna = 0;//ant 1
@@ -388,22 +375,20 @@ void loop()
 							SX1280_ANT_SEL_on;
 							antenna = 1;//ant2
 						}
-						a_pass = !a_pass;
 					}
 				#endif
 				
 				if (missingPackets > MAX_MISSING_PKT)//lost connection
 				{
-					t_out = 50;
+					t_out = FHSS_CHANNELS_NUM;// wait max 68 slots of 7 msec before exiting while()
 					countFS = 0;
 					#ifdef TELEMETRY
 						telemetryRX = 0;
 					#endif
 					uplinkLQ = 0;
 					dwnlnkstart = false;
-					packet_count = 0;
 				}
-				if (jumper)
+				if (jumper)//jumper = 1 when failsafe is activated
 				countFS ++;
 				
 				#ifdef STATISTIC
@@ -423,19 +408,17 @@ void loop()
 				missingPackets++;
 				if (missingPackets >= 2)
 				t_tune = 0;
-				//if (dwnlnkstart == true)
-				//packet_count = (packet_count + 1) % 3;
 				nextChannel(1);
 				SX1280_SetFrequencyReg(GetCurrFreq());
 			}
-			else
+			else// t_out = 68 and so it means no connection or connection is lost 
 			{
 				if (jumper == 0)
 				{
 					LED_count++ & 0x02 ? LED_on : LED_off;
 				}
 				else
-				{ //when button is pressed
+				{ //when button is pressed while Rx is not connected, Failsafe are reset on 0 (= no pulse) 
 					uint8_t n = 10;
 					while (n--)
 					{ //fast blinking until resetting  FS data from RX
@@ -463,13 +446,13 @@ void loop()
 					jumper = 0;
 					
 				}
-				nextChannel(3);
+				nextChannel(3); // frequency hop after 68 slots. So Rx stays listening on the same channel while Tx hop every slot 
 				SX1280_SetFrequencyReg(GetCurrFreq());
 			}
-			break;
+			break;// exit while() when a time out occurs
 		}
 		
-		if (frameReceived == true)
+		if (frameReceived == true)// a frame has been received from the TX
 		{
 			uint8_t const FIFOaddr = SX1280_GetRxBufferAddr();
 			SX1280_ReadBuffer(FIFOaddr, RxData, PayloadLength);
@@ -505,6 +488,10 @@ void loop()
 							{ //receive Flag from tx to start wifi server
 								if (++countUntilWiFi == 2)
 								{
+									#ifdef HAS_PA_LNA
+										SX1280_SetTxRxMode(TXRX_OFF);//stop PA/LNA to reduce current before starting WiFi
+									#endif
+								    SX1280_SetMode(SX1280_MODE_SLEEP);//start sleep mode to reduce SX120 current before starting WiFi
 									countUntilWiFi = 0;
 									timer0_detachInterrupt();//timer0 is needed for wifi
 									startWifiManager();
@@ -536,20 +523,20 @@ void loop()
 				#if defined(TELEMETRY)
 					if (FrameType != TLM_PACKET) //sync telemetry
 					{
-					if ((RxData[3] >> 7)== 1)
+						if ((RxData[3] >> 7)== 1)
 						{
 							telemetryRX = 1;//next is downlink telemetry
 							packet_count = 1;
+							dwnlnkstart = true;
 						}
 					}
 					else
 					{ //TLM PACKET
 						telemetryRX = 1;//next is downlink telemetry
-						//dwnlnkstart = true;
 						packet_count = 1;
 					}
 				#endif
-				packet = true;//flag ,packet ready to decode
+				packet = true;//flag ,packet ready to decode (can be any type)
 				
 				if (jumper == 0)
 				LED_on;
@@ -560,10 +547,10 @@ void loop()
 		}
 	}
 	
-	
+	// when we arrive here, it means that OR a frame has been received OR a time out occurs
 	#if defined(TELEMETRY)
-		if (telemetryRX )
-		{
+		if (telemetryRX || packet_count == 1 )
+		{ // next slot must be used to send a downlink telemetry packet.
 			#ifdef HAS_PA_LNA
 				#ifdef EU_LBT
 					if (!ChannelIsClear()) {
@@ -584,28 +571,27 @@ void loop()
 					}
 				}
 			#endif
+			if (dwnlnkstart == true)
+			packet_count = (packet_count + 1) % 3;
 		}
 		else
 	#endif
 	{
 		if (packet == true || missingPackets > 0)
-	     {
+		{
 	        sbus_counter++;
 			#ifdef HAS_PA_LNA
 				SX1280_SetTxRxMode(RX_EN);// do first to allow LNA stabilise
 			#endif
 			SX1280_SetMode(SX1280_MODE_RX);
-		 }
+			if (dwnlnkstart == true)
+			packet_count = (packet_count + 1) % 3;
+		}
 	}
 	
+	
 	if (packet)
-	{
-         uint8_t inputbitsavailable = 0;
-		 uint32_t inputbits = 0 ;
-		//if (dwnlnkstart == true)
-		//packet_count = (packet_count + 1) % 3;
-		FrameType = (RxData[0] & 0x07);
-		
+	{		// a frame has been received and must be decoded 
 		if (FrameType != TLM_PACKET)
 		{	
 			c[0]  = (uint16_t)((RxData[4] | RxData[5]  << 8) & 0x07FF);
@@ -689,17 +675,14 @@ void loop()
 							//debugln(" S2 = %d", ServoData[2]);
 						#endif
 						#if defined SBUS
-					channel[i+j] = (ServoData[i+j]-881)*1.6;//881-2159 to 0-2047
-					channel[i+j] = constrain(channel[i],0,2047);
-						#endif
-						#ifdef PARALLEL_SERVO
-							ServoSortedData[i] = (wordTemp << 1);
+							channel[i+j] = (ServoData[i+j]-881)*1.6;//881-2159 to 0-2047
+							channel[i+j] = constrain(channel[i],0,2047);
 						#endif
 					}
 				}
 				
 			}
-				
+			
 			if (jumper
 				#ifdef TX_FAILSAFE
 					&& fs_started == false
@@ -733,11 +716,11 @@ void loop()
 			if (sportCount > 0)
 			{
 				for (uint8_t i = 1; i <= sportCount; i++)
-				smartPortDataReceive(ReceivedSportData[i]);
+				smartPortDataReceive(ReceivedSportData[i]);// process all bytes of uplink tlm frame
 				sportCount = 0;
 			}
 		#endif
-		packet = false;
+		packet = false;// received packet has been processed
 		
 		#ifdef STATISTIC
 			// Received a packet, that's the definition of LQ
@@ -765,7 +748,7 @@ void loop()
 	}
 	
 	#if defined  SBUS
-	if (sbus_counter == 2)//sent out sbus on  every 14ms (timed by interval)
+		if (sbus_counter == 2)//sent out sbus on  every 14ms (timed by interval)
 		{ 
 			sbus_counter = 0;
 			if (all_off == 0)
@@ -784,7 +767,7 @@ void loop()
 	#endif
 	
 	#ifdef SW_SERIAL
-		callSportSerial();
+		callSportSerial();// process Sport data that could be received from sensor.
 	#endif
 }
 
@@ -795,8 +778,12 @@ void   SetupTarget()
 	pinMode(SX1280_RST_pin , OUTPUT);
 	pinMode(SX1280_BUSY_pin , INPUT);
 	pinMode(SX1280_DIO1_pin , INPUT);
-	pinMode(SX1280_CSN_pin , OUTPUT); //
+	pinMode(SX1280_CSN_pin , OUTPUT); 
 	digitalWrite(SX1280_CSN_pin, HIGH);
+	#ifdef DIVERSITY		
+		pinMode(SX1280_ANTENNA_SELECT_pin , OUTPUT);	
+		SX1280_ANT_SEL_on;
+	#endif
 	//SPI
 	SPI.begin();
 	SPI.setBitOrder(MSBFIRST);
@@ -808,10 +795,6 @@ void   SetupTarget()
 		//pinMode(SX1280_CSD_pin ,OUTPUT);//CSD
 		//SX1280_CSD_on;// this is on all the time except in sleep mode of SE2431
 		//
-	#endif
-	#if defined DIVERSITY
-		pinMode(SX1280_ANTENNA_SELECT_pin , OUTPUT);
-		SX1280_ANT_SEL_on;
 	#endif
 	EEPROM.begin(EEPROM_SIZE);
 }
@@ -859,12 +842,9 @@ void MiLoRxBind(void)
 		MiLo_SetRFLinkRate(RATE_BINDING);
 	#endif
 	SX1280_SetFrequencyReg(currFreq);
+	POWER_init();
 	#ifdef HAS_PA_LNA
-		POWER_init();
 		SX1280_SetTxRxMode(RX_EN);// do first to enable LNA
-		#else
-		CurrentPower = POWER_OUTPUT_FIXED;
-		SX1280_setPower(CurrentPower);
 	#endif
 	SX1280_SetMode(SX1280_MODE_RX);
 	
@@ -1145,7 +1125,7 @@ void MiLoRxBind(void)
 				
 			}
 			if (sport_index >= 8) {
-				if ((micros() - sportStuffTime) > 500)//If not receive any new sport data in time > 3 * time between consecutive bytes (~160us)
+				if ((micros() - sportStuffTime) > 500)//If not receive any new sport data in 500us
 				ProcessSportData();
 			}
 		}
@@ -1167,7 +1147,7 @@ void ICACHE_RAM_ATTR dioISR()
 {
 	uint16_t irqStatus = SX1280_GetIrqStatus();
 	#ifdef DEBUG_LOOP_TIMING
-	callMicrosSerial();
+		callMicrosSerial();
 	#endif
 	SX1280_ClearIrqStatus(SX1280_IRQ_RADIO_ALL);
 	if (irqStatus & SX1280_IRQ_TX_DONE)
@@ -1179,7 +1159,7 @@ void ICACHE_RAM_ATTR dioISR()
 	}
 	
 	else 
-		if (irqStatus & (SX1280_IRQ_RX_DONE | SX1280_IRQ_CRC_ERROR | SX1280_IRQ_RX_TX_TIMEOUT))
+	if (irqStatus & (SX1280_IRQ_RX_DONE | SX1280_IRQ_CRC_ERROR | SX1280_IRQ_RX_TX_TIMEOUT))
 	{
 		uint8_t const fail =
 		((irqStatus & SX1280_IRQ_CRC_ERROR) ? SX1280_RX_CRC_FAIL : SX1280_RX_OK) +
@@ -1216,7 +1196,6 @@ void ICACHE_RAM_ATTR dioISR()
 			POWER_init();
 			SX1280_SetTxRxMode(RX_EN);// do first to enable LNA
 			#else
-			CurrentPower = POWER_OUTPUT_FIXED;
 			SX1280_setPower(CurrentPower);
 		#endif
 		Sx1280_SetMode(SX1280_MODE_RX);
