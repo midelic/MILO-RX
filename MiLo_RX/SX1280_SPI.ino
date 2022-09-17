@@ -12,13 +12,11 @@
     #define OPT_USE_SX1280_DCDC false
 #endif
 
-#define MinPower PWR_10mW
-#define MaxPower PWR_100mW
 
 uint32_t BusyDelayStart;
 uint32_t BusyDelayDuration;
 //static int8_t powerCaliValues[PWR_COUNT] = {0};
-uint8_t CurrentPower;
+int8_t CurrentPower = 0;
 
 enum TXRX_State 
 {
@@ -665,7 +663,7 @@ void  ICACHE_RAM_ATTR getRFlinkInfo()
 
 //////////////////// Output Power///////////////////////
 
-
+/*
 
 uint8_t  getPowerIndBm()
 {
@@ -676,31 +674,52 @@ uint8_t  getPowerIndBm()
         case PWR_50mW: return 17;
         case PWR_100mW: return 20;
         case PWR_250mW: return 24;
-        // case PWR_500mW: return 27;
+        case PWR_500mW: return 27;
         default:
         return 0;
     }
 }
 
-void  POWER_init()
-{
-	 CurrentPower = 0;
-	#ifdef POWER_OUTPUT_FIXED
-	CurrentPower = POWER_OUTPUT_FIXED;
-   #endif
-     SX1280_setPower(CurrentPower);//min 10mW
-}
-
 void  ICACHE_RAM_ATTR SX1280_setPower(uint8_t Power)
 {	
-    if (Power == CurrentPower)
-        return; 
+	if (Power == CurrentPower)
+	return;
+
+	#ifdef POWER_OUTPUT_FIXED//No PA/LNA 
+	if (power == PWR_10mW)//For LBT
+	SX1280_SetOutputPower(10);
+    else
+	SX1280_SetOutputPower(POWER_OUTPUT_FIXED);//20mW max
+	#else
+     CurrentSX1280Power = powerValues[Power - MinPower];//10mW
+	 SX1280_SetOutputPower(CurrentSX1280Power);
+	 #endif
      CurrentPower = Power;
-    SX1280_SetOutputPower( CurrentPower);
+}
+*/
+
+void  POWER_init()
+{
+	 CurrentPower = MinPower;
+     SX1280_SetOutputPower(CurrentPower);//min 10mW
 }
 
 void  ICACHE_RAM_ATTR SX1280_SetOutputPower( int8_t power )//default values 13 ->12.5dbm;no external PA
 {
+	if (power == CurrentPower)
+	return;
+#ifdef USER_MAX_POWER
+       if (power < MinPower)
+		{
+			power = UserPower;
+		}
+		else if (power > MaxPower)
+		{
+			power = UserPower;
+		}	
+	
+#endif
+
     // The power value to send on SPI/UART is in the range [0..31] and the
     // physical output power is in the range [-18..13]dBm
     uint8_t buf[2];

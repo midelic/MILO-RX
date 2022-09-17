@@ -77,7 +77,7 @@ uint8_t FrameType = 0;
 uint32_t debugTimer;
 char debug_buf[64];
 bool dwnlnkstart = false;
-uint8_t packet_count = 0;
+uint8_t packetSeq = 0;
 enum { // types of packet being received from TX
     BIND_PACKET = 0,
     CH1_8_PACKET1,
@@ -139,7 +139,7 @@ MiLo_statistics MiLoStats;
 #ifdef TELEMETRY
     uint8_t frame[15];// frame to be sent to TX
     uint8_t pass = 0;
-    uint8_t telemetryRX = 0;// when 1 next slot is downlink telemetry
+    //uint8_t telemetryRX = 0;// when 1 next slot is downlink telemetry
     uint8_t TelemetryExpectedId;
     uint8_t TelemetryId;
     uint8_t UplinkTlmId = 0;
@@ -176,7 +176,7 @@ uint32_t FreqCorrection;
 uint32_t FreqCorrectionRegValue;
 uint16_t timeout = 0xFFFF;
 uint8_t packetLengthType;
-extern uint8_t CurrentPower;
+extern int8_t CurrentPower;
 
 typedef struct MiLo_mod_settings_s
 {
@@ -280,11 +280,9 @@ void setup()
         MiLo_SetRFLinkRate(RATE_150HZ);
         SX1280_SetFrequencyReg(currFreq);
         PayloadLength = MiLo_currAirRate_Modparams->PayloadLength;
+		 POWER_init();
         #ifdef HAS_PA_LNA
-            POWER_init();
-            SX1280_SetTxRxMode(RX_EN);//LNA enable
-            #else
-            SX1280_setPower(POWER_OUTPUT_FIXED);
+         SX1280_SetTxRxMode(RX_EN);//LNA enable
         #endif
         SX1280_SetMode(SX1280_MODE_RX);
         frameReceived = false;
@@ -357,7 +355,7 @@ void loop()
         if ((micros() - packetTimer) >= ((t_out * interval) + t_tune))
         {// if timeout occurs (after 1 or FHSS_CHANNELS_NUM *( interval = 7ms) or 476 msec)
             #ifdef HAS_PA_LNA
-                SX1280_setPower(PWR_100mW);
+			SX1280_SetOutputPower(MaxPower);
             #endif
             if (t_out == 1)// if we where connected and just waited for 1 interval = 7 msec
             {
@@ -382,10 +380,12 @@ void loop()
                     t_out = FHSS_CHANNELS_NUM;// wait max 68 slots of 7 msec before exiting while()
                     countFS = 0;
                     #ifdef TELEMETRY
-                        telemetryRX = 0;
+                        //telemetryRX = 0;
+				        dwnlnkstart = false;
+						packetSeq = 0;
                     #endif
                     uplinkLQ = 0;
-                    dwnlnkstart = false;
+    
                 }
                 if (jumper)//jumper = 1 when failsafe is activated
                     countFS ++;
@@ -519,21 +519,13 @@ void loop()
                 }
                 //Serial.println(RxData[3]);
                 //Serial.println(FrameType);
-                #if defined(TELEMETRY)
-                    if (FrameType != TLM_PACKET) //sync telemetry
-                    {
-                        if ((RxData[3] >> 7)== 1) 
-                        {   // when bit 8 announce a sync telemetry bit 
-                            telemetryRX = 1;//next is downlink telemetry
-                            packet_count = 1;
-                            dwnlnkstart = true;
-                        }
-                    }
-                    else
-                    { //TLM PACKET
-                        telemetryRX = 1;//next is downlink telemetry
-                        packet_count = 1;
-                    }
+                   #if defined(TELEMETRY)
+                if ((FrameType != TLM_PACKET && (RxData[3] >> 7)== 1) || FrameType == TLM_PACKET )
+                 { 
+                    // telemetryRX = 1;//next is downlink telemetry
+                      packetSeq = 1;
+                     dwnlnkstart = true;
+                 }
                 #endif
                 packet = true;//flag ,packet ready to decode (can be any type)
                 
@@ -547,16 +539,16 @@ void loop()
     
     // when we arrive here, it means that OR a frame has been received OR a time out occurs
     #if defined(TELEMETRY)
-        if (telemetryRX || packet_count == 1 )
+        if (packetSeq == 1 )
         { // next slot must be used to send a downlink telemetry packet.
             #ifdef HAS_PA_LNA
                 #ifdef EU_LBT
                     if (!ChannelIsClear()) 
-                        SX1280_setPower(PWR_10mW);
+                        SX1280_SetOutputPower(MinPower);
                 #endif
             #endif
             SX1280_TXnb();
-            telemetryRX = 0;
+            //telemetryRX = 0;
             sbus_counter++;
             #ifdef STATISTIC
                 if ( aPacketSeen > 5)
@@ -569,7 +561,7 @@ void loop()
                 }
             #endif
             if (dwnlnkstart == true)
-                packet_count = (packet_count + 1) % 3;
+                packetSeq = (packetSeq + 1) % 3;
         }
         else
     #endif
@@ -582,7 +574,7 @@ void loop()
                 #endif
                 SX1280_SetMode(SX1280_MODE_RX);
                 if (dwnlnkstart == true)
-                    packet_count = (packet_count + 1) % 3;
+                    packetSeq = (packetSeq + 1) % 3;
             }
         }
     
@@ -1163,12 +1155,10 @@ void ICACHE_RAM_ATTR dioISR()
         currFreq = GetCurrFreq(); //set frequency first or an error will occur!!! this the reg value not actual freq
         SX1280_Begin();//config
         MiLo_SetRFLinkRate(RATE_BINDING);
-        //SX1280_setPower(MinPower);
+        //SX1280_SetOutputPower(MinPower);
+	     POWER_init();
         #ifdef HAS_PA_LNA
-            POWER_init();
             SX1280_SetTxRxMode(RX_EN);// do first to enable LNA
-        #else
-            SX1280_setPower(CurrentPower);
         #endif
         Sx1280_SetMode(SX1280_MODE_RX);
         uint32_t  t_tune = millis();

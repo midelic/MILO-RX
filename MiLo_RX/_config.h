@@ -24,12 +24,14 @@
 //#define MATEK_RX_R24S
 //define BETA_FPV_RX_NANO
 //#define NAMIMNO_RX_NANO_FLASH
+//#define ESP8266_E28_2G4M20S
 //#define DEBUG_EEPROM
 //#define DEBUG_LOOP_TIMING	
 //#define DEBUG_BIND
 //#define DEBUG_DATA
 //#define SW_SERIAL
 //#define HC_BIND
+//#define USER_MAX_POWER
 #define TELEMETRY
 //#define HC_SPORT
 
@@ -42,8 +44,32 @@
 #define SPORT_TELEMETRY
 #define FAILSAFE
 
-#if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined MATEK_RX_R24S || defined BETA_FPV_RX_NANO
+//#define MinPower PWR_10mW
+//#define MaxPower PWR_100mW
+#if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined MATEK_RX_R24S || defined BETA_FPV_RX_NANO 
 #define HAS_PA_LNA
+#define MinPower -13//10mW
+#define MaxPower 3//100mW
+#ifdef USER_MAX_POWER
+#define UserPower -13//10mW for example can be defined whatever you need
+#endif
+#endif
+
+#ifdef ESP8266_E28_2G4M20S
+#define HAS_PA_LNA
+#define MinPower -13//10mW
+#define MaxPower -2//100mW
+#ifdef USER_MAX_POWER
+#define UserPower -13//10mW for example can be defined whatever you need
+#endif
+#endif
+
+#if defined EL24P || defined DIY_RX//No PA/LNA
+#define MinPower 10
+#define MaxPower 13
+#ifdef USER_MAX_POWER
+#define UserPower 10//10mW for example can be defined whatever you need
+#endif
 #endif
 
 #define SBUS

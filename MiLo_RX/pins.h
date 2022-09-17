@@ -28,16 +28,20 @@
 #elif defined NAMIMNO_RX_FLASH_NANO
     #define SX1280_TXEN_pin            0
     #define SX1280_ANTENNA_SELECT_pin  9
-#endif
-
-#ifdef EL24P
-    #define POWER_OUTPUT_FIXED      13	
-#endif
-
-#ifdef DIY_RX
-	#define POWER_OUTPUT_FIXED      13
+#elif defined DIY_RX
 	#define SX1280_ANTENNA_SELECT_pin  9
 #endif
+
+#ifdef ESP8266_E28_2G4M20S
+#undef SX1280_BUSY_pin
+#undef SX1280_RXEN_pin
+#undef SX1280_TXEN_pin
+#define SX1280_BUSY_pin -1
+#define SX1280_RXEN_pin -1
+#define SX1280_TXEN_pin  5
+#endif
+
+
 
 #define BIND_SET_INPUT		pinMode(BIND_pin,INPUT)
 #define BIND_SET_PULLUP		digitalWrite(BIND_pin,HIGH)	
