@@ -49,10 +49,10 @@ int8_t ICACHE_RAM_ATTR PowerEnumToLBTLimit(uint8_t  txPower)
 
   switch(txPower)
   {
-    case PWR_10mW: return -61 + LBT_RSSI_THRESHOLD_OFFSET_DB;
-    case PWR_25mW: return -65 + LBT_RSSI_THRESHOLD_OFFSET_DB;
-    case PWR_50mW: return -68 + LBT_RSSI_THRESHOLD_OFFSET_DB;
-    case PWR_100mW: return -71 + LBT_RSSI_THRESHOLD_OFFSET_DB;
+    //case PWR_10mW: return -61 + LBT_RSSI_THRESHOLD_OFFSET_DB;//this no need 10mW power are allowed all the time
+   // case PWR_25mW: return -65 + LBT_RSSI_THRESHOLD_OFFSET_DB;
+   // case PWR_50mW: return -68 + LBT_RSSI_THRESHOLD_OFFSET_DB;
+   // case PWR_100mW: return -71 + LBT_RSSI_THRESHOLD_OFFSET_DB;
     // Values above 100mW are not relevant, default to 100mW threshold
     default: return -71 + LBT_RSSI_THRESHOLD_OFFSET_DB;
   }

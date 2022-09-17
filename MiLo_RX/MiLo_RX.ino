@@ -176,7 +176,6 @@ uint32_t FreqCorrection;
 uint32_t FreqCorrectionRegValue;
 uint16_t timeout = 0xFFFF;
 uint8_t packetLengthType;
-extern int8_t CurrentPower;
 
 typedef struct MiLo_mod_settings_s
 {
