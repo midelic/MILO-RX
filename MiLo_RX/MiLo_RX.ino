@@ -356,7 +356,7 @@ void loop()
             #ifdef HAS_PA_LNA
 			SX1280_SetOutputPower(MaxPower);
             #endif
-            if (t_out == 1)// if we where connected and just waited for 1 interval = 7 msec
+            if (t_out >0 && t_out< FHSS_CHANNELS_NUM)// if we where connected and just waited for 1 interval = 7 msec
             {
                 #ifdef DIVERSITY
                     if (missingPackets >= 3)

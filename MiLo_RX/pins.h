@@ -17,16 +17,16 @@
 #define SX1280_SPORT_TX_pin 3 // TX SPORT
 #define SX1280_SBUS_TX_pin   1//SBUS
 //Frontend PA/LNA
-#define SX1280_RXEN_pin      -1 
-#define SX1280_TXEN_pin      -1
 #ifdef MATEK_RX_R24D
-    #define SX1280_TXEN_pin            10
+    #define SX1280_TXEN_pin      10
+	#define SX1280_RXEN_pin      -1 
     #define SX1280_ANTENNA_SELECT_pin  9
 #elif defined BETA_FPV_RX_NANO || defined MATEK_RX_R24S
     #define SX1280_RXEN_pin      9 
     #define SX1280_TXEN_pin      10
 #elif defined NAMIMNO_RX_FLASH_NANO
     #define SX1280_TXEN_pin            0
+	#define SX1280_RXEN_pin      -1 
     #define SX1280_ANTENNA_SELECT_pin  9
 #elif defined DIY_RX
 	#define SX1280_ANTENNA_SELECT_pin  9
