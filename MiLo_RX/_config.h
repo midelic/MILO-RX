@@ -48,10 +48,10 @@
 //#define MaxPower PWR_100mW
 #if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined MATEK_RX_R24S || defined BETA_FPV_RX_NANO 
 #define HAS_PA_LNA
-#define MinPower -13//10mW
-#define MaxPower 3//100mW
+#define MinPower -10//10mW//  powerValues[4]= [-10,-6,-3,1];(Beta_FPV&Matek)//powerValues[4]=[-15,-10,-7,-3];(NAMIMNO_RX_NANO_FLASH)
+#define MaxPower 1//100mW
 #ifdef USER_MAX_POWER
-#define UserPower -13//10mW for example can be defined whatever you need
+#define UserPower -10//10mW for example can be defined whatever you need
 #endif
 #endif
 
