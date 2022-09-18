@@ -16,7 +16,7 @@
 uint32_t BusyDelayStart;
 uint32_t BusyDelayDuration;
 //static int8_t powerCaliValues[PWR_COUNT] = {0};
-int8_t CurrentPower = 0;
+int8_t CurrentPower = -19; // initialized with a dummy value to force a first update/saving when SX1280_SetOutputPower() is called 
 
 enum TXRX_State 
 {
@@ -698,28 +698,20 @@ void  ICACHE_RAM_ATTR SX1280_setPower(uint8_t Power)
 }
 */
 
-void  POWER_init()
-{
-	 CurrentPower = MinPower;
-     SX1280_SetOutputPower(CurrentPower);//min 10mW
-}
+//void  POWER_init()
+//{
+//	 CurrentPower = MinPower;
+//     SX1280_SetOutputPower(CurrentPower);//min 10mW
+//}
 
 void  ICACHE_RAM_ATTR SX1280_SetOutputPower( int8_t power )//default values 13 ->12.5dbm;no external PA
 {
+    #ifdef USER_MAX_POWER
+        if ( power > USER_MAX_POWER)
+            power = USER_MAX_POWER; // limit the power to the max defined by the user
+    #endif 
 	if (power == CurrentPower)
-	return;
-#ifdef USER_MAX_POWER
-       if (power < MinPower)
-		{
-			power = UserPower;
-		}
-		else if (power > MaxPower)
-		{
-			power = UserPower;
-		}	
-	
-#endif
-
+	    return;
     // The power value to send on SPI/UART is in the range [0..31] and the
     // physical output power is in the range [-18..13]dBm
     uint8_t buf[2];
@@ -727,6 +719,7 @@ void  ICACHE_RAM_ATTR SX1280_SetOutputPower( int8_t power )//default values 13 -
         power = -18;
     else if (13 < power) 
         power = 13;
+    CurrentPower = power; // store the value to avoid updates with the same value    
     buf[0] = power + 18;
     buf[1] = (uint8_t)SX1280_RADIO_RAMP_04_US;
     SX1280_WriteCommandMulti( SX1280_RADIO_SET_TXPARAMS, buf, 2,15 );
