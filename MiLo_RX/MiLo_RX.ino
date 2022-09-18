@@ -279,7 +279,8 @@ void setup()
         MiLo_SetRFLinkRate(RATE_150HZ);
         SX1280_SetFrequencyReg(currFreq);
         PayloadLength = MiLo_currAirRate_Modparams->PayloadLength;
-		 POWER_init();
+		// POWER_init();
+        SX1280_SetOutputPower(MaxPower); // set power to max. We do not start sending tlm immediately so it is not an issue
         #ifdef HAS_PA_LNA
          SX1280_SetTxRxMode(RX_EN);//LNA enable
         #endif
@@ -354,7 +355,7 @@ void loop()
         if ((micros() - packetTimer) >= ((t_out * interval) + t_tune))
         {// if timeout occurs (after 1 or FHSS_CHANNELS_NUM *( interval = 7ms) or 476 msec)
             #ifdef HAS_PA_LNA
-			SX1280_SetOutputPower(MaxPower);
+			SX1280_SetOutputPower(MaxPower); // question: should it not be more efficient to move this just before sending a tlm downlink
             #endif
             if (t_out >0 && t_out< FHSS_CHANNELS_NUM)// if we where connected and just waited for 1 interval = 7 msec
             {
@@ -825,7 +826,8 @@ void MiLoRxBind(void)
         MiLo_SetRFLinkRate(RATE_BINDING);
     #endif
     SX1280_SetFrequencyReg(currFreq);
-    POWER_init();
+    //POWER_init();
+    SX1280_SetOutputPower(MaxPower);
     #ifdef HAS_PA_LNA
         SX1280_SetTxRxMode(RX_EN);// do first to enable LNA
     #endif
@@ -1155,7 +1157,8 @@ void ICACHE_RAM_ATTR dioISR()
         SX1280_Begin();//config
         MiLo_SetRFLinkRate(RATE_BINDING);
         //SX1280_SetOutputPower(MinPower);
-	     POWER_init();
+	    // POWER_init();
+        SX1280_SetOutputPower(MaxPower);
         #ifdef HAS_PA_LNA
             SX1280_SetTxRxMode(RX_EN);// do first to enable LNA
         #endif

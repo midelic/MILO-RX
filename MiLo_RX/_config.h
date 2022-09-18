@@ -59,17 +59,13 @@
 #define HAS_PA_LNA
 #define MinPower -13//10mW
 #define MaxPower -2//100mW
-#ifdef USER_MAX_POWER
-#define UserPower -13//10mW for example can be defined whatever you need
-#endif
+#define USER_MAX_POWER -13 //10mW for example can be defined whatever you need
 #endif
 
 #if defined EL24P || defined DIY_RX//No PA/LNA
-#define MinPower 10
-#define MaxPower 13
-#ifdef USER_MAX_POWER
-#define UserPower 10//10mW for example can be defined whatever you need
-#endif
+#define MinPower 10 // 10mW
+#define MaxPower 13 // 20mW
+#define USER_MAX_POWER 10 //10mW for example can be defined whatever you need
 #endif
 
 #define SBUS
