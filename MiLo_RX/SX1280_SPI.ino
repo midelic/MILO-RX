@@ -185,17 +185,10 @@ uint16_t ICACHE_RAM_ATTR SX1280_GetFirmwareVersion( void )
     return( ( ( (uint16_t)SX1280_ReadReg( REG_LR_FIRMWARE_VERSION_MSB ) ) << 8 ) | ( SX1280_ReadReg( REG_LR_FIRMWARE_VERSION_MSB + 1 ) ) );
 }
 
-#ifdef RF_PA_LNA
+#ifdef HAS_PA_LNA
     void SX1280_SetTxRxMode(uint8_t mode)
     {
-        //                                        CPS   CSD   CTX  ANT_SEL
-        //0 All off (sleep mode) (Note 2)         0      0     0     X
-        //1 Rx or Tx bypass mode                  0      1     0     X
-        //2 Rx LNA mode                           1      1     0     X
-        //3 Tx mode                               X      1     1     X
-        //ANT1 port enabled                       X      1     X     0
-        //ANT2 port enabled                       X      1     X     1
-        //SE2431 PA/LNA frontend
+
         if(mode == RX_EN)
         {	
             SX1280_RXEN_on;
