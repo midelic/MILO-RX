@@ -712,18 +712,6 @@ void  ICACHE_RAM_ATTR SX1280_SetOutputPower( int8_t power )//default values 13 -
     #endif 
 	if (power == CurrentPower)
 	    return;
-//#ifdef USER_MAX_POWER
-//       if (power < MinPower)
-//		{
-//			power = UserPower;
-//		}
-//		else if (power > MaxPower)
-//		{
-//			power = UserPower;
-//		}	
-//	
-//#endif
-
     // The power value to send on SPI/UART is in the range [0..31] and the
     // physical output power is in the range [-18..13]dBm
     uint8_t buf[2];
