@@ -424,24 +424,18 @@ void loop()
                         LED_toggle;
                         delay(100); //blink LED
                     }
+                   bool  saveFsToEprom = false;
                     for (uint8_t i = 0 ; i < 16; i++)
                     {
                         if (MiLoStorage.FS_data[i] != 0)
                         {
-                            MiLoStorage.FS_data[i] = 0;//reset the FS values while RX is wating to connect
+                            MiLoStorage.FS_data[i] = 0;//reset the FS values while RX is wating to connect							                   
+                            EEPROMWriteInt(address + 4 + 2 * i, MiLoStorage.FS_data[i]);                       
                             setFSfromRx = true;
                         }
-                        
                     }
-                    if (setFSfromRx)
-                    {
-                        for (uint32_t i = 0; i < 8; i++)
-                        {
-                            EEPROMWriteInt(address + 4 + 2 * i, MiLoStorage.FS_data[i]);
-                        }
-                        EEPROM.commit();
-                        setFSfromRx = false;
-                    }
+					if (saveFsToEprom) EEPROM.commit();
+					
                     jumper = 0;
                     
                 }
@@ -635,18 +629,7 @@ void loop()
                 #if defined TX_FAILSAFE
                     if (fs_started && i == chan)
                     {
-                        if ( c[i] != NO_PULSE && c[i] != HOLD )
-                        {
-                            MiLoStorage.FS_data[chan + j] = word_temp; //custom FS
-                        }
-                        else if (c[i] == HOLD) //HOLD
-                        {
-                            MiLoStorage.FS_data[chan + j] = 2047;
-                        }
-                        else if (c[i] == NO_PULSE ) //NO PULSE
-                        {
-                            MiLoStorage.FS_data[chan + j] = 0;
-                        }
+                      MiLoStorage.FS_data[chan + j] = word_temp; //custom FS
                         //FS from TX is not saved in EEPROM!
                         #ifdef DEBUG_FS
                             if (fs_started)
@@ -677,23 +660,18 @@ void loop()
                 #endif
                 )
             {
-                setFSfromRx = true;
                 if (countFS++ >= MAX_MISSING_PKT)
                 {
                     (countFS & 0x10) ? LED_off : LED_on;
                 }
                 if (countFS >= (2 * MAX_MISSING_PKT))
                 {
-                    if (setFSfromRx)
-                    {
                         for (uint8_t i = 0; i < 16; i++)
                         {
                             if (MiLoStorage.FS_data[i] != ServoData[i]) //only changed values
                                 EEPROMWriteInt(address + 4 + 2 * i, MiLoStorage.FS_data[i]);
                         }
-                        EEPROM.commit();
-                        setFSfromRx = false;
-                    }
+                        EEPROM.commit();   
                     jumper = 0;
                 }
             }
