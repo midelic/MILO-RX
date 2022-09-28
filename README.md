@@ -53,7 +53,28 @@ Main operation mode:
 - Sport uplink telemetry rate (1:6)
 
 ## Software Installation ##
-Bofore compiling uncomment the line coresponding to your ExpressLRS receiver in _config.h file.
+First Install in ARduino IDE the ESP8266 arduino core and coresponding libraries.
+
+Start Arduino and open the **Preferences** window.
+Enter https://arduino.esp8266.com/stable/package_esp8266com_index.json into the File>Preferences>Additional Boards Manager URLs field of the Arduino IDE. You can add multiple URLs, separating them with commas.
+
+Open **Boards Manager from Tools > Board menu** and install esp8266 platform (and don't forget to select your ESP8266 board from Tools > Board menu after installation).
+
+Along with ESP8266 core  you need to install 2 more libraries **AsyncElegantOTA and  ESPAsyncWebserver** like below :
+
+For  AsyncElegantOTA  Go to Sketch > Include Library > Library Manager > Search for "AsyncElegantOTA" > Install
+
+Close Arduino and re-open again.
+
+For ESPAsyncWebserver you need to do install manually see below.
+
+Click [here](https://github.com/me-no-dev/ESPAsyncWebServer/archive/refs/heads/master.zip) to download the ESPAsyncWebServer library. You should have a .zip folder in your Downloads folder.
+1. Unzip the .zip folder and you should get ESPAsyncWebServer-master folder
+2. Rename your folder from ESPAsyncWebServer-master to ESPAsyncWebServer
+3. Move the ESPAsyncWebServer folder to your Arduino IDE installation libraries folder.
+4. If ARduino IDE is open, close it and start again to re-load libraries automatically.
+
+Before compiling uncomment the line coresponding to your ExpressLRS receiver in _config.h file.
 - Project built in arduino IDE(version > 1.8.13) under ESP8266 arduino core ,select **Tools, ESP8266-cores**
 
        - Board "Generic ESP8285 module";
@@ -61,11 +82,9 @@ Bofore compiling uncomment the line coresponding to your ExpressLRS receiver in 
        - Flash size "2M(FS:64KB ~ OTA 992KB)";
        - MMU: "16KB cache + 48 KB RAM(IRAM)"
        
-- Library for WiFi( WiFiManager - https://github.com/tzapu/WiFiManager#install-through-library-manager )
-
 ## Flashing ##
-- Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding receiver pins(TX ->RX and RX->TX) and power the receiver on with button pressed .Release the button and upload the firmware.
-- OTA via WiFi,select "WIFI-RX" mode from Tx handset screen in protocol menu.
+- Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding receiver pins(TX ->RX and RX->TX) and power the receiver on with button pressed .Release the button and upload the firmware.For flashing OTA you need to get a .bin file. For that press Sketch ,select **Export compiled Binary**.Browse to the location of the binary(.bin file) to get the file and  store it in an acessible folder.
+- OTA via WiFi,select "WIFI-RX" mode from Tx handset screen in protocol menu.It will open an AP with SSID name **"MiLo_RX"** introduce password **"milo_sx1280"**.It will open a captive portal on **"10.0.0.1"** adress.Inside you will browse to the firmware(you already stored before) and upload it.After uploading is completed restart the RX with the new firmware.
 
 ## Binding ##
 - Connect Rx to power without starting the Tx handset.After 20 seconds Rx enters in bind mode automatically.This feature is available only at start and when RX is not bound with TX.
