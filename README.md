@@ -60,19 +60,19 @@ Enter https://arduino.esp8266.com/stable/package_esp8266com_index.json into the 
 
 Open **Boards Manager from Tools > Board menu** and install esp8266 platform (and don't forget to select your ESP8266 board from Tools > Board menu after installation).
 
-Along with ESP8266 core  you need to install 2 more libraries **AsyncElegantOTA and  ESPAsyncWebserver** like below :
+Along with ESP8266 core  you need to install 2 more libraries **AsyncElegantOTA and  ESPAsyncWebserver and ESPAsyncTCP** like below :
 
 For  AsyncElegantOTA  Go to Sketch > Include Library > Library Manager > Search for "AsyncElegantOTA" > Install
 
 Close Arduino and re-open again.
 
-For ESPAsyncWebserver you need to do install manually see below.
+For ESPAsyncWebserver and  ESPAsyncTCP you need to do install manually see below.
 
-Click [here](https://github.com/me-no-dev/ESPAsyncWebServer/archive/refs/heads/master.zip) to download the ESPAsyncWebServer library. You should have a .zip folder in your Downloads folder.
-1. Unzip the .zip folder and you should get ESPAsyncWebServer-master folder
-2. Rename your folder from ESPAsyncWebServer-master to ESPAsyncWebServer
-3. Move the ESPAsyncWebServer folder to your Arduino IDE installation libraries folder.
-4. If ARduino IDE is open, close it and start again to re-load libraries automatically.
+Click [AsyncWebServer](https://github.com/me-no-dev/ESPAsyncWebServer/archive/refs/heads/master.zip)  to download the ESPAsyncWebServer library.
+
+Click [ESPAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP/archive/refs/heads/master.zip)   to download the ESPAsyncTCP library.
+
+Next open Arduino IDE Sketch/Include Library/Add Zip library...and select the .zip file).Do this for both libraries. Next close Arduino IDE and start again to re-load libraries automatically.
 
 Before compiling uncomment the line coresponding to your ExpressLRS receiver in _config.h file.
 - Project built in arduino IDE(version > 1.8.13) under ESP8266 arduino core ,select **Tools, ESP8266-cores**
