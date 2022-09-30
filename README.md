@@ -84,7 +84,7 @@ Before compiling uncomment the line coresponding to your ExpressLRS receiver in 
        
 ## Flashing ##
 - Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding receiver pins(TX ->RX and RX->TX) and power the receiver on with button pressed .Release the button and upload the firmware.For flashing OTA you need to get a .bin file. For that press Sketch ,select **Export compiled Binary**.Browse to the location of the binary(.bin file) to get the file and  store it in an acessible folder.
-- OTA via WiFi,select "WIFI-RX" mode from Tx handset screen in protocol menu.It will open an AP with SSID name **"MiLo_RX"** introduce password **"milo_sx1280"**.It will open a captive portal on **"10.0.0.1"** adress.Inside you will browse to the firmware(you already stored before) and upload it.After uploading is completed restart the RX with the new firmware.
+- OTA via WiFi,select "WIFI-RX" mode from Tx handset screen in protocol menu, switch off TX handset .Power on the RX,next start the TX handset and  observe RX LED blinking fast. Find your Wifi network and see an AP with SSID name **"MiLo_RX"** introduce password **"milo_sx1280"**.It will open a captive portal on **"10.0.0.1"** adress.Inside you will browse to the firmware(you already stored before) and upload it.After uploading is completed restart the RX with the new firmware.
 
 ## Binding ##
 - Connect Rx to power without starting the Tx handset.After 20 seconds Rx enters in bind mode automatically.This feature is available only at start and when RX is not bound with TX.
