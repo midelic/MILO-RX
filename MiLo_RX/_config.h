@@ -15,7 +15,9 @@
     You should have received a copy of the GNU General Public License
     along with this code.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+#ifdef ESP8266
+	#define ESP8266_PLATFORM
+#endif
 
 //Modules defs
 #define EL24P//flywoo RX
@@ -29,7 +31,7 @@
 //#define DEBUG_LOOP_TIMING	
 //#define DEBUG_BIND
 //#define DEBUG_DATA
-//#define SW_SERIAL
+#define SW_SERIAL
 //#define HC_BIND
 //#define USER_MAX_POWER
 #define TELEMETRY
@@ -80,7 +82,7 @@
 #define USE_WIFI
 
 #ifdef USE_WIFI
-    #include "onDemandNonBlocking.h"
+    #include "devWIFI_elegantOTA.h"
 #endif
 
 #ifdef DEBUG_LOOP_TIMING	

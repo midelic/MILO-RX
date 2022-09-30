@@ -191,18 +191,24 @@ uint16_t ICACHE_RAM_ATTR SX1280_GetFirmwareVersion( void )
 
         if(mode == RX_EN)
         {	
+	    if(SX1280_RXEN_pin != -1)
             SX1280_RXEN_on;
+		if(SX1280_TXEN_pin != -1)
             SX1280_TXEN_off;
         }
         else
         if (mode == TX_EN)
         {
+	    if(SX1280_rXEN_pin != -1)
             SX1280_RXEN_off;
+		if(SX1280_TXEN_pin != -1)
             SX1280_TXEN_on;
         }
         else
         {
+	    if(SX1280_TXEN_pin != -1)
             SX1280_TXEN_off;
+		if(SX1280_RXEN_pin != -1)
             SX1280_RXEN_off;
         }
     }
@@ -591,11 +597,7 @@ void  ICACHE_RAM_ATTR getRFlinkInfo()
     else if (irqStatus & (SX1280_IRQ_RX_DONE | SX1280_IRQ_CRC_ERROR | SX1280_IRQ_RX_TX_TIMEOUT))
     SX1280_RXnbISR(irqStatus);		
     }
-    
-    
-    
-    
-    
+       
     void TXnbISR()
     {
     currOpmode = SX1280_MODE_FS; // radio goes to FS after TX

@@ -78,6 +78,7 @@ uint32_t debugTimer;
 char debug_buf[64];
 bool dwnlnkstart = false;
 uint8_t packetSeq = 0;
+bool startWifi = false;
 enum { // types of packet being received from TX
     BIND_PACKET = 0,
     CH1_8_PACKET1,
@@ -251,7 +252,8 @@ void setup()
     
     #if defined(DEBUG) || defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_DATA)
         #undef SBUS
-        Serial.begin(230400, SERIAL_8N1, SERIAL_TX_ONLY);
+		#undef SW_SERIAL
+        Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
         #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}
     #endif
     
@@ -279,7 +281,6 @@ void setup()
         MiLo_SetRFLinkRate(RATE_150HZ);
         SX1280_SetFrequencyReg(currFreq);
         PayloadLength = MiLo_currAirRate_Modparams->PayloadLength;
-		// POWER_init();
         SX1280_SetOutputPower(MaxPower); // set power to max. We do not start sending tlm immediately so it is not an issue
         #ifdef HAS_PA_LNA
          SX1280_SetTxRxMode(RX_EN);//LNA enable
@@ -304,15 +305,18 @@ void loop()
             && setFSfromTx == false
         #endif
     )
-    
+
     if (countFS == 0) //only at boot reset (Failsafe) no reset while the rx is bound
     {
         countFS = 1;
         jumper = 1;
     }
     
+
+	
     if ((millis() - bindingTime) > 20000 && aPacketSeen == 0)
     { //only at start after 20 sec binding process
+        timer0_detachInterrupt();//timer0 is needed for wifi
         MiLoRxBinding(1);
     }
     
@@ -336,8 +340,7 @@ void loop()
                 else
                 {
                     ServoData[i] = word;
-                }
-                
+                }              
                 #if defined(SBUS)
                     channel[i] = (ServoData[i]-881)*1.6;//881-2159 to 0-2047
                     channel[i] = constrain(channel[i],0,2047);
@@ -425,17 +428,18 @@ void loop()
                         delay(100); //blink LED
                     }
                    bool  saveFsToEprom = false;
+				   detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));	
                     for (uint8_t i = 0 ; i < 16; i++)
                     {
                         if (MiLoStorage.FS_data[i] != 0)
                         {
                             MiLoStorage.FS_data[i] = 0;//reset the FS values while RX is wating to connect							                   
                             EEPROMWriteInt(address + 4 + 2 * i, MiLoStorage.FS_data[i]);                       
-                            setFSfromRx = true;
+                            saveFsToEprom = true;
                         }
-                    }
+                    }					
 					if (saveFsToEprom) EEPROM.commit();
-					
+					attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //attach interrupt to DIO1 pin
                     jumper = 0;
                     
                 }
@@ -472,14 +476,13 @@ void loop()
                 if (FrameType != TLM_PACKET)
                 { //only when no uplink telemetry
                     if ((RxData[3] & 0x3F) != MiLoStorage.rx_num)
-                    break;//if other receiver with different modelID
-                    
+                    break;//if other receiver with different modelID                   
                     #ifdef USE_WIFI
                         if (aPacketSeen > 5)
                         { //when received some packets
                             if (RxData[3] & 0x40)
                             { //receive Flag from tx to start wifi server
-                                if (++countUntilWiFi == 2)
+                                if (++countUntilWiFi >= 2)
                                 {
                                     #ifdef HAS_PA_LNA
                                         SX1280_SetTxRxMode(TXRX_OFF);//stop PA/LNA to reduce current before starting WiFi
@@ -487,7 +490,20 @@ void loop()
                                     SX1280_SetMode(SX1280_MODE_SLEEP);//start sleep mode to reduce SX120 current before starting WiFi
                                     countUntilWiFi = 0;
                                     timer0_detachInterrupt();//timer0 is needed for wifi
-                                    startWifiManager();
+									detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));
+									#ifdef SW_SERIAL
+									//swSer.end();
+									#endif
+	                                uint32_t Now = millis();
+		                            WIFI_start();
+		                            while(1){
+		                            WIFI_event();
+		                            if ((millis() - Now)>= 50) 
+		                            {
+                                    Now = millis();
+                                    digitalWrite(LED_pin ,!digitalRead(LED_pin));
+                                    }
+	                                }
                                 }
                             }
                         }
@@ -666,12 +682,14 @@ void loop()
                 }
                 if (countFS >= (2 * MAX_MISSING_PKT))
                 {
+			           detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));	
                         for (uint8_t i = 0; i < 16; i++)
                         {
                             if (MiLoStorage.FS_data[i] != ServoData[i]) //only changed values
                                 EEPROMWriteInt(address + 4 + 2 * i, MiLoStorage.FS_data[i]);
                         }
-                        EEPROM.commit();   
+                        EEPROM.commit();
+						attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //attach interrupt to DIO1 pin
                     jumper = 0;
                 }
             }
@@ -778,10 +796,15 @@ void  MiLoRxBinding(uint8_t bind) {
                 //}
             #endif
             #ifdef HC_BIND
-                MProtocol_id = 7059696;
+                //MProtocol_id = 7059696;
+               // MiLoStorage.rx_num = 0;
+               // MiLoStorage.txid[0] = 240;
+                //MiLoStorage.txid[1] = 184;			
+				MProtocol_id = 13788120;
                 MiLoStorage.rx_num = 0;
-                MiLoStorage.txid[0] = 240;
-                MiLoStorage.txid[1] = 184;
+                MiLoStorage.txid[0] = 216;
+                MiLoStorage.txid[1] = 99;
+				
             #endif
             is_in_binding = false;
             break;
@@ -826,7 +849,6 @@ void MiLoRxBind(void)
                 MiLoStorage.chanskip = RxData[6];
                 LoRaBandwidth = LORA_BW_0800;
                 FreqCorrection = SX1280_GetFrequencyError();// get frequency offset in HZ
-                // =(83ppm =199200Hz) at 2.4 GHZ
                 FreqCorrection /= 1000;
                 FreqCorrectionRegValue = SX1280_FREQ_MHZ_TO_REG(FreqCorrection);
                 break;
@@ -834,7 +856,8 @@ void MiLoRxBind(void)
         }
         yield();//shut-up WDT
     }
-    MProtocol_id = (RxData[1] | (RxData[2] << 8) | (RxData[3] << 16) | (RxData[4] << 24));
+    detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));	
+     MProtocol_id = (RxData[1] | (RxData[2] << 8) | (RxData[3] << 16) | (RxData[4] << 24));
     #if defined(DEBUG_BIND)
         debugln("txid1 = %d,txid2= %d,rx_num = %d,chanskip = %d", MiLoStorage.txid[0], MiLoStorage.txid[1], MiLoStorage.rx_num, MiLoStorage.chanskip);
         //debugln("Rx_data[2] = %d ,Rx_data[3] = %d ", Rx_data[2], Rx_data[3]);
@@ -844,7 +867,6 @@ void MiLoRxBind(void)
     #endif
     for (uint8_t i = 0; i < 16; i++)
         MiLoStorage.FS_data[i] = NO_PULSE;
-    
     StoreEEPROMdata(address);
     while (1)
     {
@@ -852,7 +874,6 @@ void MiLoRxBind(void)
         delay(500);
         digitalWrite(LED_pin, LOW);
         delay(500);
-        yield();//shut-up WDT
     }
 }
 

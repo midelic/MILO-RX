@@ -20,9 +20,8 @@ uint16_t  EEPROMReadInt(uint32_t p_address)
 	return (firstTwoBytes);
 }
 
-void StoreEEPROMdata(int startAddress)
+void StoreEEPROMdata(uint32_t startAddress)
 {
-	
 	EEPROM.write(startAddress,MiLoStorage.txid[0]);
 	EEPROM.write(startAddress+1,MiLoStorage.txid[1]);
 	EEPROM.write(startAddress+2,MiLoStorage.rx_num);
@@ -32,7 +31,17 @@ void StoreEEPROMdata(int startAddress)
 	startAddress += sizeof(MiLoStorage);
 	for(uint8_t i = 0;i < 4;i++)
 	EEPROM.write(startAddress+i,MProtocol_id >> (i*8));
-	EEPROM.commit();
+    bool eeRes = EEPROM.commit();
+	#ifdef DEBUG_BIND
+	if (eeRes) 
+	{
+      Serial.println("EEPROM successfully committed");
+    } 
+	else
+	{
+      Serial.println("ERROR! EEPROM commit failed");
+    }
+	#endif
 }
 
 void ReadEEPROMdata(uint32_t  startAddress)
