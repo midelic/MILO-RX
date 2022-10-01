@@ -46,8 +46,8 @@
 	
 	#define QUOTE(arg) #arg
 	#define STR(macro) QUOTE(macro)
-	const char *wifi_hostname = "milo_tx";
-	const char *wifi_ap_ssid = "MiLo_TX";
+	const char *wifi_hostname = "milo_rx";
+	const char *wifi_ap_ssid = "MiLo_RX";
 	const char *wifi_ap_password = "milo_sx1280";//min 8 char
 	const char *wifi_ap_address = "10.0.0.1";
 	#ifdef HOME_WIFI_CREDENTIALS
