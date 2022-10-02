@@ -75,7 +75,7 @@
 //#define TX_FAILSAFE
 //#define PWM_SERVO
 //#define ADC_VOLT
-//#define STATISTIC
+#define STATISTIC
 //#define SERVO_RATE
 //#define PARALLEL_SERVO
 //#define EU_LBT

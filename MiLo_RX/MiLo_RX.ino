@@ -139,7 +139,7 @@ MiLo_statistics MiLoStats;
 //TELEMETRY
 #ifdef TELEMETRY
     uint8_t frame[15];// frame to be sent to TX
-    uint8_t pass = 0;
+    uint32_t pass = 0;
     //uint8_t telemetryRX = 0;// when 1 next slot is downlink telemetry
     uint8_t TelemetryExpectedId;
     uint8_t TelemetryId;
@@ -715,7 +715,7 @@ void loop()
             DropHistoryPercent += ThisPacketDropped ;
             DropHistoryPercent -= oldDropBit ;
             ThisPacketDropped = 0 ;
-            if ( ++DropHistorySend >= 50 )//~450ms
+            if ( ++DropHistorySend >= 30 )
             {
                 if (DropHistoryPercent < 100)
                     uplinkLQ = (100 - DropHistoryPercent ) ;
@@ -796,14 +796,14 @@ void  MiLoRxBinding(uint8_t bind) {
                 //}
             #endif
             #ifdef HC_BIND
-                //MProtocol_id = 7059696;
+                MProtocol_id = 7059696;
+               MiLoStorage.rx_num = 0;
+                MiLoStorage.txid[0] = 240;
+                MiLoStorage.txid[1] = 184;			
+				//MProtocol_id = 13788120;
                // MiLoStorage.rx_num = 0;
-               // MiLoStorage.txid[0] = 240;
-                //MiLoStorage.txid[1] = 184;			
-				MProtocol_id = 13788120;
-                MiLoStorage.rx_num = 0;
-                MiLoStorage.txid[0] = 216;
-                MiLoStorage.txid[1] = 99;
+                //MiLoStorage.txid[0] = 216;
+                //MiLoStorage.txid[1] = 99;
 				
             #endif
             is_in_binding = false;
@@ -942,23 +942,24 @@ void MiLoRxBind(void)
     void  ICACHE_RAM_ATTR MiLoTlm_build_frame()
     {
         uint8_t nbr_bytesIn;
+		
         TelemetryId = (RxData[0] >> 3) & 0x1F;
         
         frame[0] = MiLoStorage.txid[0]; ;
         frame[1] = MiLoStorage.txid[1];
-        frame[2] = DataLink(pass);
+	    frame[2] = DataLink(pass);
         frame[3] = TelemetryId | (pass << 5);
         #ifdef SPORT_TELEMETRY
             nbr_bytesIn = MiLoTlm_append_sport_data(&frame[5]);
         #endif
         frame[4] = nbr_bytesIn | ((UplinkTlmId & 0x0F) << 4);
-        pass = (pass + 1) % 3;
+	pass = (pass + 1)%3;
     }
     
     void  ICACHE_RAM_ATTR SX1280_TXnb()
     {
         MiLoTlm_build_frame();
-        //delayMicroseconds(50);
+        delayMicroseconds(50);//just in case
         #ifdef HAS_PA_LNA
             SX1280_SetTxRxMode(TX_EN);//PA enabled
         #endif
@@ -966,11 +967,11 @@ void MiLoRxBind(void)
         SX1280_SetMode(SX1280_MODE_TX);
     }
     
-    uint8_t  ICACHE_RAM_ATTR DataLink(uint8_t _pass)
+    uint8_t  ICACHE_RAM_ATTR DataLink(uint8_t bit)
     {
         static uint8_t link = 0 ;
         getRFlinkInfo();
-        switch (_pass)
+		 switch (bit)
         {
             case 0:
                 if (antenna)
@@ -979,10 +980,10 @@ void MiLoRxBind(void)
                     link = MiLoStats.uplink_RSSI_1;
                 break;
             case 1:
-                link = MiLoStats.uplink_Link_quality;
+                link = MiLoStats.uplink_SNR;
                 break;
             case 2:
-                link = MiLoStats.uplink_SNR;
+                link = MiLoStats.uplink_Link_quality;
                 break;
         }
         return link;
