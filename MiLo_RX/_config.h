@@ -31,7 +31,9 @@
 //#define DEBUG_LOOP_TIMING	
 //#define DEBUG_BIND
 //#define DEBUG_DATA
-#define SW_SERIAL
+//#define DEBUG_SPORT
+#define MSW_SERIAL
+//#define SW_SERIAL
 //#define HC_BIND
 //#define USER_MAX_POWER
 #define TELEMETRY
@@ -71,7 +73,6 @@
 #endif
 
 #define SBUS
-//#define SBUS_INTERRUPT
 //#define TX_FAILSAFE
 //#define PWM_SERVO
 //#define ADC_VOLT
