@@ -110,8 +110,8 @@
 		request->client()->close();
 		rebootTime = millis() + 100;
 	}
-	
-	static void WebUpdateSendNetworks(AsyncWebServerRequest *request)
+	/*
+	static void WebUpdateSendNetworks(AsyncWebServerRequest *request)  //not used yet
 	{
 		int numNetworks = WiFi.scanComplete();
 		if (numNetworks >= 0) {
@@ -133,7 +133,7 @@
 			request->send(204, "application/json", "[]");
 		}
 	}
-	
+	*/
 	static void sendResponse(AsyncWebServerRequest *request, const String &msg, WiFiMode_t mode) {
 		AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", msg);
 		response->addHeader("Connection", "close");
