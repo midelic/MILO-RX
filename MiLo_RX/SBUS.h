@@ -8,7 +8,7 @@
     volatile uint16_t sbus[TXBUFFER_SIZE];
     uint16_t channel[16];
     uint32_t sbus_timer;
-	uint8_t sbus_counter = 0;
+    uint8_t sbus_counter = 0;
 
     void init_SBUS()
     {
@@ -30,7 +30,6 @@
         sbus[9] = channel[5]>>9|lowByte(channel[6])<<2;
         sbus[10] = channel[6]>>6|lowByte(channel[7])<<5;
         sbus[11] = (channel[7]>>3)& 0x00ff;//end
-        //
         sbus[12] = lowByte(channel[8]);
         sbus[13] = highByte(channel[8]) | lowByte(channel[9])<<3;
         sbus[14] = channel[9]>>5|(channel[10]<<6);
@@ -43,12 +42,12 @@
         sbus[21] = channel[14]>>6|lowByte(channel[15])<<5;
         sbus[22] = (channel[15]>>3)& 0xff;
         
-        sbus[23] = 0x00;	
+        sbus[23] = 0x00;    
         if(missingPackets >= 1)
         sbus[23] |= (1<<2);//frame lost
         if(missingPackets > MAX_MISSING_PKT)
         sbus[23] |= (1<<3);//FS activated
         
-        sbus[24] = SBUS_ENDBYTE;//endbyte	
-    }	
+        sbus[24] = SBUS_ENDBYTE;//endbyte   
+    }   
 #endif //SBUS
