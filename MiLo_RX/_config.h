@@ -18,22 +18,24 @@
 #ifdef ESP8266
 	#define ESP8266_PLATFORM
 #endif
-
-//Modules defs
-#define EL24P//flywoo RX
+//----Modules defs--------
+//#define EL24P//flywoo RX
 //#define DIY_RX
 //#define MATEK_RX_R24D
 //#define MATEK_RX_R24S
 //define BETA_FPV_RX_NANO
 //#define NAMIMNO_RX_NANO_FLASH
-//#define ESP8266_E28_2G4M20S
+#define ESP8266_E28_2G4M20S
+
 //#define DEBUG_EEPROM
 //#define DEBUG_LOOP_TIMING	
 //#define DEBUG_BIND
 //#define DEBUG_DATA
 //#define DEBUG_SPORT
-#define MSW_SERIAL
-//#define SW_SERIAL
+
+//#define MSW_SERIAL
+#define SW_SERIAL
+
 //#define HC_BIND
 //#define USER_MAX_POWER
 #define TELEMETRY
@@ -51,25 +53,25 @@
 //#define MinPower PWR_10mW
 //#define MaxPower PWR_100mW
 #if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined MATEK_RX_R24S || defined BETA_FPV_RX_NANO 
-#define HAS_PA_LNA
-#define MinPower -10//10mW//  powerValues[4]= [-10,-6,-3,1];(Beta_FPV&Matek)//powerValues[4]=[-15,-10,-7,-3];(NAMIMNO_RX_NANO_FLASH)
-#define MaxPower 1//100mW
-#ifdef USER_MAX_POWER
-#define UserPower -10//10mW for example can be defined whatever you need
-#endif
+    #define HAS_PA_LNA
+    #define MinPower -10//10mW//  powerValues[4]= [-10,-6,-3,1];(Beta_FPV&Matek)//powerValues[4]=[-15,-10,-7,-3];(NAMIMNO_RX_NANO_FLASH)
+    #define MaxPower 1//100mW
+    #ifdef USER_MAX_POWER
+        #define UserPower -10//10mW for example can be defined whatever you need
+    #endif
 #endif
 
 #ifdef ESP8266_E28_2G4M20S
-#define HAS_PA_LNA
-#define MinPower -13//10mW
-#define MaxPower -2//100mW
-#define USER_MAX_POWER -13 //10mW for example can be defined whatever you need
+    #define HAS_PA_LNA
+    #define MinPower -13//10mW
+    #define MaxPower -2//100mW
+    #define USER_MAX_POWER -13 //10mW for example can be defined whatever you need
 #endif
 
 #if defined EL24P || defined DIY_RX//No PA/LNA
-#define MinPower 10 // 10mW
-#define MaxPower 13 // 20mW
-#define USER_MAX_POWER 10 //10mW for example can be defined whatever you need
+    #define MinPower 10 // 10mW
+    #define MaxPower 13 // 20mW
+    #define USER_MAX_POWER 10 //10mW for example can be defined whatever you need
 #endif
 
 #define SBUS
@@ -177,7 +179,17 @@
     13.Sport data byte9
     14.Sport data byte10; 15 bytes payload;10 bytes sport telemetry
     
-    
+    # bind packet
+    0. Frame type = BIND_PACKET = 0
+    1. rx_tx_addr[3];
+    2. rx_tx_addr[2];
+    3. rx_tx_addr[1];
+    4. rx_tx_addr[0];
+    5. RX_num;
+    6. chanskip;
+    7. up to 14.  0xA7
+
+
     # Frame Sequence
     0- downlink telemetry
     1- RC channels 1_8_1 
