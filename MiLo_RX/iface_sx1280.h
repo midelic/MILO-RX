@@ -150,7 +150,7 @@ enum
     SX1280_RADIO_RAMP_12_US = 0xA0,
     SX1280_RADIO_RAMP_16_US = 0xC0,
     SX1280_RADIO_RAMP_20_US = 0xE0,
-};	
+};  
 
 
 enum 
@@ -305,11 +305,11 @@ enum
 /*
 enum
 {
-	PWR_10mW = 0,
-	PWR_25mW = 1,
-	PWR_50mW = 2,
-	PWR_100mW = 3,
-	PWR_COUNT = 4,
+    PWR_10mW = 0,
+    PWR_25mW = 1,
+    PWR_50mW = 2,
+    PWR_100mW = 3,
+    PWR_COUNT = 4,
 } ;
 */
 enum {
