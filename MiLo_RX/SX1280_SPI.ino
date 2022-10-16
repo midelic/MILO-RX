@@ -18,14 +18,6 @@ uint32_t BusyDelayDuration;
 //static int8_t powerCaliValues[PWR_COUNT] = {0};
 int8_t CurrentPower = -19; // initialized with a dummy value to force a first update/saving when SX1280_SetOutputPower() is called 
 
-enum TXRX_State 
-{
-    TXRX_OFF,
-    TX_EN,
-    RX_EN
-};
-
-
 void  ICACHE_RAM_ATTR SX1280_WriteReg(uint16_t address, uint8_t data)
 {
     SX1280_WriteRegisterMulti(address, &data, 1);

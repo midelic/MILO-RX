@@ -16,8 +16,8 @@
         USC0(UART0) |= BIT(UCTXI);//inverted signal
     }
        
-    void  SBUS_frame()
-    {
+    void  SBUS_frame() 
+    {  // create frame mainly based on channel[]
         sbus[0] = SBUS_SYNCBYTE;
         sbus[1] = lowByte(channel[0]);
         sbus[2] = highByte(channel[0]) | lowByte(channel[1])<<3;
