@@ -40,11 +40,6 @@
 #define SX1280_RXEN_pin -1
 #define SX1280_TXEN_pin  5
 #endif
-
-
-#define BIND_SET_INPUT      if (BIND_pin != -1) pinMode(BIND_pin,INPUT)
-#define BIND_SET_PULLUP     if (BIND_pin != -1) digitalWrite(BIND_pin,HIGH) 
-#define BIND_SET_OUTPUT     if (BIND_pin != -1) pinMode(BIND_pin,OUTPUT)
     
 #define IS_BIND_BUTTON_on   ( (BIND_pin != -1) && (digitalRead(BIND_pin)==LOW))
     
@@ -52,23 +47,20 @@
 #define IS_SX1280_DIO1_off      ( digitalRead(SX1280_DIO1_pin)==LOW )
 #define IS_SX1280_BUSY_on       ( digitalRead(SX1280_BUSY_pin)==HIGH )
 #define IS_SX1280_BUSY_off      ( digitalRead(SX1280_BUSY_pin)==LOW)
-#define IS_LED_on               ( (LED_pin != -1) && digitalRead(LED_pin)==HIGH)
 
 #define SX1280_RST_on              digitalWrite(SX1280_RST_pin,HIGH)
 #define SX1280_RST_off             digitalWrite(SX1280_RST_pin,LOW)
-#define SX1280_TXEN_on             if (SX1280_TXEN_pin != -1) digitalWrite(SX1280_TXEN_pin,HIGH)
-#define SX1280_RXEN_on             if (SX1280_RXEN_pin != -1) digitalWrite(SX1280_RXEN_pin,HIGH)
-#define SX1280_TXEN_off            if (SX1280_TXEN_pin != -1) digitalWrite(SX1280_TXEN_pin,LOW)
-#define SX1280_RXEN_off            if (SX1280_RXEN_pin != -1) digitalWrite(SX1280_RXEN_pin,LOW)
+#define SX1280_TXEN_on             digitalWrite(SX1280_TXEN_pin,HIGH)
+#define SX1280_RXEN_on             digitalWrite(SX1280_RXEN_pin,HIGH)
+#define SX1280_TXEN_off            digitalWrite(SX1280_TXEN_pin,LOW)
+#define SX1280_RXEN_off            digitalWrite(SX1280_RXEN_pin,LOW)
 #define SX1280_ANT_SEL_on          if (SX1280_ANTENNA_SELECT_pin != -1) digitalWrite(SX1280_ANTENNA_SELECT_pin,HIGH)
 #define SX1280_ANT_SEL_off         if (SX1280_ANTENNA_SELECT_pin != -1) digitalWrite(SX1280_ANTENNA_SELECT_pin,LOW)
 #define SX1280_CSN_on              digitalWrite(SX1280_CSN_pin,HIGH)
 #define SX1280_CSN_off             digitalWrite(SX1280_CSN_pin,LOW)
 
-#define LED_on                     if (LED_pin != -1) digitalWrite(LED_pin,HIGH)
-#define LED_off                    if (LED_pin != -1) digitalWrite(LED_pin,LOW)
-#define LED_toggle                 if (LED_pin != -1) digitalWrite(LED_pin ,!digitalRead(LED_pin))
-#define LED_output                 if (LED_pin != -1) pinMode(LED_pin,OUTPUT)
+#define LED_on                     digitalWrite(LED_pin,HIGH)
+#define LED_off                    digitalWrite(LED_pin,LOW)
+#define LED_toggle                 digitalWrite(LED_pin ,!digitalRead(LED_pin))
 
 #define USE_SX1280_DCDC
-

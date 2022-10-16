@@ -30,23 +30,20 @@ along with Multiprotocol.  If not, see <http://www.gnu.org/licenses/>.
 #define SX1280_XTAL_FREQ 52000000
 #define FREQ_STEP ((double)(SX1280_XTAL_FREQ / pow(2.0, 18.0)))
 
-enum
-{
+enum {
     SX1280_STDBY_RC = 0x00,
     SX1280_STDBY_XOSC = 0x01,
 };
 
 
-enum
-{
+enum {
     SX1280_RF_IDLE = 0x00, //!< The radio is idle
     SX1280_RF_RX_RUNNING,  //!< The radio is in reception state
     SX1280_RF_TX_RUNNING,  //!< The radio is in transmission state
     SX1280_RF_CAD,         //!< The radio is doing channel activity detection
 };
 
-enum
-{
+enum {
     SX1280_MODE_SLEEP = 0x00, //! The radio is in sleep mode
     SX1280_MODE_CALIBRATION,  //! The radio is in calibration mode
     SX1280_MODE_STDBY_RC,     //! The radio is in standby mode with RC oscillator
@@ -57,16 +54,14 @@ enum
     SX1280_MODE_CAD           //! The radio is in channel activity detection mode
 } ;
 //***************
-enum
-{
+enum {
     SX1280_LORA_BW_0200 = 0x34,
     SX1280_LORA_BW_0400 = 0x26,
     SX1280_LORA_BW_0800 = 0x18,
     SX1280_LORA_BW_1600 = 0x0A,
 } ;
 
-enum
-{
+enum {
     SX1280_LORA_SF5 = 0x50,
     SX1280_LORA_SF6 = 0x60,
     SX1280_LORA_SF7 = 0x70,
@@ -77,8 +72,7 @@ enum
     SX1280_LORA_SF12 = 0xC0,
 };
 
-enum
-{
+enum {
     SX1280_LORA_CR_4_5 = 0x01,
     SX1280_LORA_CR_4_6 = 0x02,
     SX1280_LORA_CR_4_7 = 0x03,
@@ -88,32 +82,25 @@ enum
     SX1280_LORA_CR_LI_4_7 = 0x07,
 } ;
 
-//*************************
 
-
-enum
-{
+enum {
     SX1280_LORA_PACKET_VARIABLE_LENGTH = 0x00, //!< The packet is on variable size, header included
     SX1280_LORA_PACKET_FIXED_LENGTH = 0x80,    //!< The packet is known on both sides, no header included in the packet
     SX1280_LORA_PACKET_EXPLICIT = SX1280_LORA_PACKET_VARIABLE_LENGTH,
     SX1280_LORA_PACKET_IMPLICIT = SX1280_LORA_PACKET_FIXED_LENGTH,
 };
 
-enum
-{
+enum {
     SX1280_LORA_CRC_ON = 0x20,  //!< CRC activated
     SX1280_LORA_CRC_OFF = 0x00, //!< CRC not used
 };
 
-
-enum
-{
+enum {
     SX1280_RADIO_TICK_SIZE_0015_US = 0x00,
     SX1280_RADIO_TICK_SIZE_0062_US = 0x01,
     SX1280_RADIO_TICK_SIZE_1000_US = 0x02,
     SX1280_RADIO_TICK_SIZE_4000_US = 0x03,
-};
-    
+};  
     
 typedef struct TickTime_s
 {
@@ -125,23 +112,19 @@ typedef struct TickTime_s
     *     - 0x0000 for single mode
     *     - 0xFFFF for continuous mode
     * @code
-* Time = PeriodBase * PeriodBaseCount
-* Example:
-* PeriodBase = RADIO_TICK_SIZE_4000_US( 4 ms )
-* PeriodBaseCount = 1000
-* Time = 4e-3 * 1000 = 4 seconds
-* @endcode
-*/
-    
-        
+    * Time = PeriodBase * PeriodBaseCount
+    * Example:
+    * PeriodBase = RADIO_TICK_SIZE_4000_US( 4 ms )
+    * PeriodBaseCount = 1000
+    * Time = 4e-3 * 1000 = 4 seconds
+    * @endcode
+    */        
 }TickTime_t;
     
 #define SX1280_RX_TX_CONTINUOUS ( TickTime_t ){ RADIO_TICK_SIZE_0015_US, 0xFFFF }
 #define SX1280_RX_TX_SINGLE     ( TickTime_t ){ RADIO_TICK_SIZE_0015_US, 0 }
-
     
-enum
-{
+enum {
     SX1280_RADIO_RAMP_02_US = 0x00,
     SX1280_RADIO_RAMP_04_US = 0x20,
     SX1280_RADIO_RAMP_06_US = 0x40,
@@ -152,9 +135,7 @@ enum
     SX1280_RADIO_RAMP_20_US = 0xE0,
 };  
 
-
-enum 
-{
+enum {
     SX1280_RADIO_GET_STATUS = 0xC0,
     SX1280_RADIO_WRITE_REGISTER = 0x18,
     SX1280_RADIO_READ_REGISTER = 0x19,
@@ -193,8 +174,7 @@ enum
     SX1280_RADIO_SET_RANGING_ROLE = 0xA3,
 } ;
 
-enum
-{
+enum {
     SX1280_IRQ_RADIO_NONE = 0x0000,
     SX1280_IRQ_TX_DONE = 0x0001,
     SX1280_IRQ_RX_DONE = 0x0002,
@@ -215,22 +195,18 @@ enum
     SX1280_IRQ_RADIO_ALL = 0xFFFF,
 };
 
-enum
-{
-SX1280_RADIO_DIO1 = 0x02,
+enum {
+    SX1280_RADIO_DIO1 = 0x02,
     SX1280_RADIO_DIO2 = 0x04,
-SX1280_RADIO_DIO3 = 0x08,
+    SX1280_RADIO_DIO3 = 0x08,
 } ;
 
-enum
-{
-SX1280_USE_LDO = 0x00,  //! Use LDO (default value)
+enum {
+    SX1280_USE_LDO = 0x00,  //! Use LDO (default value)
     SX1280_USE_DCDC = 0x01, //! Use DCDC
 } ;
 
-
-enum
-{
+enum {
     SX1280_PACKET_TYPE_GFSK = 0x00,
     SX1280_PACKET_TYPE_LORA,//1
     SX1280_PACKET_TYPE_RANGING,
@@ -239,16 +215,14 @@ enum
     SX1280_PACKET_TYPE_NONE = 0x0F,
 };
 
-enum
-{
+enum {
     SX1280_RADIO_CRC_OFF = 0x00, //!< No CRC in use
     SX1280_RADIO_CRC_1_BYTES = 0x10,
     SX1280_RADIO_CRC_2_BYTES = 0x20,
     SX1280_RADIO_CRC_3_BYTES = 0x30,
 };
 
-enum
-{
+enum {
     SX1280_LORA_CAD_01_SYMBOL = 0x00,
     SX1280_LORA_CAD_02_SYMBOLS = 0x20,
     SX1280_LORA_CAD_04_SYMBOLS = 0x40,
@@ -256,9 +230,7 @@ enum
     SX1280_LORA_CAD_16_SYMBOLS = 0x80,
 } ;
 
-
-enum
-{
+enum {
     SX1280_PREAMBLE_LENGTH_04_BITS                 = 0x00,         //!< Preamble length: 04 bits
     SX1280_PREAMBLE_LENGTH_08_BITS                 = 0x10,         //!< Preamble length: 08 bits
     SX1280_PREAMBLE_LENGTH_12_BITS                 = 0x20,         //!< Preamble length: 12 bits
@@ -269,14 +241,12 @@ enum
     SX1280_PREAMBLE_LENGTH_32_BITS                 = 0x70,         //!< Preamble length: 32 bits
 };
 
-enum
-{
+enum {
     SX1280_LORA_IQ_NORMAL                          = 0x40,
     SX1280_LORA_IQ_INVERTED                        = 0x00,
 };
 
-enum 
-{
+enum {
     SX1280_NOT_BUSY = true,
     SX1280_BUSY = false,
 };
@@ -288,8 +258,7 @@ enum {
     LORA_BW_1600,
 };
 
-enum
-{
+enum {
     RATE_LORA_4HZ = 0,
     RATE_LORA_25HZ,
     RATE_LORA_50HZ,
@@ -317,11 +286,18 @@ enum {
     RADIO_TYPE_SX128x_FLRC,
 };
 
-    enum
-    {
-        SX1280_RX_OK        = 0,
-        SX1280_RX_CRC_FAIL  = 1 << 0,
-        SX1280_RX_TIMEOUT   = 1 << 1,
-    };
+enum {
+    SX1280_RX_OK        = 0,
+    SX1280_RX_CRC_FAIL  = 1 << 0,
+    SX1280_RX_TIMEOUT   = 1 << 1,
+};
+
+//enum TXRX_State 
+enum {
+    TXRX_OFF = 0,
+    TX_EN,
+    RX_EN
+};
+
     
 #endif
