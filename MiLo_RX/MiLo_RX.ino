@@ -15,6 +15,10 @@
     along with this code.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+// to do : reduce dioISR and move part in main loop
+// to do : add CRC to the data stored in EEPROM; when reading EEPROM, if CRC is wrong use default values.
+// check soft Serial with interrupt
+
 #undef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
 #define WORD_ALIGNED_ATTR __attribute__((aligned(4)))
@@ -34,6 +38,36 @@
     #undef SW_SERIAL
 #endif
 
+#if defined DEBUG
+    void callMicrosSerial(){
+        static uint32_t tim = 0 ;
+        static uint32_t timt = 0 ;  
+        timt = micros();
+        Serial.println(timt - tim);
+        tim = micros();
+    }
+    int32_t debugMicrosInterval(uint8_t idx){
+        static uint32_t prevTime[10] = {0}; 
+        uint32_t currentTime , savedPrevTime;
+        if (idx >=10) return -1;
+        savedPrevTime = prevTime[idx];
+        currentTime = micros();
+        prevTime[idx] = currentTime;
+        return currentTime - savedPrevTime;
+    }
+    uint32_t debugStartedAt[10];
+    void debugStartMicros(uint8_t idx){
+        if ( idx < 10) debugStartedAt[idx] = micros();
+    }
+    uint32_t debugIntervalSinceStart(uint8_t idx){  // return 0 when idx is not valid
+        if ( idx < 10) return micros() - debugStartedAt[idx];
+        return 0;
+    }
+#endif
+
+#ifdef DEBUG_ON_GPIO3
+    #undef SPORT_TELEMETRY 
+#endif
 #define RATE_DEFAULT 0
 #define RATE_BINDING 0
 #define RATE_100HZ 1 //100HZ
@@ -56,18 +90,19 @@ uint32_t  address = 0;//EEPROM start adress
 //Channels
 #define NO_PULSE  0
 #define HOLD  2047
-#define MAX_MISSING_PKT 100 // when missingPackets reachs this value, failsafe is ON and connection is lost
+#define MAX_MISSING_PKT 100 // when missingPackets reachs this value, failsafe is ON and connection is lost  mstrens: originally was 100
 
 uint16_t ServoData[16]; // rc channels to be used for Sbus (received from Tx or failsafe)
 volatile int32_t missingPackets = 0;
 bool packetToDecode = false; // true means that a packet (any type) has been received from Tx and must be decoded
 uint8_t jumper = 0;
 uint16_t c[8];
-uint32_t t_out = FHSS_CHANNELS_NUM;
+uint8_t t_out = FHSS_CHANNELS_NUM;
+uint32_t t_outMicros ;
 uint32_t t_tune = 500;
 uint16_t wordTemp;
-volatile uint8_t all_off = 0;   // 1 means NO pulse
-uint32_t packetTimer;
+bool sbusAllowed = false;   // true means sbus/pwm can be generated because at least 1 rc signal has been received (and if failsafe values are applied, there is no NO PULSE)
+uint32_t slotBeginAt;
 volatile bool frameReceived = false;
 uint16_t LED_count = 0;
 uint8_t RxData[15];
@@ -76,11 +111,17 @@ uint32_t MProtocol_id = 0;
 uint8_t PayloadLength = 15;
 uint8_t FrameType = 0;
 uint32_t LastReceivedPacketTime;
-uint32_t smoothedInterval;          // interval in us seconds that corresponds to that frequency
+uint32_t lastYieldMicros;
+int32_t smoothedInterval;          // interval in us seconds that corresponds to that frequency
+uint32_t dioISRMicros;            // register when a frame is received in interrupt
+volatile uint32_t countReceivedFrameWhileLongTimeOut = 0 ; // mstrens : used to count how many frames without crc errors can be received duting a long timeout interval
+
+
 //Debug
 //uint16_t BackgroundTime;
 uint32_t debugTimer;
 char debug_buf[64];
+
 uint8_t packetSeq = 0;
 bool startWifi = false;
 bool processSportflag = false;
@@ -147,10 +188,10 @@ MiLo_statistics MiLoStats;
 //TELEMETRY
 #ifdef TELEMETRY
     uint8_t frame[15];// frame to be sent to TX
-    uint32_t pass = 0;
+    uint32_t tlmDataLinkType = 0;
     //uint8_t telemetryRX = 0;// when 1 next slot is downlink telemetry
     uint8_t TelemetryExpectedId;
-    uint8_t TelemetryId;
+    uint8_t dowlinkTlmId;
     uint8_t UplinkTlmId = 0;
     bool skipUntilStart = false;
     volatile bool sportMSPflag = false;
@@ -263,6 +304,9 @@ void setup()
     #if defined(DEBUG) || defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_DATA)||defined (DEBUG_SPORT)
         #undef SBUS
         Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
+        delay(1000); // mstrens added to have time to get first msg on arduino IDE terminal
+        Serial.println("Starting");
+        
         #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}
     #else
         #define debugln(...) { } 
@@ -300,33 +344,39 @@ void setup()
     is_in_binding = false;
     //MiLoRxBinding(0); // ReadEEPROMdata and set is_in_binding = false;
     Fhss_generate(MProtocol_id); // generates the used frequency (based on param in EEPROM)
+    t_out= FHSS_CHANNELS_NUM; // whe have to start trying to get a connection
     currFreq = GetCurrFreq(); //set frequency first or an error will occur!!!
+    SX1280_Begin();
     bool init_success = SX1280_Begin();
     if (!init_success)
     {
         debugln("Init of SX1280 failed");
-        //return; // commented by mstrens in order to start testing without a SX1280 module
+        while(1){};//return; // commented by mstrens in order to start testing without a SX1280 module
     }
-    else
-    {
-        all_off = 1;    //no pulse
-        //MiLo_SetRFLinkRate(RATE_100HZ));
-        MiLo_SetRFLinkRate(RATE_150HZ);
-        SX1280_SetFrequencyReg(currFreq);
-        PayloadLength = MiLo_currAirRate_Modparams->PayloadLength;
-        SX1280_SetOutputPower(MaxPower); // set power to max. We do not start sending tlm immediately so it is not an issue
-        #ifdef HAS_PA_LNA
-            SX1280_SetTxRxMode(RX_EN);//LNA enable
-        #endif
-        SX1280_SetMode(SX1280_MODE_RX);
-        frameReceived = false;
-        bindingTime = millis() ;
-        #ifdef SPORT_TELEMETRY
-            ConfigTimer();
-        #endif
-        smoothedInterval = MiLo_currAirRate_Modparams->interval;
-    }
-}
+    sbusAllowed = false ;    //no pulse
+    //MiLo_SetRFLinkRate(RATE_100HZ));
+    MiLo_SetRFLinkRate(RATE_150HZ);
+    SX1280_SetFrequencyReg(currFreq);
+    PayloadLength = MiLo_currAirRate_Modparams->PayloadLength;
+    SX1280_SetOutputPower(MaxPower); // set power to max. We do not start sending tlm immediately so it is not an issue
+    #ifdef HAS_PA_LNA
+        SX1280_SetTxRxMode(RX_EN);//LNA enable
+    #endif
+    SX1280_SetMode(SX1280_MODE_RX);
+    frameReceived = false;
+    bindingTime = millis() ;
+    #ifdef SPORT_TELEMETRY
+        ConfigTimer();
+    #endif
+    smoothedInterval = MiLo_currAirRate_Modparams->interval;
+    t_outMicros= t_out * smoothedInterval ; // at start up we use a long delay (476msev = 7000*68 usec) 
+    slotBeginAt = micros();
+    debugln("End of setup: SX1280 is OK");
+    #ifdef DEBUG_ON_GPIO3
+      pinMode(3 , OUTPUT);
+      G3OFF;
+    #endif
+} // end setup()
 
 void applyFailsafe() 
 // put failsafe values in ServoData[] and generates Sbus every 14 msec.
@@ -338,7 +388,7 @@ void applyFailsafe()
         if (word == NO_PULSE) //no pulse
         {
             ServoData[i] = 0;
-            all_off = 1; // all_off = 1 means that pulses/sbus may not be generated
+            sbusAllowed = false; // false means that pulses/sbus may not be generated
         }
         else if (word == HOLD) //2047 equivalent is hold value so no update data.
         {
@@ -358,7 +408,7 @@ void applyFailsafe()
         if (millis() - sbus_timer > 14)
         { //only when connection lost, every 14ms
             sbus_timer = millis();
-            if (all_off == 0) // send Sbus only if at least one packet has already been received and failsafe do not use "NO_PULSE" 
+            if (sbusAllowed) // send Sbus only if at least one packet has already been received and failsafe do not use "NO_PULSE" (when failsafe values should be applied) 
                 for (uint8_t i = 0; i < TXBUFFER_SIZE; i++)
                     Serial.write(sbus[i]);
         }               
@@ -386,6 +436,10 @@ void handleShortTimeout()
     if (missingPackets > MAX_MISSING_PKT)// we just lost the connection
     {
         t_out = FHSS_CHANNELS_NUM;// wait max 68 slots of 7 msec before exiting while()
+        t_outMicros = t_out * smoothedInterval;
+//        setChannelIdx(0) ; // skip to the first channel in the list because only the first 5 are used to get connection
+//        currFreq = GetCurrFreq(); //set frequency first or an error will occur!!!
+//        SX1280_SetFrequencyReg(currFreq); 
         countFS = 0;
         #ifdef TELEMETRY
             packetSeq = 0;
@@ -412,6 +466,7 @@ void handleShortTimeout()
     if (missingPackets > 2)
         t_tune = 0;
     nextChannel(1);
+    G3PULSE(1);
     SX1280_SetFrequencyReg(GetCurrFreq());
 }
 
@@ -433,7 +488,7 @@ void handleLongTimeout()
             delay(100); //blink LED
         }
         bool  saveFsToEprom = false;
-        detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));    
+        //detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));    
         for (uint8_t i = 0 ; i < 16; i++)
         {
             if (MiLoStorage.FS_data[i] != 0)
@@ -443,12 +498,16 @@ void handleLongTimeout()
                 saveFsToEprom = true;
             }
         }                   
-        if (saveFsToEprom)
+        if (saveFsToEprom){
+            noInterrupts();
             EEPROM.commit();
-        attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //attach interrupt to DIO1 pin
+            interrupts();
+        }    
         jumper = 0;
     }
-    nextChannel(3); // frequency hop after 68 slots. So Rx stays listening on the same channel while Tx hop every slot 
+    nextChannel(1); // frequency hop after 68 slots. So Rx stays listening on the same channel while Tx hop every slot 
+                    // note: when we are trying to (re)synchronize RX with Tx, we use only the n first channels in the list (this is performed in the function
+    G3PULSE(1);
     SX1280_SetFrequencyReg(GetCurrFreq());
 }
 
@@ -464,29 +523,41 @@ bool isReceivedFrameValid() { // return true for a valid frame
     FrameType = (RxData[0] & 0x07) ;   // extract the frame type (will be used for many checks later on) 
     if ( ( FrameType != TLM_PACKET) && ((RxData[3] & 0x3F) != MiLoStorage.rx_num) )
         return false;  // when no uplink telemetry, Rx mum should be correct
-    return true;                
+    //Serial.print(t_out); Serial.print(">"); Serial.println( RxData[0],HEX); // mstrens to debug
+    if (  t_out < FHSS_CHANNELS_NUM ) {  // when connected
+        if ( ( RxData[0] & 0x08 ) == 0 ) { // if we receive a non synchro frame
+            if ( getCurrentChannelIdx() < FHSS_SYNCHRO_CHANNELS_NUM ) 
+                return false; // reject frames marked as on not synchro channel when current channel is a synchro channel
+        } else { //  we receive a synchro frame
+            if ( getCurrentChannelIdx() >= FHSS_SYNCHRO_CHANNELS_NUM ) 
+                return false; // reject frames marked as synchro channel when current channel is a not a synchro channel
+        }    
+    } else { // when we try to synchronise RX with RX (not connected)
+        if ( ( RxData[0] & 0x08 ) == 0 ) return false; // reject frames not marked as on synchro channel 
+    }   
+    return true;                 
 }                           
 
 void prepareNextSlot() { // a valid frame has been received; perform frequency hop and initialized some flags/counters
+    t_out = 1;           // set timeout on 1 because next packet should be within 7 mse
+    t_outMicros = smoothedInterval + 500; // 500 is a margin e.g. to take care of some jitter   
     nextChannel(1);
+    G3PULSE(1);
     SX1280_SetFrequencyReg(GetCurrFreq());
     uint32_t packet_Timer = micros() ;                  
     int32_t diff = packet_Timer - LastReceivedPacketTime ;
     LastReceivedPacketTime = packet_Timer ;
     if (( diff > 6300) && ( diff < 7700) ) {
-        smoothedInterval = smoothedInterval + 0.5*(diff - smoothedInterval ); // automatic update of interval with smoothing formula
+        //smoothedInterval = smoothedInterval + 0.1*(diff - smoothedInterval ); // automatic update of interval with smoothing formula
     }
-    #ifdef DEBUG_LOOP_TIMING
-        debugln("intval = %d ,diff = %d",smoothedInterval,diff);
-    #endif              
+    //debugln("intval = %d ,diff = %d",smoothedInterval,diff);m
     #ifdef HAS_PA_LNA
         #ifdef EU_LBT
             BeginClearChannelAssessment();
         #endif
     #endif
     missingPackets = 0;  // reset the number of consecutive missing packets
-    t_out = 1;           // set timeout on 1 because next packet should be within 7 mse
-    t_tune = 500;
+    //t_tune = 500;
     if (aPacketSeen < 10 ) 
         aPacketSeen++ ;  // increase number of packets up to 10
     #if defined(TELEMETRY)
@@ -494,9 +565,9 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
             packetSeq = 1; // 1 means that next slot must be used to send a downlink telemetry packet
         }
     #endif
-    if (jumper == 0)
+    if (jumper == 0){
         if(LED_pin != -1) LED_on;
-    all_off = 0; // as we received a valid frame we can generate Sbus and PWM ; probably to move to another place after decoding frame!!!!!!!!
+    }    
 }
 
 #ifdef USE_WIFI
@@ -512,6 +583,9 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
                 SX1280_SetMode(SX1280_MODE_SLEEP);//start sleep mode to reduce SX120 current before starting WiFi
                 timer0_detachInterrupt();//timer0 is needed for wifi
                 detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));
+                //??????????????????????????????????????????????
+                // perhaps we have also to detachInterrupt for timer1 used by Serial software ???????????????????????
+                //??????????????????????????????????????????????
                 uint32_t Now = millis();
                 WIFI_start();
                 while(1){
@@ -619,14 +693,16 @@ void saveRcFrame() {
         }
         if (countFS >= (2 * MAX_MISSING_PKT))
         {
-            detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));    
+            //detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin)); // replaced by noInterrupts   
             for (uint8_t i = 0; i < 16; i++)
             {
                 if (MiLoStorage.FS_data[i] != ServoData[i]) //only changed values
                     EEPROMWriteInt(address + 4 + 2 * i, MiLoStorage.FS_data[i]);
             }
+            noInterrupts();
             EEPROM.commit();
-            attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //attach interrupt to DIO1 pin
+            interrupts();
+            //attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //replaced by interrupts()
             jumper = 0;
         }
     }
@@ -635,6 +711,8 @@ void saveRcFrame() {
 
 void loop()
 {
+    yield();
+    lastYieldMicros = micros();
     if (bind_jumper() && jumper == 0// when button is pushed and previously it was not pressed
             #ifdef TX_FAILSAFE
             && setFSfromTx == false
@@ -654,47 +732,78 @@ void loop()
         if (missingPackets > MAX_MISSING_PKT)
             applyFailsafe() ; // put failsafe values in ServoData[] and generates Sbus every 14 msec.
     #endif
-    packetTimer = micros();
+    if (missingPackets > 2) {
+      //Serial.print("mf= ");Serial.print(missingPackets);//Serial.print("  sb= ");Serial.println(slotBeginAt); // mstrens to see value before the while
+      //Serial.print("  interval= ");Serial.println(smoothedInterval);
+      //Serial.println("+");
+    }
+    G3PULSE(50);
     while (1) // exit only on timeout or when a valid frame is received
     {
-        if ((micros() - packetTimer) >= ((t_out * smoothedInterval) + t_tune))
+        //G3PULSE(1);
+        if ((micros() - slotBeginAt) >= t_outMicros)
         {// when timeout occurs (after 1 or FHSS_CHANNELS_NUM * interval; so after 7ms or 476 msec
             if (t_out < FHSS_CHANNELS_NUM)// if we where connected and just waited for 1 interval = 7 msec
             {
+                Serial.println("-");
+                //G3PULSE(30);
+                slotBeginAt += smoothedInterval; // to avoid cumulative jitter, we just add the theroretical slot interval to the previous theoretical frame begin.  
+                //Serial.println("S");//Serial.print(debugMicrosInterval(0));Serial.println(""); // mstrens
                 handleShortTimeout(); //change antenna, update some counters and perform a freq hop
             }
-            else// t_out = 68 and so it means no connection or connection has already been lost (after to many missing packets) 
+            else// t_out == > FHSS_CHANNELS_NUM and so it means no connection or connection has already been lost (after to many missing packets) 
             {
+                Serial.println("+");
+                G3PULSE(30);
+                slotBeginAt += FHSS_CHANNELS_NUM * smoothedInterval;
+                Serial.print("Frame recived=");Serial.println( countReceivedFrameWhileLongTimeOut); // mstrens to debug
+                countReceivedFrameWhileLongTimeOut = 0; // mstrens to debug
                 handleLongTimeout(); //process LED, failsafe setup and frequency hop
             }
             break;// exit while() when a time out occurs
         }
+        //Serial.print("d= ");Serial.println(micros() - slotBeginAt); // mstrens to see value before the while
         
         if (frameReceived == true)
         { // a frame has been received from the TX (flag has been set in DioISR)
+            //Serial.print("fr at= ");Serial.println(micros()); // mstrens to see value before the while
+            G3PULSE(5); 
             if ( isReceivedFrameValid()) { //check if frame is valid
+                Serial.println("V");
+                G3PULSE(10);
+                slotBeginAt = dioISRMicros ;  // resynchronise RX on TX
+                //Serial.print("vf at= ");Serial.println(micros()); // mstrens to see value before the while
                 packetToDecode = true;//flag ,packet ready to decode (can be any type and will be processed outside the while)              
+                //Serial.print("R= ");Serial.print(debugMicrosInterval(2)); Serial.println("");// mstrens 
                 break; // exit while(1)
             }
         }
+        #if defined MSW_SERIAL || defined SW_SERIAL
+            //callSportSwSerial(); // read the data on the Sport bus and when a frame has been received, store it in sRxData[]
+        #endif
+        if ( (micros() - lastYieldMicros) > 20000 ) {
+          yield();
+          lastYieldMicros= micros();
+        }    
     } // end while(1)
 
     // when we arrive here, it means that OR a valid frame has been received OR a time out (short ot long) occurs
     if( packetToDecode ) { // when we get a valid frame
-        prepareNextSlot(); //  we first prepare next slot and update some flags/counters
+        //G3PULSE(10);
+        prepareNextSlot(); //  we first prepare next slot (e.g. frequency hop) and update some flags/counters
         #ifdef USE_WIFI
             if (FrameType  != TLM_PACKET) 
             { // If WIFI is requested in the frame, we start it (after 5 consecutive wifi frames); then we do not exit
                 checkStartWIFI();
             }      
         #endif
-        #ifdef TELEMETRY
+        #ifdef TELEMETRY 
             if (FrameType == TLM_PACKET) // process uplink tlm frame
             {
                 if ((RxData[3] & 0x0F) > 0)
                 { //Frame type is uplink telemetry and no. of sport bytes >0
-                    sportCount = (RxData[3] & 0x0F);
-                    UplinkTlmId = (RxData[3] >> 4);
+                    sportCount = (RxData[3] >> 4); // 4 upper bytes
+                    UplinkTlmId = (RxData[3] & 0X0F);  // 4 lower bytes
                     for (uint8_t i = 0; i <= sportCount; i++)
                         ReceivedSportData[i] = RxData[i + 3]; //transfer all sport telemetry data in a buffer including No. of bytes in sport telemetry (uplink frame)
                     #ifdef SPORT_TELEMETRY   //  !!!!!!! perhaps we could merge the 2 for in one for and even avoid storing in ReceivedSportData[] 
@@ -707,22 +816,21 @@ void loop()
         
                 }
             }
+            // save the last dwn link telemetry id received in a valid frame (can be A RCData or uplink frame) 
+            if (FrameType != BIND_PACKET) dowlinkTlmId = (RxData[0] >> 4) & 0x0F; // main 4 bits
         #endif
         if (FrameType != TLM_PACKET && FrameType != BIND_PACKET)
         {     // BIND_PACKET are discarded here because we wait for 5 consecutive frames and then we process them in another place
+            //debugln("C"); // mstrens to debug ; can be removed 
+            sbusAllowed = true; // as we received a valid frame we can allow generating Sbus and PWM ;
             saveRcFrame(); // save data from Rc channels (even in EEPROM if failsafe is activated)
                             // if SBUS is defined, data are stored also in channel[] but frame is not yet generated 
-            SBUS_frame(); // create frame mainly based on channel[]
+            //SBUS_frame(); // create frame mainly based on channel[]
         }
         
     }
-
-    #if defined MSW_SERIAL || defined SW_SERIAL
-        callSportSwSerial(); // read the data on the Sport bus and when a frame has been received, store it in sRxData[]
-        // !!!!!!!! perhaps should be called more often (also in while when there is no connexion)
-    #endif  
-        
-    #if defined(TELEMETRY)
+    
+    #if defined(TELEMETRY) // process downlink tlm
         if ( (packetSeq == 1 ) && ( t_out != FHSS_CHANNELS_NUM) ) 
         { // next slot must be used to send a downlink telemetry packet but only if there is a connection.
           // here we send a downlink tlm frame even if we just miss one or a few frames (but not loss the connection)
@@ -748,7 +856,9 @@ void loop()
     { // next slot 
         if ( (packetToDecode == true || missingPackets > 0) && ( t_out != FHSS_CHANNELS_NUM) )
         { // if we are still connected and did not sent a downlink tlm frame
-            sbus_counter++;
+            #if defined(SBUS)
+              sbus_counter++;
+            #endif
             t_tune = 500;
             #ifdef HAS_PA_LNA
                 SX1280_SetTxRxMode(RX_EN);// do first to allow LNA stabilise
@@ -772,7 +882,7 @@ void loop()
         if (sbus_counter == 2)//sent out sbus on  every 14ms (timed by interval)
         { 
             sbus_counter = 0;
-            if (all_off == 0) {
+            if (sbusAllowed) {
                 for (uint8_t i = 0; i < TXBUFFER_SIZE; i++)
                     Serial.write(sbus[i]);
             }  
@@ -784,10 +894,13 @@ void   SetupTarget()
 {
     if (LED_pin != -1) pinMode(LED_pin, OUTPUT);
     if (BIND_pin != -1) pinMode(BIND_pin, INPUT);
+    digitalWrite(SX1280_RST_pin,HIGH);
     pinMode(SX1280_RST_pin , OUTPUT);
     pinMode(SX1280_BUSY_pin , INPUT);
     pinMode(SX1280_DIO1_pin , INPUT);
+    digitalWrite(SX1280_CSN_pin,HIGH);
     pinMode(SX1280_CSN_pin , OUTPUT); 
+    
     digitalWrite(SX1280_CSN_pin, HIGH);
     #ifdef DIVERSITY        
         if ( SX1280_ANTENNA_SELECT_pin != -1 ) pinMode(SX1280_ANTENNA_SELECT_pin , OUTPUT);    
@@ -797,10 +910,10 @@ void   SetupTarget()
     SPI.begin();
     SPI.setBitOrder(MSBFIRST);
     SPI.setDataMode(SPI_MODE0);
-    SPI.setFrequency(10000000);
+    SPI.setFrequency(10000000); // changed by mstrens
     #ifdef HAS_PA_LNA
-        pinMode(SX1280_TXEN_pin , OUTPUT);
-        pinMode(SX1280_RXEN_pin , OUTPUT);
+        if (SX1280_TXEN_pin != -1) pinMode(SX1280_TXEN_pin , OUTPUT);
+        if (SX1280_RXEN_pin != -1) pinMode(SX1280_RXEN_pin , OUTPUT);
     #endif
     EEPROM.begin(EEPROM_SIZE);
 }
@@ -846,10 +959,13 @@ void  MiLoRxBinding(uint8_t bind) {
 
 void MiLoRxBind(void)
 {
+    #if defined(DEBUG_BIND)
+      debugln("Entering MiloRx Bind; waiting for a bind frame from Tx"); 
+    #endif
     if(LED_pin != -1) LED_on;
     is_in_binding = true;
     #ifndef TUNE_FREQ
-        currFreq = GetInitialFreq(); //set frequency first or an error will occur!!!
+        currFreq = GetBindFreq(); //set frequency first or an error will occur!!!
         SX1280_Begin();//config
         MiLo_SetRFLinkRate(RATE_BINDING);
     #endif
@@ -867,8 +983,7 @@ void MiLoRxBind(void)
             frameReceived = false;
             uint8_t const FIFOaddr = SX1280_GetRxBufferAddr();
             SX1280_ReadBuffer(FIFOaddr, RxData, PayloadLength);
-            if ((RxData[0] & 0x07) == 0)
-            { //bind frametype
+            if ((RxData[0] & 0x07) == BIND_PACKET) { //bind frametype
                 MiLoStorage.txid[0] = RxData[1] ;
                 MiLoStorage.txid[1] = RxData[2];
                 MiLoStorage.rx_num = RxData[5];
@@ -882,12 +997,12 @@ void MiLoRxBind(void)
         }
         yield();//shut-up WDT
     }
-    detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));    
+    
     MProtocol_id = (RxData[1] | (RxData[2] << 8) | (RxData[3] << 16) | (RxData[4] << 24));
     #if defined(DEBUG_BIND)
         debugln("txid1 = %d,txid2= %d,rx_num = %d,chanskip = %d", MiLoStorage.txid[0], MiLoStorage.txid[1], MiLoStorage.rx_num, MiLoStorage.chanskip);
-        //debugln("FreqCorr = %d ", FreqCorrection);
-        //debugln("FreqCorrRegV = %d ", FreqCorrectionRegValue);
+        debugln("FreqCorr = %d ", FreqCorrection);
+        debugln("FreqCorrRegV = %d ", FreqCorrectionRegValue);
         debugln("MP_id = %d", MProtocol_id);
     #endif
     for (uint8_t i = 0; i < 16; i++)
@@ -908,12 +1023,12 @@ void MiLoRxBind(void)
         uint16_t next;
         uint8_t index = 0;
         
-        if (TelemetryId == TelemetryExpectedId)
+        if (dowlinkTlmId == TelemetryExpectedId) // dowlinkTlmId is received from TX and updated when a valid RCdata or uplink tlm frame is received
             idxOK = SportTail;//update read pointer to last ack'ed packet
         else
             SportTail = idxOK;
         
-        TelemetryExpectedId = (TelemetryId + 1) & 0x1F;
+        TelemetryExpectedId = (dowlinkTlmId + 1) & 0x0F; // downlinkTlmID is 4 bits and increased by TX when it get a dwn link tlm frame
         
         while (index < 10 )
         { //max 10 bytes in a frame
@@ -956,17 +1071,15 @@ void MiLoRxBind(void)
     void  ICACHE_RAM_ATTR MiLoTlm_build_frame()
     {
         uint8_t nbr_bytesIn;
-        
-        TelemetryId = (RxData[0] >> 3) & 0x1F;
-        
-        frame[0] = MiLoStorage.txid[0]; ;
-        frame[1] = MiLoStorage.txid[1];
-        frame[2] = MiLoTlmDataLink(pass);
-        frame[3] = TelemetryId | (pass << 5);
+        frame[0] = tlmDataLinkType ;
+        frame[1] = MiLoStorage.txid[0]; ;
+        frame[2] = MiLoStorage.txid[1];
+        frame[3] = ((UplinkTlmId & 0x0F) << 4) | ( dowlinkTlmId & 0X0F) ;
+        frame[4] = MiLoTlmDataLink(tlmDataLinkType);
         #ifdef SPORT_TELEMETRY
             nbr_bytesIn = MiLoTlm_append_sport_data(&frame[5]);
         #endif
-        frame[4] = nbr_bytesIn | ((UplinkTlmId & 0x0F) << 4);
+        frame[0] |= (( nbr_bytesIn & 0X0F ) << 4);
         #ifdef DEBUG_SPORT
             if(nbr_bytesIn){
                 for(uint8_t i = 0;i<nbr_bytesIn;i++){
@@ -976,13 +1089,13 @@ void MiLoRxBind(void)
                 Serial.println("");
             }
         #endif  
-        pass = (pass + 1)%3;
+        tlmDataLinkType = (tlmDataLinkType + 1)%3;
     }
 
     void  ICACHE_RAM_ATTR MiloTlmSent()
     {
         MiLoTlm_build_frame();
-        delayMicroseconds(50);//just in case
+        delayMicroseconds(50);//just in case  // mstrens : this is probably not enough to let TX being in receiving mode at the end of his sending slot
         #ifdef HAS_PA_LNA
             SX1280_SetTxRxMode(TX_EN);//PA enabled
         #endif
@@ -1159,6 +1272,7 @@ void ICACHE_RAM_ATTR dioISR()
     SX1280_ClearIrqStatus(SX1280_IRQ_RADIO_ALL);
     if (irqStatus & SX1280_IRQ_TX_DONE)
     {
+        G3PULSE(3);
         #ifdef HAS_PA_LNA
             SX1280_SetTxRxMode(TXRX_OFF);
         #endif
@@ -1179,9 +1293,12 @@ void ICACHE_RAM_ATTR dioISR()
         }
         if (fail == SX1280_RX_OK){
             frameReceived  = true ;
+            countReceivedFrameWhileLongTimeOut++; // mstrens for debugging only
+            dioISRMicros= micros();
         }       
         if (irqStatus & SX1280_IRQ_CRC_ERROR)
         {
+            G3PULSE(1);
             #ifdef STATISTIC
                 TotalCrcErrors += 1 ;//bad packets that not pass the crc check
             #endif

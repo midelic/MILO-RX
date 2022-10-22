@@ -15,6 +15,16 @@
     You should have received a copy of the GNU General Public License
     along with this code.  If not, see <http://www.gnu.org/licenses/>.
 */
+#define DEBUG
+#define DEBUG_EEPROM
+//#define DEBUG_LOOP_TIMING  
+#define DEBUG_BIND
+//#define DEBUG_DATA
+//#define DEBUG_SPORT
+#define DEBUG_ON_GPIO3
+
+
+
 #ifdef ESP8266
 	#define ESP8266_PLATFORM
 #endif
@@ -27,27 +37,22 @@
 //#define NAMIMNO_RX_NANO_FLASH
 #define ESP8266_E28_2G4M20S
 
-//#define DEBUG_EEPROM
-//#define DEBUG_LOOP_TIMING	
-//#define DEBUG_BIND
-//#define DEBUG_DATA
-//#define DEBUG_SPORT
 
-//#define MSW_SERIAL
-#define SW_SERIAL
+#define MSW_SERIAL
+//#define SW_SERIAL
 
 //#define HC_BIND
 //#define USER_MAX_POWER
-#define TELEMETRY
+//#define TELEMETRY // mstrens removed to test
 //#define HC_SPORT
 
 #if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined DIY_RX
-#define DIVERSITY
+  #define DIVERSITY
 #endif
 
 //#define SWAMPING
 //#define RSSI_AVG
-#define SPORT_TELEMETRY
+//#define SPORT_TELEMETRY // mstrens removed to test
 #define FAILSAFE
 
 //#define MinPower PWR_10mW
@@ -74,7 +79,7 @@
     #define USER_MAX_POWER 10 //10mW for example can be defined whatever you need
 #endif
 
-#define SBUS
+//#define SBUS // mstrens removed to test
 //#define TX_FAILSAFE
 //#define PWM_SERVO
 //#define ADC_VOLT
@@ -82,20 +87,22 @@
 //#define SERVO_RATE
 //#define PARALLEL_SERVO
 //#define EU_LBT
-#define USE_WIFI
+//#define USE_WIFI
 
 #ifdef USE_WIFI
     #include "devWIFI_elegantOTA.h"
 #endif
 
-#ifdef DEBUG_LOOP_TIMING	
-	void callMicrosSerial(){
-		static uint32_t tim = 0 ;
-		static uint32_t timt = 0 ;	
-		timt = micros();
-		Serial.println(timt - tim);
-		tim = micros();	
-	}
+#ifdef DEBUG_ON_GPIO3
+ #define G3ON digitalWrite(3,HIGH)
+ #define G3OFF digitalWrite(3,LOW)
+ #define G3TOGGLE digitalWrite(3,!digitalRead(3))
+ #define G3PULSE(usec) digitalWrite(3,HIGH);delayMicroseconds(usec); digitalWrite(3,LOW)
+#else
+ #define G3ON 
+ #define G3OFF 
+ #define G3TOGGLE 
+ #define G3PULSE(usec) 
 #endif
 /*
     Protocol description:
@@ -111,10 +118,10 @@
     
     # Normal frame channels 1-8; frame rate 7ms.
     
-    0. Frame type(3bits) |telemetry down link frame counter(sequence) 5 bits(0-31)
+    0. next expected telemetry down link frame counter(sequence) (bits 7..4 (4 bits=16 val)) | synchro channel (bit 3) | Frame type(bits 2..0 (3 lsb bits))
     1. txid1 TXID on 16 bits
     2. txid2
-    3. Model ID /Rx_Num(6 bits) | 1 bit flag for starting WIFI RX|1bit for sync telem frame
+    3. flag next frame must be dwn tlm frame (bit 7) | flag requesing starting WIFI (bit 6) | Model ID /Rx_Num(bits 5....0 = 6 bits) 
     4. channels 8 channels/frame ; 11bits/channel
     5. channels total 11 bytes of channels data in the packet frame
     6. channels
@@ -128,11 +135,10 @@
     14. channels ;15 bytes payload frame
     
     # Normal frame channels 9-16 separate; frame rate 7ms.
-    
-    0. Frame type (3bits) | telemetry downlink frame counter(sequence) 5 bits(0-31)
+    0. next expected telemetry down link frame counter(sequence) (bits 7..4 (4 bits=16 val)) | synchro channel (bit 3) | Frame type(bits 2..0 (3 lsb bits))
     1. txid1 TXID on 16 bits
     2. txid2
-    3. Model ID /Rx_Num 6 bits|1 bit flag for starting WIFI RX|1bit for sync telem frame
+    3. flag next frame must be dwn tlm frame (bit 7) | flag requesing starting WIFI (bit 6) | Model ID /Rx_Num(bits 5....0 = 6 bits) 
     4. channels 8 channels/frame ; 11bits/channel
     5. channels total 11 bytes of channels data in the packet frame
     6. channels
@@ -146,9 +152,9 @@
     14. channels ;15 bytes payload frame
     
     # TX uplink telemetry frame can be sent separate ;frame rate 7ms;1:6 telemetry data rate.
-    0. Frame type (3bits) | telemetry down link frame counter(sequence) 5 bits(0-31)
-    1.txid1
-    2.txid2
+    0. next expected telemetry down link frame counter(sequence) (bits 7..4 (4 bits=16 val)) | synchro channel (bit 3) | Frame type(bits 2..0 (3 lsb bits))
+    1. txid1 TXID on 16 bits
+    2. txid2
     3. no. of bytes in sport frame(on max 4bits) | telemetry uplink counter sequence(4 bits)
     4.Sport data byte1
     5.Sport data byte 2
@@ -163,11 +169,14 @@
     14.SPort data byte 11 ;15bytes payload/11 bytes sport telemetry
     
     # RX downlink telemetry frame sent separate at a fixed rate of 1:3;frame rate 7ms.	
-    0.txid1
-    1.txid2
-    2.RSSI/LQI/SNR alternate every ~80 ms update for each data
-    3.telemetry frame counter(5bits)|3bits ID link data packet(RSSI/SNR /LQI)
-    4.No. of bytes in sport frame(4 bits)|telemetry uplink counter sequence(4 bits)
+    0. - bits 7...4 : No. of bytes in sport frame(4 bits)
+       - bits 3...2 : unused (2 bits) 
+       - bitss 1...0 : type of link data packet(RSSI/SNR /LQI) (2 bits= 3 values currently) 
+    1.txid1
+    2.txid2
+    3.  - bits 7...4 : current downlink tlm counter (4 bits); when received TX should send this counter + 1
+        - bits 3...0 : last upllink tlm counter received(4 bits)
+    4.RSSI/LQI/SNR alternate every ~80 ms update for each data
     5.Sport data byte1
     6.Sport data byte2
     7.Sport data byte3

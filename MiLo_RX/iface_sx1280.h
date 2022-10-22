@@ -296,7 +296,7 @@ enum {
 enum {
     TXRX_OFF = 0,
     TX_EN,
-    RX_EN
+    RX_EN,
 };
 
     

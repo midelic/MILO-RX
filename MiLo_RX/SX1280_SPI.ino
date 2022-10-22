@@ -158,6 +158,7 @@ void  ICACHE_RAM_ATTR SX1280_Reset()
 
 uint16_t ICACHE_RAM_ATTR SX1280_GetFirmwareVersion( void )
 {
+    digitalWrite(SX1280_CSN_pin,LOW);
     return( ( ( (uint16_t)SX1280_ReadReg( REG_LR_FIRMWARE_VERSION_MSB ) ) << 8 ) | ( SX1280_ReadReg( REG_LR_FIRMWARE_VERSION_MSB + 1 ) ) );
 }
 
@@ -446,19 +447,21 @@ int32_t ICACHE_RAM_ATTR SX1280_complement2( const uint32_t num, const uint8_t bi
 */
 bool  ICACHE_RAM_ATTR SX1280_Begin()
 {
-    #ifdef  SX1280_DIO1_pin
-        attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //attach interrupt to DIO1 pin
-    #endif
     SX1280_Reset();
-    delay(100);
+    delay(10);
+    digitalWrite(SX1280_CSN_pin,LOW); // in sleep mode, it takes more time between CS and clock so we set cs LOW before; not sure it is really needed
+    delayMicroseconds(2);
     uint16_t firmwareRev = SX1280_GetFirmwareVersion();
+    //Serial.print("SX1280 version="); Serial.println(firmwareRev); // mstrens to debug
     currOpmode = SX1280_MODE_SLEEP;
     if ((firmwareRev == 0) || (firmwareRev == 65535))
     {
         // SPI communication failed, just return without configuration
         return false;
     }
-    SX1280_SetMode(SX1280_MODE_STDBY_RC);                                               
+    digitalWrite(SX1280_CSN_pin,LOW); // in sleep mode, it takes more time between CS and clock  so we set cs LOW before; not sure it is really needed
+    delayMicroseconds(2);
+    SX1280_SetMode(SX1280_MODE_STDBY_XOSC); // in this mode, some commands are processed faster                                              
     SX1280_WriteCommand(SX1280_RADIO_SET_PACKETTYPE, SX1280_PACKET_TYPE_LORA,15);//Set packet type to LoRa  
     SX1280_ConfigModParamsLoRa(SX1280_LORA_BW_0800, SX1280_LORA_SF6, SX1280_LORA_CR_4_7); //Configure Modulation Params                                                                          
     SX1280_WriteCommand(SX1280_RADIO_SET_AUTOFS, 0x01,15);     //Enable auto FS                                                                 
@@ -471,6 +474,11 @@ bool  ICACHE_RAM_ATTR SX1280_Begin()
     {
         SX1280_WriteCommand(SX1280_RADIO_SET_REGULATORMODE, SX1280_USE_DCDC,15);
     }
+    
+    #ifdef  SX1280_DIO1_pin
+        attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //attach interrupt to DIO1 pin
+    #endif
+    
     return true;
 }
 

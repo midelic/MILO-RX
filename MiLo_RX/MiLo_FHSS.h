@@ -1,4 +1,8 @@
 #pragma once
+
+//#define DEBUG_FHSS
+//#define DEBUG_WITH_FIXED_FHSS
+
 //from mLRS
 //https://github.com/olliw42/mLRS/
 // 2406.0 ... 2473.0  in 1 MHz steps
@@ -101,8 +105,48 @@ const uint8_t fhss_bind_channel_list_2p4[] =
     46 //,14, 33, 61 // just pick some
 };
 
+#ifdef DEBUG_WITH_FIXED_FHSS
+        uint8_t debug_ch_list_backup[] =     // 68 values
+    {
+        7, 22 , 37, 52, 67,  //0-4
+        3, 27, 34, 56, 60,   //5-9
+        0, 26, 32, 45, 71,   //10-14
+        11, 16, 41, 48, 62,  //15-19
+        1, 29, 42, 47, 61,   //20-24
+        10, 17, 30, 55, 63,  //25-29
+        14, 28, 44, 57, 74,  //30-34
+        12, 18, 33, 58, 70,  //35-39
+        13, 19, 31, 49, 72,  //40-44
+        4, 25, 40, 59, 73,   //45-49
+        2, 15, 43, 46, 64,   //50-54
+        13, 19, 31, 49, 72,  //55-59
+        4, 25, 40, 59, 73,   //60-64
+        2, 15, 43, 46,       //65-68
+        
+    };
+    uint8_t debug_ch_list[] =     // 55 values
+    {
+        7, 22 , 37, 52, 67,  //0-4
+        30, 30, 30, 30, 30,   //5-9
+        30, 30, 30, 30, 30,  //10-14
+        30, 30, 30, 30, 30,  //15-19
+        30, 30, 30, 30, 30,  //20-24
+        30, 30, 30, 30, 30,  //25-29
+        30, 30, 30, 30, 30,  //30-34
+        30, 30, 30, 30, 30,  //35-39
+        30, 30, 30, 30, 30,  //40-44
+        30, 30, 30, 30, 30,  //45-49
+        30, 30, 30, 30, 30,  //50-54
+        30, 30, 30, 30, 30,  //55-59
+        30, 30, 30, 30, 30,  //60-64
+        30, 30, 30, 30,      //65-68
+    };
+    
+#endif
+
+
 // https://en.wikipedia.org/wiki/Linear_congruential_generator: Microsoft Visual/Quick C/C++
-// also used by ELRS
+// also used by ELRS;
 // generates values in range [0, 0x7FFF]
 
 // spektrum:
@@ -114,21 +158,35 @@ const uint8_t fhss_bind_channel_list_2p4[] =
 // same prng as spektrum, picks 50 channels, ensures not close and not 0,1
 
 #define FHSS_MAX_NUM    80  
-#define FHSS_CHANNELS_NUM  68  
+#define FHSS_CHANNELS_NUM  68
+#define FHSS_SYNCHRO_CHANNELS_NUM 5 // maximum number of channels reserved in channel list to be used when waiting for a connection. 
+                                               // Those are the n first channels in the list and are the only one allowed when trying to (re)connect;
+                                               // They have a gap of 2 at least with all others channels in the list
+                                               // There are spread over the whole range fo frequency (= synchro channel one per section)
+                                               // The purpose is to avoid recynchronizing Rx with Tx based on a channel that is to adjacent to the expected one.
+                                               // This occurs when the Rx id not selective enough and accept a frame on an adjacent channels
+        
+ 
 
 uint32_t _seed;
 bool is_in_binding;
 uint8_t cnt ;
-uint8_t curr_i;
+uint8_t curr_i= 0;
+
 
 uint8_t ch_list[FHSS_MAX_NUM]; // that's our list of randomly selected channels
 uint32_t fhss_list[FHSS_MAX_NUM]; // that's our list of randomly selected frequencies
 int8_t fhss_last_rssi[FHSS_MAX_NUM];
 
-uint8_t freq_list_len;
-uint8_t fhss_bind_channel_list_len;
+uint8_t freq_list_len;              // nimber of channels in the list of all frequencies e.g. 79
+uint8_t fhss_bind_channel_list_len; // number of channels in bind list e.g. 1
+uint8_t fhss_section_len;           // number of channels in a section  = fhss_freq_list / FHSS_SYNCHRO_CHANNELS_NUM ; // SECTION_NUM = 79 / 5 = 15
+uint8_t fhss_max_channel ;          // max number of channels that may be used for synchro e.g. 15 *5 = 75 in order to stay in one of the section
+
 const uint32_t* fhss_freq_list;
 const uint8_t* fhss_bind_channel_list;
+
+extern uint8_t t_out;
 
 void  Fhss_Init()
 {
@@ -136,6 +194,9 @@ void  Fhss_Init()
     fhss_bind_channel_list = fhss_bind_channel_list_2p4;
     freq_list_len = (uint8_t)(sizeof(fhss_freq_list_2p4) / sizeof(uint32_t));
     fhss_bind_channel_list_len = (uint8_t)(sizeof(fhss_bind_channel_list_2p4) / sizeof(uint8_t));
+    fhss_section_len = freq_list_len / FHSS_SYNCHRO_CHANNELS_NUM ; // SECTION_NUM = 79 / 5 = 15
+    fhss_max_channel = fhss_section_len * FHSS_SYNCHRO_CHANNELS_NUM ; // 15 * 5 = 75
+
     cnt = FHSS_CHANNELS_NUM;
     curr_i = 0;
     is_in_binding = false;
@@ -155,17 +216,96 @@ void  Fhss_generate(uint32_t seed)//
 {
     _seed = seed;
     bool used_flag[freq_list_len];
+    bool used_synchro_flag[freq_list_len];
     for (uint8_t ch = 0; ch < freq_list_len; ch++){ 
         used_flag[ch] = false;
+        used_synchro_flag[ch] = false;
     }
     uint8_t k = 0;
+    uint8_t used_synchro_count = 0; // count the number of channels already used in used_synchro_flag  
+    while (k < FHSS_SYNCHRO_CHANNELS_NUM) // first step = allocate 5 synchro in defferent range 
+    {
+        uint8_t rn = prng() % (freq_list_len - ( used_synchro_count)); // get a random number in the remaining range (note: Each syncro channel selected reserves several channels 15 or even more) 
+        uint8_t i = 0;
+        uint8_t ch;
+        // do not take a channel that is already used 
+        for (ch = 0; ch < freq_list_len; ch++) 
+        {   // search the rn unused channels in used_synchro_list (where a whole section is used only once)
+            if (used_synchro_flag[ch]) 
+                continue;
+            if (i == rn) 
+                break; // ch is our next index
+            i++;
+        }
+        if (ch >= freq_list_len) { // argh, must not happen !
+            //Serial.println("should not happen");
+            ch = 0;
+        }
+        // do not pick a channel that would exceed the n groups.
+        if (ch >= fhss_max_channel) continue; 
+        // do not pick a bind channel
+        //bool is_bind_channel = false;
+        //for (uint8_t bi = 0; bi < fhss_bind_channel_list_len; bi++) {
+        //    if (ch == fhss_bind_channel_list[bi]) {
+        //        is_bind_channel = true;
+        //    }    
+        //}
+        //if (is_bind_channel) continue;
+        
+        // ensure it is not too close to the previous
+        /*
+        if (k > 0)     
+        {
+            if(ch_list[k-1]>ch)
+            {
+                if( (ch_list[k-1]- ch) < 7)
+                    continue;
+            } else {
+                if( (ch - ch_list[k-1]) < 7)
+                    continue;
+            }    
+        }
+        */
+        // we got a new ch, so register it
+        ch_list[k] = ch;//ch index
+        fhss_list[k] = fhss_freq_list[ch];
+        used_flag[ch] = true;
+        used_synchro_flag[ch] = true;
+        uint8_t sectionStartAt = (ch/fhss_section_len) * fhss_section_len; // e.g. (50/15) * 15 = 45 : there are 5 sections of 15 channels so Channel section is 0...4
+        // we marks the whole section as being used (so next synchro channel will be in another section)
+        for (uint8_t i = 0; i < fhss_section_len ; i++){
+            used_synchro_flag[sectionStartAt + i] = true;
+        }
+        // we mark the 7 adjacent channels as used to avoid having 2 synchro channels to close from each other
+        for ( uint8_t i = 0 ; i< 7; i++){
+            if (ch > i) { used_synchro_flag[ch-i-1] = true;}
+            if (ch < (freq_list_len-i)) { used_synchro_flag[ch+i] = true;}
+        }
+        // count number of channels used in used_syncro_flag
+        used_synchro_count = 0;
+        for ( uint8_t i = 0 ; i < freq_list_len ; i++){
+          if ( used_synchro_flag[i])  used_synchro_count++;
+        }
+        k++;
+    }
+    #ifdef DEBUG_FHSS
+        Serial.println(" Synchro channels");
+        for (uint8_t i = 0; i < 5; i++){
+          Serial.println(ch_list[i]); 
+        }
+        Serial.println("------------");
+    #endif
+    // at this stage whe have 5 synchro channels spread in different sections
+    // now we will allocate other channels taking care to avoid:
+    //     - using a blocked channel
+    //     - having a gap of 5 channels with channels n-1 and n-2
     while (k < cnt) 
     {
-        uint8_t rn = prng() % (freq_list_len - k); // get a random number in the remaining range   
+        uint8_t rn = prng() % (freq_list_len - FHSS_SYNCHRO_CHANNELS_NUM - k); // get a random number in the remaining range   
         uint8_t i = 0;
         uint8_t ch;
         for (ch = 0; ch < freq_list_len; ch++) 
-        {
+        {   // search the rn unused channels
             if (used_flag[ch]) 
                 continue;
             if (i == rn) 
@@ -175,56 +315,95 @@ void  Fhss_generate(uint32_t seed)//
         if (ch >= freq_list_len) { // argh, must not happen !
             ch = 0;
         }
-        // do not pick a bind channel
-        bool is_bind_channel = false;
-        for (uint8_t bi = 0; bi < fhss_bind_channel_list_len; bi++) {
-            if (ch == fhss_bind_channel_list[bi]) {
-                is_bind_channel = true;
-            }    
-        }
-        if (is_bind_channel) continue;
-
-        // ensure it is not too close to the previous
-        bool is_too_close = false;
-        if (k > 0) 
-        {
-            int8_t last_ch = ch_list[k - 1];
-            if (last_ch == 0) { // special treatment for this case
-                if (ch < 2) is_too_close = true; 
-            } 
-            else 
+        // do not pick a bind channel : in fact it is not really needed
+        //bool is_bind_channel = false;
+        //for (uint8_t bi = 0; bi < fhss_bind_channel_list_len; bi++) {
+        //    if (ch == fhss_bind_channel_list[bi]) {
+        //        is_bind_channel = true;
+        //    }    
+        //}
+        //if (is_bind_channel) continue;
+        // ensure it is not too close to the 2 previous
+        if (k > 0) {
+            if(ch_list[k-1]>ch)
             {
-                if ((ch >= last_ch - 1) && (ch <= last_ch + 1)) is_too_close = true;
+                if( (ch_list[k-1]- ch) < 5) continue;
+            } else {
+                if( (ch - ch_list[k-1]) < 5) continue;
             }
         }
-        if (is_too_close) continue;
+        if (k > 1) {
+            if(ch_list[k-2]>ch)
+            {
+                if( (ch_list[k-2]- ch) < 5) continue;
+            } else {
+                if( (ch - ch_list[k-2]) < 5) continue;
+            }    
+        }
         // we got a new ch, so register it
         ch_list[k] = ch;//ch index
         fhss_list[k] = fhss_freq_list[ch];
         used_flag[ch] = true;
         k++;
     }
+    #ifdef DEBUG_WITH_FIXED_FHSS
+        for (uint8_t k = 0; k < cnt; k++) {
+            ch_list[k] = debug_ch_list[k];
+            fhss_list[k] = fhss_freq_list[ch_list[k]];
+        }
+    #endif
     curr_i = 0;
     //mark all channels as equally bad
     for (uint8_t k = 0; k < cnt; k++) {
         fhss_last_rssi[k] = -128 ;
     }
     #ifdef DEBUG_FHSS
-        delay(1000);
-        for (uint8_t i = 0; i < cnt; i++) Serial.println(fhss_list[i]); 
+        Serial.println(" All channels");
+        for (uint8_t i = 0; i < cnt; i++){
+          Serial.print(ch_list[i]); Serial.print(","); Serial.println(fhss_list[i]); 
+        }
     #endif
 }
     
-void ICACHE_RAM_ATTR nextChannel(uint8_t skip )
+
+void ICACHE_RAM_ATTR nextChannel(uint8_t skip )   // note : this version is different from Milo Tx
 {
-    curr_i  = (curr_i + skip)%cnt;
+  curr_i  = (curr_i + skip)%cnt;       // curr_i is the index in the channel list 
+  
+  if ( t_out > 1) {
+    if ( curr_i >= FHSS_SYNCHRO_CHANNELS_NUM ) {
+      curr_i = 0;  
+    }
+    Serial.println(curr_i);
+  }
+  else {
+    Serial.print("."); Serial.println(curr_i);
+  }
+    //Serial.print("f="); Serial.println(curr_i); // mstrens added to debug frequency hop
 }
+
+void ICACHE_RAM_ATTR setChannelIdx(uint8_t ch_idx )   // note : this version is different from Milo Tx
+{
+  curr_i  = ( ch_idx )%cnt;
+  if ( t_out > 1) {
+    if ( curr_i >= FHSS_SYNCHRO_CHANNELS_NUM ) {      // only the 5 first entries in the list may be used to get a connection 
+      curr_i = 0;  
+    }
+  }
+    //Serial.print("f="); Serial.println(curr_i); // mstrens added to debug frequency hop
+}
+
     
-uint32_t ICACHE_RAM_ATTR GetInitialFreq()
+uint32_t ICACHE_RAM_ATTR GetBindFreq()
 {
     return fhss_freq_list[fhss_bind_channel_list[0]];
 }
-    
+
+uint8_t getCurrentChannelIdx()    
+{
+    return curr_i; 
+}
+
 uint32_t  ICACHE_RAM_ATTR GetCurrFreq(void)
 {
     if (is_in_binding) 
@@ -237,8 +416,7 @@ uint32_t  bestX(void)
     uint8_t i_best = 0;
     for (uint8_t i = 0; i < cnt; i++) 
     {
-        if (fhss_last_rssi[i] > fhss_last_rssi[i_best]) 
-            i_best = i;
+        if (fhss_last_rssi[i] > fhss_last_rssi[i_best]) i_best = i;
     }
     curr_i = i_best;
     return fhss_list[curr_i];

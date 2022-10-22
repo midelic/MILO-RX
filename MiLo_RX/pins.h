@@ -33,12 +33,14 @@
 #endif
 
 #ifdef ESP8266_E28_2G4M20S
-#undef SX1280_BUSY_pin
-#undef SX1280_RXEN_pin
-#undef SX1280_TXEN_pin
-#define SX1280_BUSY_pin 16
-#define SX1280_RXEN_pin -1
-#define SX1280_TXEN_pin  5
+    #undef SX1280_BUSY_pin
+    #undef SX1280_RXEN_pin
+    #undef SX1280_TXEN_pin
+    #undef LED_pin
+    #define LED_pin         -1
+    #define SX1280_BUSY_pin  16
+    #define SX1280_RXEN_pin -1
+    #define SX1280_TXEN_pin  5
 #endif
     
 #define IS_BIND_BUTTON_on   ( (BIND_pin != -1) && (digitalRead(BIND_pin)==LOW))

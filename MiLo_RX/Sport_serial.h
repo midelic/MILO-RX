@@ -187,10 +187,10 @@ void  ICACHE_RAM_ATTR sendMSPpacket()
 }
 
 #ifdef MSW_SERIAL
-    void ICACHE_RAM_ATTR SerialPinISR()
+    void ICACHE_RAM_ATTR SerialPinISR()   // called when a pin changed (and we where waiting to receive a byte)
     {   
         if(digitalRead(SX1280_SPORT_RX_pin)==HIGH)   // Pin is high,inverted signal
-        {
+        {  // When level goes up, it means we got a start bit
             disable_interrupt_serial_pin();   //disable pin change interrupt         
             timer0_attachInterrupt(SerialBitISR);
             timer0_write(ESP.getCycleCount()+ BIT_TIME + HLF_BIT_TIME );//return one and an 1/2 period into the future.
@@ -200,7 +200,7 @@ void  ICACHE_RAM_ATTR sendMSPpacket()
         }
     }
 
-    void ICACHE_RAM_ATTR SerialBitISR()
+    void ICACHE_RAM_ATTR SerialBitISR()  // interrupt called while sending bytes or after getting a start bit (for receive)
     {
         switch (state)
         {   
@@ -291,7 +291,7 @@ void initSportUart( )
 {
 #ifdef MSW_SERIAL
     timer0_isr_init();
-    #elif defined SW_SERIAL
+#elif defined SW_SERIAL
     swSer.begin(57600, SWSERIAL_8N1,3, 3,true, 256);//inverted
 #endif
 }
