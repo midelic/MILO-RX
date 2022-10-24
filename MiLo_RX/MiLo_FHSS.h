@@ -174,9 +174,9 @@ uint8_t cnt ;
 uint8_t curr_i= 0;
 
 
-uint8_t ch_list[FHSS_MAX_NUM]; // that's our list of randomly selected channels
-uint32_t fhss_list[FHSS_MAX_NUM]; // that's our list of randomly selected frequencies
-int8_t fhss_last_rssi[FHSS_MAX_NUM];
+uint8_t ch_list[FHSS_CHANNELS_NUM]; // that's our list of randomly selected channels
+uint32_t fhss_list[FHSS_CHANNELS_NUM]; // that's our list of randomly selected frequencies
+int8_t fhss_last_rssi[FHSS_CHANNELS_NUM];
 
 uint8_t freq_list_len;              // nimber of channels in the list of all frequencies e.g. 79
 uint8_t fhss_bind_channel_list_len; // number of channels in bind list e.g. 1
@@ -186,7 +186,7 @@ uint8_t fhss_max_channel ;          // max number of channels that may be used f
 const uint32_t* fhss_freq_list;
 const uint8_t* fhss_bind_channel_list;
 
-extern uint8_t t_out;
+extern bool isConnected2Tx;
 
 void  Fhss_Init()
 {
@@ -370,7 +370,7 @@ void ICACHE_RAM_ATTR nextChannel(uint8_t skip )   // note : this version is diff
 {
   curr_i  = (curr_i + skip)%cnt;       // curr_i is the index in the channel list 
   
-  if ( t_out > 1) {
+  if ( !isConnected2Tx) {
     if ( curr_i >= FHSS_SYNCHRO_CHANNELS_NUM ) {
       curr_i = 0;  
     }
@@ -385,10 +385,11 @@ void ICACHE_RAM_ATTR nextChannel(uint8_t skip )   // note : this version is diff
 void ICACHE_RAM_ATTR setChannelIdx(uint8_t ch_idx )   // note : this version is different from Milo Tx
 {
   curr_i  = ( ch_idx )%cnt;
-  if ( t_out > 1) {
+  if ( !isConnected2Tx) {
     if ( curr_i >= FHSS_SYNCHRO_CHANNELS_NUM ) {      // only the 5 first entries in the list may be used to get a connection 
       curr_i = 0;  
     }
+    
   }
     //Serial.print("f="); Serial.println(curr_i); // mstrens added to debug frequency hop
 }

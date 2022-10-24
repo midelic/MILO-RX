@@ -21,6 +21,7 @@
 
 #undef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
+#define ICACHE_RAM_ATTR3
 #define WORD_ALIGNED_ATTR __attribute__((aligned(4)))
 
 #include <SPI.h>
@@ -91,13 +92,16 @@ uint32_t  address = 0;//EEPROM start adress
 #define NO_PULSE  0
 #define HOLD  2047
 #define MAX_MISSING_PKT 100 // when missingPackets reachs this value, failsafe is ON and connection is lost  mstrens: originally was 100
+#define MARGIN_LONG_TIMEOUT 10000 // margin (usec) to be added to the timeout used when not connected (to cover clock difference between TX and RX)
+#define MARGIN_SHORT_TIMEOUT 500 // margin (usec) to be added to the first timeout used when connected 
 
 uint16_t ServoData[16]; // rc channels to be used for Sbus (received from Tx or failsafe)
 volatile int32_t missingPackets = 0;
 bool packetToDecode = false; // true means that a packet (any type) has been received from Tx and must be decoded
 uint8_t jumper = 0;
 uint16_t c[8];
-uint8_t t_out = FHSS_CHANNELS_NUM;
+bool isConnected2Tx = false;
+//uint8_t t_out = FHSS_CHANNELS_NUM; // replaced by a flag isConnected2Tx
 uint32_t t_outMicros ;
 uint32_t t_tune = 500;
 uint16_t wordTemp;
@@ -226,7 +230,7 @@ uint32_t currFreq = 0;
 uint8_t LoRaBandwidth;
 uint32_t FreqCorrection;
 uint32_t FreqCorrectionRegValue;
-uint16_t timeout = 0xFFFF;
+uint16_t timeout = 0xFFFF; // this means that the SX1280 runs in continous mode
 uint8_t packetLengthType;
 
 typedef struct MiLo_mod_settings_s
@@ -344,14 +348,13 @@ void setup()
     is_in_binding = false;
     //MiLoRxBinding(0); // ReadEEPROMdata and set is_in_binding = false;
     Fhss_generate(MProtocol_id); // generates the used frequency (based on param in EEPROM)
-    t_out= FHSS_CHANNELS_NUM; // whe have to start trying to get a connection
+    isConnected2Tx = false; // previously it was : t_out= FHSS_CHANNELS_NUM; // whe have to start trying to get a connection
     currFreq = GetCurrFreq(); //set frequency first or an error will occur!!!
-    SX1280_Begin();
     bool init_success = SX1280_Begin();
     if (!init_success)
     {
         debugln("Init of SX1280 failed");
-        while(1){};//return; // commented by mstrens in order to start testing without a SX1280 module
+        while(1){};//return; // while added by mstrens; comment line in order to start testing without a SX1280 module
     }
     sbusAllowed = false ;    //no pulse
     //MiLo_SetRFLinkRate(RATE_100HZ));
@@ -369,7 +372,7 @@ void setup()
         ConfigTimer();
     #endif
     smoothedInterval = MiLo_currAirRate_Modparams->interval;
-    t_outMicros= t_out * smoothedInterval ; // at start up we use a long delay (476msev = 7000*68 usec) 
+    t_outMicros= FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT; // at start up we use a long delay (476msev = 7000*68 usec) 
     slotBeginAt = micros();
     debugln("End of setup: SX1280 is OK");
     #ifdef DEBUG_ON_GPIO3
@@ -435,8 +438,8 @@ void handleShortTimeout()
     
     if (missingPackets > MAX_MISSING_PKT)// we just lost the connection
     {
-        t_out = FHSS_CHANNELS_NUM;// wait max 68 slots of 7 msec before exiting while()
-        t_outMicros = t_out * smoothedInterval;
+        isConnected2Tx = false; // previously it was t_out = FHSS_CHANNELS_NUM;// wait max 68 slots of 7 msec before exiting while()
+        t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT; // 2000 is to be sure that interval is big enoug to cover 68 slots
 //        setChannelIdx(0) ; // skip to the first channel in the list because only the first 5 are used to get connection
 //        currFreq = GetCurrFreq(); //set frequency first or an error will occur!!!
 //        SX1280_SetFrequencyReg(currFreq); 
@@ -509,6 +512,10 @@ void handleLongTimeout()
                     // note: when we are trying to (re)synchronize RX with Tx, we use only the n first channels in the list (this is performed in the function
     G3PULSE(1);
     SX1280_SetFrequencyReg(GetCurrFreq());
+    SX1280_SetMode(SX1280_MODE_FS);// mstrens to debug - test to avoid having several syncro frame before getting connection
+    SX1280_ClearIrqStatus(0XFFFF); // mstrens to debug - clear all interrupts in SX1280 
+    SX1280_SetMode(SX1280_MODE_RX);// mstrens to debug -
+    Serial.print("fe=");Serial.println(SX1280_GetFrequencyError());// mstrens to debug -
 }
 
 bool isReceivedFrameValid() { // return true for a valid frame
@@ -517,29 +524,45 @@ bool isReceivedFrameValid() { // return true for a valid frame
     SX1280_GetLastPacketStats();
     cli();
     frameReceived = false;  // reset the flag saying a frame has been received
-    sei();            
-    if ((RxData[1] != MiLoStorage.txid[0]) || RxData[2] != MiLoStorage.txid[1]) // Only if correct txid will pass
+    sei();
+    if ((RxData[1] != MiLoStorage.txid[0]) || RxData[2] != MiLoStorage.txid[1]){ // Only if correct txid will pass
+        //GPOS =1<<3 ;GPOC= 1<<3;
+        G3PULSE(1);
         return false;
+    }    
     FrameType = (RxData[0] & 0x07) ;   // extract the frame type (will be used for many checks later on) 
-    if ( ( FrameType != TLM_PACKET) && ((RxData[3] & 0x3F) != MiLoStorage.rx_num) )
+    if ( ( FrameType != TLM_PACKET) && ((RxData[3] & 0x3F) != MiLoStorage.rx_num) ) {
+        //GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;//
+        G3PULSE(1);G3PULSE(1);    
         return false;  // when no uplink telemetry, Rx mum should be correct
-    //Serial.print(t_out); Serial.print(">"); Serial.println( RxData[0],HEX); // mstrens to debug
-    if (  t_out < FHSS_CHANNELS_NUM ) {  // when connected
+    }
+    //Serial.print(isConnected2Tx); Serial.print(">"); Serial.println( RxData[0],HEX); // mstrens to debug
+    if ( isConnected2Tx ) {  // when connected // previously it was a test on (t_out < FHSS_CHANNELS_NUM)
         if ( ( RxData[0] & 0x08 ) == 0 ) { // if we receive a non synchro frame
-            if ( getCurrentChannelIdx() < FHSS_SYNCHRO_CHANNELS_NUM ) 
+            if ( getCurrentChannelIdx() < FHSS_SYNCHRO_CHANNELS_NUM ) {
+                //GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;//
+                G3PULSE(1);G3PULSE(1);G3PULSE(1);
                 return false; // reject frames marked as on not synchro channel when current channel is a synchro channel
+            }
         } else { //  we receive a synchro frame
-            if ( getCurrentChannelIdx() >= FHSS_SYNCHRO_CHANNELS_NUM ) 
+            if ( getCurrentChannelIdx() >= FHSS_SYNCHRO_CHANNELS_NUM ){ 
+                //GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;//
+                G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);
                 return false; // reject frames marked as synchro channel when current channel is a not a synchro channel
+            }    
         }    
     } else { // when we try to synchronise RX with RX (not connected)
-        if ( ( RxData[0] & 0x08 ) == 0 ) return false; // reject frames not marked as on synchro channel 
+        if ( ( RxData[0] & 0x08 ) == 0 ){
+           //GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;GPOS = 1<<3 ;GPOC = 1<<3 ;//
+           G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);
+           return false; // reject frames not marked as on synchro channel
+        } 
     }   
     return true;                 
 }                           
 
 void prepareNextSlot() { // a valid frame has been received; perform frequency hop and initialized some flags/counters
-    t_out = 1;           // set timeout on 1 because next packet should be within 7 mse
+    isConnected2Tx = true; // previously it was t_out = 1;           // set timeout on 1 because next packet should be within 7 mse
     t_outMicros = smoothedInterval + 500; // 500 is a margin e.g. to take care of some jitter   
     nextChannel(1);
     G3PULSE(1);
@@ -743,7 +766,7 @@ void loop()
         //G3PULSE(1);
         if ((micros() - slotBeginAt) >= t_outMicros)
         {// when timeout occurs (after 1 or FHSS_CHANNELS_NUM * interval; so after 7ms or 476 msec
-            if (t_out < FHSS_CHANNELS_NUM)// if we where connected and just waited for 1 interval = 7 msec
+            if ( isConnected2Tx )// previously it was a test on (t_out < FHSS_CHANNELS_NUM) :if we where connected and just waited for 1 interval = 7 msec
             {
                 Serial.println("-");
                 //G3PULSE(30);
@@ -751,11 +774,11 @@ void loop()
                 //Serial.println("S");//Serial.print(debugMicrosInterval(0));Serial.println(""); // mstrens
                 handleShortTimeout(); //change antenna, update some counters and perform a freq hop
             }
-            else// t_out == > FHSS_CHANNELS_NUM and so it means no connection or connection has already been lost (after to many missing packets) 
+            else// it means no connection or connection has already been lost (after to many missing packets) 
             {
                 Serial.println("+");
                 G3PULSE(30);
-                slotBeginAt += FHSS_CHANNELS_NUM * smoothedInterval;
+                slotBeginAt += FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT;
                 Serial.print("Frame recived=");Serial.println( countReceivedFrameWhileLongTimeOut); // mstrens to debug
                 countReceivedFrameWhileLongTimeOut = 0; // mstrens to debug
                 handleLongTimeout(); //process LED, failsafe setup and frequency hop
@@ -831,7 +854,7 @@ void loop()
     }
     
     #if defined(TELEMETRY) // process downlink tlm
-        if ( (packetSeq == 1 ) && ( t_out != FHSS_CHANNELS_NUM) ) 
+        if ( (packetSeq == 1 ) && ( isConnected2Tx) ) // previously there was a test on (t_out != FHSS_CHANNELS_NUM)
         { // next slot must be used to send a downlink telemetry packet but only if there is a connection.
           // here we send a downlink tlm frame even if we just miss one or a few frames (but not loss the connection)
             #ifdef HAS_PA_LNA
@@ -854,7 +877,7 @@ void loop()
         else
     #endif
     { // next slot 
-        if ( (packetToDecode == true || missingPackets > 0) && ( t_out != FHSS_CHANNELS_NUM) )
+        if ( (packetToDecode == true || missingPackets > 0) && ( isConnected2Tx) ) // previously there was a test on (t_out != FHSS_CHANNELS_NUM)
         { // if we are still connected and did not sent a downlink tlm frame
             #if defined(SBUS)
               sbus_counter++;
@@ -1272,7 +1295,7 @@ void ICACHE_RAM_ATTR dioISR()
     SX1280_ClearIrqStatus(SX1280_IRQ_RADIO_ALL);
     if (irqStatus & SX1280_IRQ_TX_DONE)
     {
-        G3PULSE(3);
+        //G3PULSE(3);
         #ifdef HAS_PA_LNA
             SX1280_SetTxRxMode(TXRX_OFF);
         #endif
@@ -1298,7 +1321,7 @@ void ICACHE_RAM_ATTR dioISR()
         }       
         if (irqStatus & SX1280_IRQ_CRC_ERROR)
         {
-            G3PULSE(1);
+            //G3PULSE(1);
             #ifdef STATISTIC
                 TotalCrcErrors += 1 ;//bad packets that not pass the crc check
             #endif

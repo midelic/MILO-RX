@@ -152,7 +152,9 @@ void  ICACHE_RAM_ATTR SX1280_Reset()
     digitalWrite(SX1280_RST_pin,LOW);
     delay(50);
     digitalWrite(SX1280_RST_pin,HIGH);
-    delay(10); // typically 2ms observed
+    delay(100); // typically 2ms observed
+    WaitOnBusy(); // instead of waiting to long, we look at the bysy pin (goes low when reset is done)
+
 }
 
 
@@ -287,8 +289,8 @@ void ICACHE_RAM_ATTR SX1280_ConfigModParamsLoRa(uint8_t bw, uint8_t sf, uint8_t 
         default:
             SX1280_WriteReg(SX1280_REG_SF_ADDITIONAL_CONFIG, 0x32); // for SF9, SF10, SF11, SF12
     }
-    // Enable frequency compensation
-    SX1280_WriteReg(SX1280_REG_FREQ_ERR_CORRECTION, 0x1);
+    // Enable frequency compensation // datasheet says that it must be done
+    //SX1280_WriteReg(SX1280_REG_FREQ_ERR_CORRECTION, 0x1); // commented by mstrens for debugging
 }
 
 void ICACHE_RAM_ATTR SX1280_SetPacketParamsLoRa(uint8_t PreambleLength, uint8_t HeaderType,
@@ -444,6 +446,27 @@ int32_t ICACHE_RAM_ATTR SX1280_complement2( const uint32_t num, const uint8_t bi
     Note:
     txBaseAddress and rxBaseAddress are offset relative to the beginning of the data memory map.
     5. Define the modulation parameter signal BW SF CR
+       SetModulationParams(modParam1,modParam2, modParam3)
+       0x1 must also be written to the Frequency Error Compensation mode register 0x093C
+    6. Define the packet format to be used by sending the command:  PreambleLength,  HeaderType, PayloadLength , CRC, InvertIQ/chirp invert
+       SetPacketParams(pktParam1, pktParam2, pktParam3, pktParam4, pktParam5)
+
+For Rx mode:
+    1. Configure the DIOs and Interrupt sources (IRQs) by using command:
+        SetDioIrqParams(irqMask,dio1Mask,dio2Mask,dio3Mask)
+    2. Once configured, set the transceiver in receiver mode to start reception using command:
+        SetRx(periodBase, periodBaseCount[15:8], periodBaseCount[7:0])
+        periodBase = 0 = no time out - single shot
+                   = 0xFFFF, Rx Continuous mode
+                   = other, time out - single shot
+    3.   Check the packet status to make sure that the packet has been received properly, by sending the command:
+        GetPacketStatus()
+    4.Once all checks are complete, clear IRQs by sending the command:
+        ClrIrqStatus(irqMask)   
+    5. (when required) Get the packet length and start address of the received payload by sending the command:
+        GetRxBufferStatus()
+    6. Read the data buffer using the command:
+        ReadBuffer(offset, payloadLengthRx)                     
 */
 bool  ICACHE_RAM_ATTR SX1280_Begin()
 {
@@ -463,12 +486,12 @@ bool  ICACHE_RAM_ATTR SX1280_Begin()
     delayMicroseconds(2);
     SX1280_SetMode(SX1280_MODE_STDBY_XOSC); // in this mode, some commands are processed faster                                              
     SX1280_WriteCommand(SX1280_RADIO_SET_PACKETTYPE, SX1280_PACKET_TYPE_LORA,15);//Set packet type to LoRa  
+    SX1280_SetFrequencyReg(currFreq);                                                                                                    //Set Freq
+    SX1280_SetFIFOaddr(0x00, 0x00);                                                                                                      //Config FIFO addr
     SX1280_ConfigModParamsLoRa(SX1280_LORA_BW_0800, SX1280_LORA_SF6, SX1280_LORA_CR_4_7); //Configure Modulation Params                                                                          
     SX1280_WriteCommand(SX1280_RADIO_SET_AUTOFS, 0x01,15);     //Enable auto FS                                                                 
     SX1280_WriteReg(0x0891, (SX1280_ReadReg(0x0891) | 0xC0));  //default is low power mode, switch to high sensitivity instead
     SX1280_SetPacketParamsLoRa(12, SX1280_LORA_PACKET_IMPLICIT, 15, SX1280_LORA_CRC_ON, SX1280_LORA_IQ_NORMAL); 
-    SX1280_SetFrequencyReg(currFreq);                                                                                                    //Set Freq
-    SX1280_SetFIFOaddr(0x00, 0x00);                                                                                                      //Config FIFO addr
     SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, SX1280_IRQ_TX_DONE | SX1280_IRQ_RX_DONE, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);  //set IRQ to both RXdone/TXdone on DIO1
     if (OPT_USE_SX1280_DCDC)
     {
