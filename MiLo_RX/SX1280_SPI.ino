@@ -290,7 +290,7 @@ void ICACHE_RAM_ATTR SX1280_ConfigModParamsLoRa(uint8_t bw, uint8_t sf, uint8_t 
             SX1280_WriteReg(SX1280_REG_SF_ADDITIONAL_CONFIG, 0x32); // for SF9, SF10, SF11, SF12
     }
     // Enable frequency compensation // datasheet says that it must be done
-    //SX1280_WriteReg(SX1280_REG_FREQ_ERR_CORRECTION, 0x1); // commented by mstrens for debugging
+    SX1280_WriteReg(SX1280_REG_FREQ_ERR_CORRECTION, 0x1); // mstrens :this line does not exist in ELTS
 }
 
 void ICACHE_RAM_ATTR SX1280_SetPacketParamsLoRa(uint8_t PreambleLength, uint8_t HeaderType,
@@ -471,19 +471,13 @@ For Rx mode:
 bool  ICACHE_RAM_ATTR SX1280_Begin()
 {
     SX1280_Reset();
-    delay(10);
-    digitalWrite(SX1280_CSN_pin,LOW); // in sleep mode, it takes more time between CS and clock so we set cs LOW before; not sure it is really needed
-    delayMicroseconds(2);
     uint16_t firmwareRev = SX1280_GetFirmwareVersion();
-    //Serial.print("SX1280 version="); Serial.println(firmwareRev); // mstrens to debug
     currOpmode = SX1280_MODE_SLEEP;
     if ((firmwareRev == 0) || (firmwareRev == 65535))
     {
         // SPI communication failed, just return without configuration
         return false;
     }
-    digitalWrite(SX1280_CSN_pin,LOW); // in sleep mode, it takes more time between CS and clock  so we set cs LOW before; not sure it is really needed
-    delayMicroseconds(2);
     SX1280_SetMode(SX1280_MODE_STDBY_XOSC); // in this mode, some commands are processed faster                                              
     SX1280_WriteCommand(SX1280_RADIO_SET_PACKETTYPE, SX1280_PACKET_TYPE_LORA,15);//Set packet type to LoRa  
     SX1280_SetFrequencyReg(currFreq);                                                                                                    //Set Freq
