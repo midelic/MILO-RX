@@ -46,21 +46,25 @@ const uint8_t sport_ID[] = {
 
 uint8_t sport_rx_index[28] ;
 volatile  uint8_t sport_index = 0;
-volatile uint8_t sportindex = 0;
+volatile uint8_t sportindex = 0;  // number of bytes in sRxData
 uint8_t phase ;
 uint8_t pindex; 
 uint8_t ukindex ;   //unknown index
 uint8_t kindex ;   //known
-volatile uint8_t sTxData[MAX_SERIAL_BYTES];
-uint8_t sRxData[MAX_SERIAL_BYTES];
+volatile uint8_t sTxData[MAX_SERIAL_BYTES]; // bytes ready to be sent to the sensor via sport (also used to send the 2 sport polling byte)
+uint8_t sRxData[MAX_SERIAL_BYTES];          // circular buffer that contains the bytes to be sent to handset (already reformatted)
 volatile uint8_t sportbuff[MAX_SERIAL_BYTES];
 uint8_t SportIndexPolling;
 uint8_t sport_count;
+
+// circular buffer with data ready to be sent to SX1280
 uint8_t SportData[MAX_SMARTPORT_BUFFER_SIZE];
 uint8_t SportHead;
 uint8_t SportTail;
 uint8_t idxOK;
+
 volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
+
 #ifdef MSW_SERIAL
     #define  IDLE            0
     #define  TXPENDING       1 
@@ -86,7 +90,9 @@ volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
     void ICACHE_RAM_ATTR disable_interrupt_serial_pin() { detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_RX_pin));} 
 #endif
 
-uint8_t  ICACHE_RAM_ATTR nextID()
+void generateDummySportDataFromSensor();
+
+uint8_t  ICACHE_RAM_ATTR nextID()   // find the next Sport ID to be used for polling
 {
     uint8_t i ;
     uint8_t poll_idx ; 
@@ -144,7 +150,7 @@ uint8_t  ICACHE_RAM_ATTR nextID()
     return poll_idx ;
 }
 
-void  ICACHE_RAM_ATTR tx_sport_poll()
+void  ICACHE_RAM_ATTR tx_sport_poll()  // send the polling code
 {
     sport_count = 2;
     sportindex = 0;
@@ -166,7 +172,7 @@ void  ICACHE_RAM_ATTR tx_sport_poll()
     #endif
 }
 
-void  ICACHE_RAM_ATTR sendMSPpacket()
+void  ICACHE_RAM_ATTR sendMSPpacket()  // send an uplink frame to the sensor
 {
     sportindex = 0 ;
     sport_count = idxs;
@@ -296,7 +302,7 @@ void initSportUart( )
 #endif
 }
 
-uint8_t ICACHE_RAM_ATTR CheckSportData(uint8_t *packet)
+uint8_t ICACHE_RAM_ATTR CheckSportData(uint8_t *packet) // calculate CRC on the first 8 bytes in a buffer
 {
     uint16_t crc = 0 ;
     for ( uint8_t i = 0 ; i< 8 ; i++ )   //no crc
@@ -309,7 +315,7 @@ uint8_t ICACHE_RAM_ATTR CheckSportData(uint8_t *packet)
 }
 
 
-uint8_t ICACHE_RAM_ATTR unstuff()
+uint8_t ICACHE_RAM_ATTR unstuff()   // Remove stuffing in a buffer sRxData (filled by callSportData); return the (reduced) number of bytes
 {
     uint8_t i ;
     uint8_t j ; 
@@ -332,8 +338,8 @@ uint8_t ICACHE_RAM_ATTR unstuff()
 }
 
 
-void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)
-{
+void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)  // fill circular buffer SportData[len=Ox3F] with data from a sensor
+{                                                        // this buffer will be used to transmit to TX   
     uint16_t next = (SportHead + 1)%0x3F;   
     if (next != idxOK)
     {
@@ -342,7 +348,7 @@ void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)
     }
 }
 
-void ICACHE_RAM_ATTR StuffSportBytes(uint8_t a)
+void ICACHE_RAM_ATTR StuffSportBytes(uint8_t a)  // store a stuffed byte 
 {
     if(a ==START_STOP||a ==BYTE_STUFF){//0x7E or 0x7D
         StoreSportDataByte(BYTE_STUFF);
@@ -351,6 +357,7 @@ void ICACHE_RAM_ATTR StuffSportBytes(uint8_t a)
     StoreSportDataByte(a); 
 }
 
+/* not used currently
 void ICACHE_RAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
 {
     StoreSportDataByte(START_STOP);
@@ -363,23 +370,28 @@ void ICACHE_RAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
     StuffSportBytes((v >> 16) & 0xFF);
     StuffSportBytes((v >> 24) & 0xFF);
 }
-
-void ICACHE_RAM_ATTR ProcessSportData()
-{
-    sport_index = unstuff();
+*/
+void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sensor
+{             // START byte has already been removed in the frame bing processed
+              // frame contains at least 8 bytes but can be more (due to stuffing)
+              // first remove stuff, check length and CRC. 
+              // if OK, append a new (adapted) message to a circular buffer SportData[] (used with SportTail,  SportHead, IdxOK) 
     
+    sport_index = unstuff(); // first remove stuff
+            // frame then contains now PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4, CRC (= 8 bytes normally)
     if(sport_index >= 8)
     {
-        //SPORT frame - 10 bytes
-        //0x7E, PHID,PRIM,ID1,ID2,VAL1,VAL2,VAL3,VAL4, CRC  
         if(CheckSportData(&sRxData[0]))//crc ok
         {
+            //New SPORT frame will be generated and will have "logically" 10 bytes 
+            //0x7E, PHID,PRIM,ID1,ID2,VAL1,VAL2,VAL3,VAL4, CRC  
+            // but some bytes are stuffed and so there can be more than 10 bytes in the new buffer
             StoreSportDataByte(START_STOP);  //0x7E 
-            StoreSportDataByte(sTxData[1]);   //PHID
-            StoreSportDataByte(sRxData[0]);   //prim
+            StoreSportDataByte(sTxData[1]);   //PHID = last polling byte having been used
+            StoreSportDataByte(sRxData[0]);   //PRIM
             for(uint8_t i = 1; i< (sport_index - 1);i++)
             {
-                StuffSportBytes(sRxData[i]);                
+                StuffSportBytes(sRxData[i]);
             }
             uint8_t phId ;
             phId = sTxData[1] & 0x1F ;
@@ -391,3 +403,28 @@ void ICACHE_RAM_ATTR ProcessSportData()
         sport_index = 0 ;   //discard   
     }   
 }
+
+
+#ifdef DEBUG_SIM_SPORT_SENSOR
+    uint8_t debugSportDataReadyToSend[20] = {
+        //0x7E, PHID,PRIM,ID1,ID2,VAL1,VAL2,VAL3,VAL4, CRC
+        // #define VARIO_FIRST_ID          0x0110
+        // a 0X7E is added manually to mark the end of the dummy buffer; it is not transmitted 
+        0X7E, 0xA1 , 0X10,  0X01, 0X10, 01, 02, 03, 04, 0X00, 0X7E,
+    };
+
+    uint32_t lastSportGeneratedMillis = 0;
+    #define SPORT_INTERVAL 500  // interval between 2 dummy frames (must be at least about 20 to let SX1280 sent the frame)
+
+    void generateDummySportDataFromSensor(){
+        if ( ( millis() - lastSportGeneratedMillis ) > SPORT_INTERVAL ) {
+            lastSportGeneratedMillis = millis();
+            StoreSportDataByte( debugSportDataReadyToSend[0]); // store START
+            uint8_t i;
+            while ( ( i < 20) && ( debugSportDataReadyToSend[i] != 0X7E) ) {
+                StoreSportDataByte( debugSportDataReadyToSend[i]) ; // store up to next START  (not included)       
+            }
+        }
+    }
+
+#endif

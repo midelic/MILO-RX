@@ -22,6 +22,7 @@
 //#define DEBUG_DATA
 //#define DEBUG_SPORT
 #define DEBUG_ON_GPIO3
+#define DEBUG_SIM_SPORT_SENSOR
 
 
 

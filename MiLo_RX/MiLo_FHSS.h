@@ -350,7 +350,7 @@ uint16_t prng(void)
     }
 #endif    
 
-void ICACHE_RAM_ATTR nextChannel(uint8_t skip )   // note : this version is different from Milo Tx
+void ICACHE_RAM_ATTR3 nextChannel(uint8_t skip )   // note : this version is different from Milo Tx
 {
   curr_i  = (curr_i + skip)%cnt;       // curr_i is the index in the channel list 
   
@@ -365,7 +365,7 @@ void ICACHE_RAM_ATTR nextChannel(uint8_t skip )   // note : this version is diff
   }
 }
 
-void ICACHE_RAM_ATTR setChannelIdx(uint8_t ch_idx )   // note : this version is different from Milo Tx
+void ICACHE_RAM_ATTR3 setChannelIdx(uint8_t ch_idx )   // note : this version is different from Milo Tx
 {
   curr_i  = ( ch_idx )%cnt;
   if ( !isConnected2Tx) {
@@ -377,7 +377,7 @@ void ICACHE_RAM_ATTR setChannelIdx(uint8_t ch_idx )   // note : this version is 
 }
 
     
-uint32_t ICACHE_RAM_ATTR GetBindFreq()
+uint32_t ICACHE_RAM_ATTR3 GetBindFreq()
 {
     return fhss_freq_list[fhss_bind_channel_list[0]];
 }
@@ -387,7 +387,7 @@ uint8_t getCurrentChannelIdx()
     return curr_i; 
 }
 
-uint32_t  ICACHE_RAM_ATTR GetCurrFreq(void)
+uint32_t  ICACHE_RAM_ATTR3 GetCurrFreq(void)
 {
     if (is_in_binding) 
         return fhss_freq_list[fhss_bind_channel_list[0]];

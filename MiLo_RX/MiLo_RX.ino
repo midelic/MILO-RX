@@ -39,6 +39,14 @@
     #undef SW_SERIAL
 #endif
 
+#ifdef DEBUG_SIM_SPORT_SENSOR
+    #undef MSW_SERIAL
+    #undef SW_SERIAL
+    #define SPORT_TELEMETRY
+    #define TELEMETRY
+    #define DEBUG
+#endif
+
 #if defined DEBUG
     void callMicrosSerial(){
         static uint32_t tim = 0 ;
@@ -67,7 +75,8 @@
 #endif
 
 #ifdef DEBUG_ON_GPIO3
-    #undef SPORT_TELEMETRY 
+    #undef MSW_SERIAL
+    #undef SW_SERIAL 
 #endif
 #define RATE_DEFAULT 0
 #define RATE_BINDING 0
@@ -107,7 +116,6 @@ uint32_t t_tune = 500;
 uint16_t wordTemp;
 bool sbusAllowed = false;   // true means sbus/pwm can be generated because at least 1 rc signal has been received (and if failsafe values are applied, there is no NO PULSE)
 uint32_t slotBeginAt;
-volatile bool frameReceived = false;
 uint16_t LED_count = 0;
 uint8_t RxData[15];
 uint32_t bindingTime = 0;
@@ -117,7 +125,10 @@ uint8_t FrameType = 0;
 uint32_t LastReceivedPacketTime;
 uint32_t lastYieldMicros;
 int32_t smoothedInterval;          // interval in us seconds that corresponds to that frequency
-uint32_t dioISRMicros;            // register when a frame is received in interrupt
+uint32_t microsInDioISR ;         // timestamp of processing the DIO interrupt occured
+uint32_t dioISRMicros;            // saved value of microsInDioISR when a frame with CRC OK is received for processing if frame is really valid
+volatile bool dioOccured = false ;     // true when a dio1 interrupt occurs
+bool frameReceived = false;           // becomes true when a frame with good CRC has been received
 
 //Debug
 //uint16_t BackgroundTime;
@@ -212,10 +223,10 @@ void   SetupTarget();
 void ICACHE_RAM_ATTR dioISR();
 void ICACHE_RAM_ATTR callSportSwSerial(void);
 void ICACHE_RAM_ATTR SportPollISR(void);
-void ICACHE_RAM_ATTR MiloTlmSent(void);
-void ICACHE_RAM_ATTR MiLoTlm_build_frame();
+void ICACHE_RAM_ATTR3 MiloTlmSent(void);
+void ICACHE_RAM_ATTR3 MiLoTlm_build_frame();
 uint8_t ICACHE_RAM_ATTR MiLoTlm_append_sport_data(uint8_t *buf);
-uint8_t ICACHE_RAM_ATTR MiLoTlmDataLink(uint8_t pas);
+uint8_t ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t pas);
 void  ConfigTimer();
 void SX1280_SetTxRxMode(uint8_t mode);
 
@@ -451,6 +462,17 @@ void handleShortTimeout()
         }
     #endif      
     
+    if ( packetSeq == 1) { // if timeout occurs when we where in a slot for downlink 
+                            // we have to go back in receive mode
+        #if defined(SBUS)
+            sbus_counter++; // ?????????????? 
+        #endif
+        #ifdef HAS_PA_LNA
+            SX1280_SetTxRxMode(RX_EN);// do first to allow LNA stabilise
+        #endif
+        SX1280_SetMode(SX1280_MODE_RX);
+    }
+
     missingPackets++;
     if (missingPackets > MAX_MISSING_PKT)// we just lost the connection
     {
@@ -466,23 +488,12 @@ void handleShortTimeout()
         G3PULSE(1);// 
         SX1280_SetFrequencyReg(GetCurrFreq());    
     } else {
-        if ( packetSeq = 1) { // if timeout occurs when we where in a slot for downlink 
-                              // we have to go back in receive mode
-            #if defined(SBUS)
-              sbus_counter++; // ?????????????? 
-            #endif
-            #ifdef HAS_PA_LNA
-                SX1280_SetTxRxMode(RX_EN);// do first to allow LNA stabilise
-            #endif
-            SX1280_SetMode(SX1280_MODE_RX);
-        }
         packetSeq = (packetSeq + 1) %3; // on each short time out we increase packetSeq
         if ( packetSeq != 1) { // skip on next channel but only if next slot will not be a downlink 
             nextChannel(1);     
             G3PULSE(1);
             SX1280_SetFrequencyReg(GetCurrFreq());
-        }
-            
+        }       
     }    
 }
 
@@ -529,7 +540,7 @@ void handleLongTimeout()
     SX1280_ClearIrqStatus(0XFFFF); //  This is to avoid that we perform here a frequency hop and another just after  
     SX1280_SetMode(SX1280_MODE_RX);//      because frameReceived would be true
     cli();
-    frameReceived = false;  // reset the flag saying a frame has been received
+    dioOccured = false;  // reset the flag saying a DIO interrupt occured
     sei();
 }
 
@@ -538,9 +549,7 @@ bool isReceivedFrameValid() { // return true for a valid frame
     uint8_t const FIFOaddr = SX1280_GetRxBufferAddr();
     SX1280_ReadBuffer(FIFOaddr, RxData, PayloadLength);
     SX1280_GetLastPacketStats();
-    cli();
-    frameReceived = false;  // reset the flag saying a frame has been received
-    sei();
+    frameReceived = false;  // reset the flag saying a frame with good CRC has been received
     if ((RxData[1] != MiLoStorage.txid[0]) || RxData[2] != MiLoStorage.txid[1]){ // Only if correct txid will pass
         G3PULSE(1);
         return false;
@@ -741,7 +750,40 @@ void saveRcFrame() {
     }
 } // end processRcFrame
 
+void handleDio1() {  
+    // check the SX1280 irq flags and return true if a frame has been received with CRC OK 
+    uint16_t irqStatus = SX1280_GetIrqStatus();
+    SX1280_ClearIrqStatus(SX1280_IRQ_RADIO_ALL);
+    frameReceived = false;
+    //   TX interrupt are probably not required because after sending, a short time out will occurs and
+    //        we will go back in receive mode in the handling of the short time out
+    //if (irqStatus & SX1280_IRQ_TX_DONE)
+    //{
+    //    #ifdef HAS_PA_LNA
+    //        SX1280_SetTxRxMode(TXRX_OFF);
+    //    #endif
+    //    currOpmode = SX1280_MODE_FS; // radio goes to FS after TX
+    //}
+    if (irqStatus & (SX1280_IRQ_RX_DONE | SX1280_IRQ_CRC_ERROR | SX1280_IRQ_RX_TX_TIMEOUT))
+    {
+        if (irqStatus & SX1280_IRQ_CRC_ERROR) {
+            #ifdef STATISTIC
+                TotalCrcErrors += 1 ;//bad packets that not pass the crc check
+            #endif
+        }
+        else if ( irqStatus & SX1280_IRQ_RX_TX_TIMEOUT) {
+            // should not happens because timeout is not used in RX continous mode
+        }
+        else {
+            frameReceived = true ;
+            dioISRMicros = microsInDioISR ; // keep the timestamp
+        }
+        return ;   
+    }
 
+}
+
+//++++++++++++++++++++++++++++++++++++++++   main loop   +++++++++++++++++++++++++++++++++++ 
 void loop()
 {
     yield();
@@ -768,6 +810,23 @@ void loop()
     G3PULSE(50); // to debug when we enter a new while loop
     while (1) // exit only on timeout or when a valid frame is received
     {
+        if (dioOccured)
+        { // an interrupt occured on DIO1
+            cli();
+            dioOccured = false; //reset the flag set in ISR  
+            sei();
+            handleDio1(); // handle interrupt and set frameReceived to true when     
+            if (frameReceived) 
+            {             // a frame has been received from the TX with a good CRC (flag has been set in DioISR)
+                G3PULSE(5); // to debug when a frame has been received
+                if ( isReceivedFrameValid()) { //check if frame is valid
+                    G3PULSE(10);// to debug when a frame is valid
+                    slotBeginAt = dioISRMicros ;  // resynchronise RX on TX
+                    packetToDecode = true;//flag ,packet ready to decode (can be any type and will be processed outside the while)              
+                    break; // exit while(1)
+                }
+            }
+        }
         if ((micros() - slotBeginAt) >= t_outMicros)
         {// when timeout occurs (after 1 or FHSS_CHANNELS_NUM * interval; so after 7ms or 476 msec
             if ( isConnected2Tx )// if we where connected and just waited for 1 interval = 7 msec
@@ -783,20 +842,18 @@ void loop()
             }
             break;// exit while() when a time out occurs
         }
-        
-        if (frameReceived == true)
-        { // a frame has been received from the TX (flag has been set in DioISR)
-            G3PULSE(5); // to debug when a frame has been received
-            if ( isReceivedFrameValid()) { //check if frame is valid
-                G3PULSE(10);// to debug when a frame is valid
-                slotBeginAt = dioISRMicros ;  // resynchronise RX on TX
-                packetToDecode = true;//flag ,packet ready to decode (can be any type and will be processed outside the while)              
-                break; // exit while(1)
-            }
-        }
-        #if defined MSW_SERIAL || defined SW_SERIAL
+                
+        #if defined( MSW_SERIAL) || defined(SW_SERIAL)
             //callSportSwSerial(); // read the data on the Sport bus and when a frame has been received, store it in sRxData[]
+                                   // when frame is full, check it, convert it and 
+                                   // put data in a circular buffer (SportData[]) that will be handled by downlink tlm slot.
         #endif
+        
+        #ifdef  DEBUG_SIM_SPORT_SENSOR
+            generateDummySportDataFromSensor();  // add data to a circular buffer to be sent by SX1280 just like callSportSWSerial would do.
+                                                 // interval between 2 frames can be defined 
+        #endif
+        
         if (! isConnected2Tx) { // not needed to yield when connected because it is already done at begining of the loop
                                 // it is only when not connected that we can stay in while more that 7000 msec
                                 // avoiding yield is good because it can take up to 300 msec on ESP8266 
@@ -867,7 +924,9 @@ void loop()
                           // if we send just after having received a valid frame, it will be about 5msec after TX started sending the previous frame
                           // if we did not get a valid frame, then we had first to wait for the end of the timeout before we reach this point
                           //     So we are about 7.5msec after the TX started sending the missinf frame.   
-            sbus_counter++;
+            #ifdef SBUS
+                sbus_counter++;
+            #endif
             #ifdef STATISTIC
                 if ( aPacketSeen > 5) packetCount = true;
             #endif
@@ -1065,7 +1124,7 @@ void MiLoRxBind(void)
 #endif // end SPORT_TELEMETRY
 
 #ifdef TELEMETRY
-    void  ICACHE_RAM_ATTR MiLoTlm_build_frame()
+    void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()
     {
         uint8_t nbr_bytesIn;
         frame[0] = tlmDataLinkType ;
@@ -1089,7 +1148,7 @@ void MiLoRxBind(void)
         tlmDataLinkType = (tlmDataLinkType + 1)%3;
     }
 
-    void  ICACHE_RAM_ATTR MiloTlmSent()
+    void  ICACHE_RAM_ATTR3 MiloTlmSent()
     {
         MiLoTlm_build_frame();
         delayMicroseconds(500);//just in case  // mstrens : this is probably not enough to let TX being in receiving mode at the end of his sending slot
@@ -1100,7 +1159,7 @@ void MiLoRxBind(void)
         SX1280_SetMode(SX1280_MODE_TX);
     }
 
-    uint8_t  ICACHE_RAM_ATTR MiLoTlmDataLink(uint8_t bit)
+    uint8_t  ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t bit)
     {
         static uint8_t link = 0 ;
         getRFlinkInfo();
@@ -1208,6 +1267,10 @@ void MiLoRxBind(void)
         }
     }
 
+
+    // The sensor replies to the polling with a frame that starts by START code
+    //             contains at least 8 bytes but it can be more
+
     #ifdef MSW_SERIAL
         void  ICACHE_RAM_ATTR callSportSwSerial(){
             cli();
@@ -1262,46 +1325,11 @@ uint8_t bind_jumper(void)
 
 void ICACHE_RAM_ATTR dioISR()
 {
-    uint16_t irqStatus = SX1280_GetIrqStatus();
-    #ifdef DEBUG_LOOP_TIMING
-        //callMicrosSerial();
-    #endif
-    SX1280_ClearIrqStatus(SX1280_IRQ_RADIO_ALL);
-    if (irqStatus & SX1280_IRQ_TX_DONE)
-    {
-        //G3PULSE(3);
-        #ifdef HAS_PA_LNA
-            SX1280_SetTxRxMode(TXRX_OFF);
-        #endif
-        currOpmode = SX1280_MODE_FS; // radio goes to FS after TX
-    }
-    else if (irqStatus & (SX1280_IRQ_RX_DONE | SX1280_IRQ_CRC_ERROR | SX1280_IRQ_RX_TX_TIMEOUT))
-    {
-        uint8_t const fail =
-            ((irqStatus & SX1280_IRQ_CRC_ERROR) ? SX1280_RX_CRC_FAIL : SX1280_RX_OK) +
-            ((irqStatus & SX1280_IRQ_RX_TX_TIMEOUT) ? SX1280_RX_TIMEOUT : SX1280_RX_OK);
-        // In continuous receive mode, the device stays in Rx mode
-        if (timeout != 0xFFFF)
-        {
-            // From table 11-28, pg 81 datasheet rev 3.2
-            // upon successsful receipt, when the timer is active or in single mode, it returns to STDBY_RC
-            // but because we have AUTO_FS enabled we automatically transition to state SX1280_MODE_FS
-            currOpmode = SX1280_MODE_FS;
-        }
-        if (fail == SX1280_RX_OK){
-            frameReceived  = true ;
-            dioISRMicros= micros();
-        }       
-        if (irqStatus & SX1280_IRQ_CRC_ERROR)
-        {
-            //G3PULSE(1);
-            #ifdef STATISTIC
-                TotalCrcErrors += 1 ;//bad packets that not pass the crc check
-            #endif
-        }   
-    }
-
-}
+    GPOS =1<<3 ; // mstrens to debug : Make a pulse to measure the time in ISR
+    dioOccured = true ;
+    microsInDioISR= micros();
+    GPOC= 1<<3;  // mstrens to debug : End of pulse to measure the time in ISR
+}    
 
 #ifdef STATISTIC
     void LQICalc(){
