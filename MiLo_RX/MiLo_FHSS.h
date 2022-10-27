@@ -358,10 +358,10 @@ void ICACHE_RAM_ATTR3 nextChannel(uint8_t skip )   // note : this version is dif
     if ( curr_i >= FHSS_SYNCHRO_CHANNELS_NUM ) {
       curr_i = 0;  
     }
-    Serial.println(curr_i);
+    //Serial.println(curr_i); // mstrens to debug
   }
   else {
-    Serial.print("."); Serial.println(curr_i);
+    //Serial.print("."); Serial.println(curr_i); // mstrens to debug
   }
 }
 

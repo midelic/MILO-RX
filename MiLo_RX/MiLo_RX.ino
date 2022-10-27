@@ -1126,24 +1126,25 @@ void MiLoRxBind(void)
 #ifdef TELEMETRY
     void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()
     {
-        uint8_t nbr_bytesIn;
+        uint8_t nbr_bytesIn = 0;
         frame[0] = tlmDataLinkType ;
         frame[1] = MiLoStorage.txid[0]; ;
         frame[2] = MiLoStorage.txid[1];
-        frame[3] = ((UplinkTlmId & 0x0F) << 4) | ( dowlinkTlmId & 0X0F) ;
+        frame[3] = ( ( dowlinkTlmId & 0X0F) << 4) | (UplinkTlmId ) ;
         frame[4] = MiLoTlmDataLink(tlmDataLinkType);
         #ifdef SPORT_TELEMETRY
             nbr_bytesIn = MiLoTlm_append_sport_data(&frame[5]);
         #endif
         frame[0] |= (( nbr_bytesIn & 0X0F ) << 4);
         #ifdef DEBUG_SPORT
-            if(nbr_bytesIn){
-                for(uint8_t i = 0;i<nbr_bytesIn;i++){
-                    Serial.print(frame[i+4],HEX);
-                    Serial.print(";");
-                }
-                Serial.println("");
+            //Serial.print("type="); Serial.print(frame[0] & 0x03);
+            //Serial.print(" val="); Serial.print(frame[4] ,HEX);
+            //Serial.print(" len="); Serial.print(frame[0] >> 4);
+            Serial.print(" idxOK= ");  Serial.print(idxOK); Serial.print(" " );
+            for(uint8_t i = 0;i<nbr_bytesIn;i++){
+            //    Serial.print(frame[i+5],HEX);  Serial.print(" - ");
             }
+            Serial.println(""); 
         #endif  
         tlmDataLinkType = (tlmDataLinkType + 1)%3;
     }

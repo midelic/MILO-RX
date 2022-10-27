@@ -59,9 +59,9 @@ uint8_t sport_count;
 
 // circular buffer with data ready to be sent to SX1280
 uint8_t SportData[MAX_SMARTPORT_BUFFER_SIZE];
-uint8_t SportHead;
-uint8_t SportTail;
-uint8_t idxOK;
+uint8_t SportHead =0; // position where next byte could be written in the buffer
+uint8_t SportTail =0; // position of first byte to be read
+uint8_t idxOK = 0;    // position where to roll back if Tx does not get the last dwnlnk frame
 
 volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
 
@@ -340,7 +340,7 @@ uint8_t ICACHE_RAM_ATTR unstuff()   // Remove stuffing in a buffer sRxData (fill
 
 void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)  // fill circular buffer SportData[len=Ox3F] with data from a sensor
 {                                                        // this buffer will be used to transmit to TX   
-    uint16_t next = (SportHead + 1)%0x3F;   
+    uint16_t next = (SportHead + 1) & 0x3F;   
     if (next != idxOK)
     {
         SportData[SportHead] = value;
@@ -409,22 +409,33 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
     uint8_t debugSportDataReadyToSend[20] = {
         //0x7E, PHID,PRIM,ID1,ID2,VAL1,VAL2,VAL3,VAL4, CRC
         // #define VARIO_FIRST_ID          0x0110
-        // a 0X7E is added manually to mark the end of the dummy buffer; it is not transmitted 
-        0X7E, 0xA1 , 0X10,  0X01, 0X10, 01, 02, 03, 04, 0X00, 0X7E,
+        // a 0X7E is added manually to mark the begin and end of the dummy buffer; end 0X7E it is not transmitted 
+        0X7E, 0x10 , 0X05,  0X00, 0XC2, 0, 0, 0, 0X28, 0X7E,
     };
 
     uint32_t lastSportGeneratedMillis = 0;
-    #define SPORT_INTERVAL 500  // interval between 2 dummy frames (must be at least about 20 to let SX1280 sent the frame)
+    #define DEBUG_SPORT_INTERVAL 500  // interval between 2 dummy frames (must be at least about 20 to let SX1280 sent the frame)
 
     void generateDummySportDataFromSensor(){
-        if ( ( millis() - lastSportGeneratedMillis ) > SPORT_INTERVAL ) {
+        if ( ( millis() - lastSportGeneratedMillis ) > DEBUG_SPORT_INTERVAL ) {
             lastSportGeneratedMillis = millis();
             StoreSportDataByte( debugSportDataReadyToSend[0]); // store START
-            uint8_t i;
+            uint8_t i = 1;
             while ( ( i < 20) && ( debugSportDataReadyToSend[i] != 0X7E) ) {
-                StoreSportDataByte( debugSportDataReadyToSend[i]) ; // store up to next START  (not included)       
+                StoreSportDataByte( debugSportDataReadyToSend[i]) ; // store up to next START  (not included)
+                i++;       
             }
+            #ifdef DEBUG_SPORT
+                Serial.print("Tail="); Serial.print(SportTail); Serial.print(" Head="); Serial.println(SportHead); 
+                if ( SportHead > SportTail ) {
+                    for (uint8_t i = SportTail ; i < SportHead; i++) {
+                        //Serial.print(SportData[i], HEX) ;Serial.print(" ; "); 
+                    }
+                    Serial.println(" ");
+                }
+            #endif    
         }
+
     }
 
 #endif
