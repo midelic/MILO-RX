@@ -1126,6 +1126,8 @@ void MiLoRxBind(void)
 #ifdef TELEMETRY
     void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()
     {    // see _config.h for the downlink tlm frame structure (max 10 bytes of payload)
+    // if there is no added stuffing bytes and no overlap, the payload for a sport Frame would have a min len of 9
+    // e.g. 0X7E , PHID, PRIM, ID1,ID2,VAL1,VAL2,VAL3,VAL4     Note: there is no CRC 
         uint8_t nbr_bytesIn = 0;
         frame[0] = tlmDataLinkType ;
         frame[1] = MiLoStorage.txid[0]; ;
