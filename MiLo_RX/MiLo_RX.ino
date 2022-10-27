@@ -1087,7 +1087,7 @@ void MiLoRxBind(void)
         TelemetryExpectedId = (dowlinkTlmId + 1) & 0x0F; // downlinkTlmID is 4 bits and increased by TX when it get a dwn link tlm frame
         
         while (index < 10 )
-        { //max 10 bytes in a frame
+        { //max 9 bytes in a frame
             if (SportTail == SportHead) //if no sport data ,no send, buffer empty
             {
                 break;
@@ -1125,24 +1125,33 @@ void MiLoRxBind(void)
 
 #ifdef TELEMETRY
     void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()
-    {
+    {    // see _config.h for the downlink tlm frame structure (max 10 bytes of payload)
         uint8_t nbr_bytesIn = 0;
         frame[0] = tlmDataLinkType ;
         frame[1] = MiLoStorage.txid[0]; ;
         frame[2] = MiLoStorage.txid[1];
         frame[3] = ( ( dowlinkTlmId & 0X0F) << 4) | (UplinkTlmId ) ;
         frame[4] = MiLoTlmDataLink(tlmDataLinkType);
-        #ifdef SPORT_TELEMETRY
-            nbr_bytesIn = MiLoTlm_append_sport_data(&frame[5]);
-        #endif
-        frame[0] |= (( nbr_bytesIn & 0X0F ) << 4);
         #ifdef DEBUG_SPORT
-            //Serial.print("type="); Serial.print(frame[0] & 0x03);
-            //Serial.print(" val="); Serial.print(frame[4] ,HEX);
-            //Serial.print(" len="); Serial.print(frame[0] >> 4);
+            Serial.print("Tail="); Serial.print(SportTail); Serial.print(" Head="); Serial.println(SportHead); 
+            if ( SportHead > SportTail ) {
+                for (uint8_t i = SportTail ; i < SportHead; i++) {
+                    //Serial.print(SportData[i], HEX) ;Serial.print(" ; "); 
+                }
+                Serial.println(" ");
+            }
+        #endif
+        #ifdef SPORT_TELEMETRY
+            nbr_bytesIn = MiLoTlm_append_sport_data(&frame[5]); // extract data from circular buffer SportData[]
+        #endif
+        frame[0] |= (( nbr_bytesIn & 0X0F ) << 4);  // update nbr of bytes of Sport payload
+        #ifdef DEBUG_SPORT
+            Serial.print("type="); Serial.print(frame[0] & 0x03);
+            Serial.print(" val="); Serial.print(frame[4] ,HEX);
+            Serial.print(" len="); Serial.print(frame[0] >> 4);
             Serial.print(" idxOK= ");  Serial.print(idxOK); Serial.print(" " );
             for(uint8_t i = 0;i<nbr_bytesIn;i++){
-            //    Serial.print(frame[i+5],HEX);  Serial.print(" - ");
+                Serial.print(frame[i+5],HEX);  Serial.print(" - ");
             }
             Serial.println(""); 
         #endif  

@@ -371,13 +371,13 @@ void ICACHE_RAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
     StuffSportBytes((v >> 24) & 0xFF);
 }
 */
-void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sensor
+void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sensor (stored in SRxData)
 {             // START byte has already been removed in the frame bing processed
               // frame contains at least 8 bytes but can be more (due to stuffing)
-              // first remove stuff, check length and CRC. 
+              // first remove stuff and check length and CRC. 
               // if OK, append a new (adapted) message to a circular buffer SportData[] (used with SportTail,  SportHead, IdxOK) 
     
-    sport_index = unstuff(); // first remove stuff
+    sport_index = unstuff(); // first remove stuff from sRxData[] having sport_index bytes
             // frame then contains now PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4, CRC (= 8 bytes normally)
     if(sport_index >= 8)
     {
@@ -390,7 +390,7 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
             StoreSportDataByte(sTxData[1]);   //PHID = last polling byte having been used
             StoreSportDataByte(sRxData[0]);   //PRIM
             for(uint8_t i = 1; i< (sport_index - 1);i++)
-            {
+            {   // note: we do not push to SportData the original CRC
                 StuffSportBytes(sRxData[i]);
             }
             uint8_t phId ;
@@ -409,8 +409,10 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
     uint8_t debugSportDataReadyToSend[20] = {
         //0x7E, PHID,PRIM,ID1,ID2,VAL1,VAL2,VAL3,VAL4, CRC
         // #define VARIO_FIRST_ID          0x0110
-        // a 0X7E is added manually to mark the begin and end of the dummy buffer; end 0X7E it is not transmitted 
-        0X7E, 0x10 , 0X05,  0X00, 0XC2, 0, 0, 0, 0X28, 0X7E,
+        // a real frame from sensor has a START byte and no END byte but this START has already been removed in callSerial
+        // so it is not present at the beginning of those debug data.
+        // a 0X7E is added manually to the debug data to mark the end of the dummy buffer; this 0X7E is discarded during this process 
+        0x10 , 0X05,  0X00, 0XC2, 0, 0, 0, 0X28, 0X7E,
     };
 
     uint32_t lastSportGeneratedMillis = 0;
@@ -419,21 +421,17 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
     void generateDummySportDataFromSensor(){
         if ( ( millis() - lastSportGeneratedMillis ) > DEBUG_SPORT_INTERVAL ) {
             lastSportGeneratedMillis = millis();
-            StoreSportDataByte( debugSportDataReadyToSend[0]); // store START
-            uint8_t i = 1;
+            // copy data in sRxData[] 
+            uint8_t i = 0;
             while ( ( i < 20) && ( debugSportDataReadyToSend[i] != 0X7E) ) {
-                StoreSportDataByte( debugSportDataReadyToSend[i]) ; // store up to next START  (not included)
+                sRxData[i] = debugSportDataReadyToSend[i] ; // store up to next START  (not included)
                 i++;       
             }
-            #ifdef DEBUG_SPORT
-                Serial.print("Tail="); Serial.print(SportTail); Serial.print(" Head="); Serial.println(SportHead); 
-                if ( SportHead > SportTail ) {
-                    for (uint8_t i = SportTail ; i < SportHead; i++) {
-                        //Serial.print(SportData[i], HEX) ;Serial.print(" ; "); 
-                    }
-                    Serial.println(" ");
-                }
-            #endif    
+            sport_index = i;
+            sTxData[1] = 0X83;  // simulate that sensor replies to polling ID 0X83
+            ProcessSportData() ; // check the data and push them into the circular buffer SportData[] if OK
+            // at this stage SportData should contains 1 or several time the values (+ stuffing) where 0X83 is a dummy PHID
+            //  0X7E, 0X83, 0x10 , 0X05,  0X00, 0XC2, 0, 0, 0, 0X28,          
         }
 
     }
