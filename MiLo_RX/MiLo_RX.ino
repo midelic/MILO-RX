@@ -31,17 +31,8 @@
 #include "MiLo_FHSS.h"
 #include "SX1280.h"
 
-#ifdef SW_SERIAL
-    #undef MSW_SERIAL
-    #include <SoftwareSerial.h>
-    SoftwareSerial swSer;
-#elif defined MSW_SERIAL
-    #undef SW_SERIAL
-#endif
-
 #ifdef DEBUG_SIM_SPORT_SENSOR
     #undef MSW_SERIAL
-    #undef SW_SERIAL
     #define SPORT_TELEMETRY
     #define TELEMETRY
     #define DEBUG
@@ -75,8 +66,7 @@
 #endif
 
 #ifdef DEBUG_ON_GPIO3
-    #undef MSW_SERIAL
-    #undef SW_SERIAL 
+    #undef MSW_SERIAL 
 #endif
 #define RATE_DEFAULT 0
 #define RATE_BINDING 0
@@ -382,7 +372,7 @@ void setup()
     frameReceived = false;
     bindingTime = millis() ;
     #ifdef SPORT_TELEMETRY
-        ConfigTimer();
+        ConfigTimer();  // start timer 1 to send the polling request or the uplink tlm frame to the sensor every 12 msec 
     #endif
     smoothedInterval = MiLo_currAirRate_Modparams->interval;
     t_outMicros= FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT; // at start up we use a long delay (476msev = 7000*68 usec) 
@@ -845,7 +835,7 @@ void loop()
             break;// exit while() when a time out occurs
         }
                 
-        #if defined( MSW_SERIAL) || defined(SW_SERIAL)
+        #if defined( MSW_SERIAL) 
             //callSportSwSerial(); // read the data on the Sport bus and when a frame has been received, store it in sRxData[]
                                    // when frame is full, check it, convert it and 
                                    // put data in a circular buffer (sportData[]) that will be handled by downlink tlm slot.
@@ -1404,26 +1394,7 @@ void MiLoRxBind(void)
             } 
         }
 
-    #elif defined SW_SERIAL
-        void  ICACHE_RAM_ATTR callSportSwSerial()
-        {
-            uint8_t c;
-            while (swSer.available() > 0)
-            {
-                c = swSer.read();
-                if ( c == START_STOP)      // reset the buffer when we get a 0x7E
-                    sport_index = 0;
-                if (sport_index < 16)
-                    sRxData[sport_index++] = c;
-                if (sport_index >= 8)
-                    sportStuffTime = micros();
-            }
-            if (sport_index >= 8) {
-                if ((micros() - sportStuffTime) > 500)//If not receive any new sport data in 500us
-                    ProcessSportData();
-            }
-        }
-    #endif //SPORT SERIAL
+    #endif // MSW SERIAL
 
 #endif //end SPORT_TELEMETRY
 

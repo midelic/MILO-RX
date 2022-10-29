@@ -58,12 +58,12 @@ volatile uint8_t sportbuff[MAX_SERIAL_BYTES];
 uint8_t sport_count;   // number of byte to send to the sensor
 
 // circular buffer with data formatted to be sent to SX1280 (8 bytes per set of data)
-uint8_t sportData[MAX_SMARTPORT_BUFFER_SIZE];
+uint8_t sportData[MAX_SMARTPORT_BUFFER_SIZE]; // 64 is a multiple of 8 so we can store 8 dataset (each of 8 bytes); we need to know the lenght (in sportDataLen)
 uint8_t sportHead =0; // position where next byte could be written in the buffer
 uint8_t sportTail =0; // position of first byte to be read
 uint8_t idxOK = 0;    // position where to roll back if Tx does not get the last dwnlnk frame
 uint8_t sportDataLen = 0 ; // number of entries in the buffer (from 0 up to 8)
-uint8_t cleanSportData[8]; // one set of Sport data in the format to be used by SX1280 (and in sportData[]) 
+uint8_t cleanSportData[8]; // one set of Sport data in the format to be used by SX1280 (and in sportData[]) so without START, stuffing, CRC 
 
 volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
 
@@ -166,11 +166,6 @@ void  ICACHE_RAM_ATTR tx_sport_poll()  // send the polling code
         state = TXPENDING;
         timer0_attachInterrupt(SerialBitISR); 
         timer0_write(ESP.getCycleCount() + 2*BIT_TIME);
-    #elif defined SW_SERIAL
-        swSer.flush();
-        swSer.enableTx(true); //for tx
-        swSer.write((uint8_t *)sTxData,(size_t)sport_count);
-        swSer.enableTx(false);//for rx
     #endif
 }
 
@@ -186,11 +181,6 @@ void  ICACHE_RAM_ATTR sendMSPpacket()  // send an uplink frame to the sensor
         state = TXPENDING;
         timer0_attachInterrupt(SerialBitISR); 
         timer0_write(ESP.getCycleCount() + 2*BIT_TIME);
-    #elif defined SW_SERIAL
-        swSer.flush();
-        swSer.enableTx(true); //for tx
-        swSer.write((uint8_t *)sTxData,(size_t)sport_count);
-        swSer.enableTx(false);//for rx
     #endif  
 }
 
@@ -299,8 +289,6 @@ void initSportUart( )
 {
 #ifdef MSW_SERIAL
     timer0_isr_init();
-#elif defined SW_SERIAL
-    swSer.begin(57600, SWSERIAL_8N1,3, 3,true, 256);//inverted
 #endif
 }
 
