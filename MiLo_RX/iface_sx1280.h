@@ -30,6 +30,8 @@ along with Multiprotocol.  If not, see <http://www.gnu.org/licenses/>.
 #define SX1280_XTAL_FREQ 52000000
 #define FREQ_STEP ((double)(SX1280_XTAL_FREQ / pow(2.0, 18.0)))
 
+#define NBR_BYTES_IN_PACKET 16 // number of bytes in a packet
+
 enum {
     SX1280_STDBY_RC = 0x00,
     SX1280_STDBY_XOSC = 0x01,
@@ -124,6 +126,8 @@ typedef struct TickTime_s
 #define SX1280_RX_TX_CONTINUOUS ( TickTime_t ){ RADIO_TICK_SIZE_0015_US, 0xFFFF }
 #define SX1280_RX_TX_SINGLE     ( TickTime_t ){ RADIO_TICK_SIZE_0015_US, 0 }
     
+
+
 enum {
     SX1280_RADIO_RAMP_02_US = 0x00,
     SX1280_RADIO_RAMP_04_US = 0x20,

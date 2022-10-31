@@ -57,13 +57,14 @@ volatile uint8_t sportbuff[MAX_SERIAL_BYTES];
 //uint8_t SportIndexPolling;
 uint8_t sport_count;   // number of byte to send to the sensor
 
-// circular buffer with data formatted to be sent to SX1280 (8 bytes per set of data)
+// circular buffer accumulates data received from sport sensor
+// data are in groups of 8 bytes : PHID, PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4
+uint8_t cleanSportData[8]; // one set of Sport data in the format to be used by SX1280 (and in sportData[]) so without START, stuffing, CRC 
 uint8_t sportData[MAX_SMARTPORT_BUFFER_SIZE]; // 64 is a multiple of 8 so we can store 8 dataset (each of 8 bytes); we need to know the lenght (in sportDataLen)
 uint8_t sportHead =0; // position where next byte could be written in the buffer
-uint8_t sportTail =0; // position of first byte to be read
-uint8_t idxOK = 0;    // position where to roll back if Tx does not get the last dwnlnk frame
+uint8_t sportTailWhenAck =0; // position of first byte to be read when TX ACK previous dwnlnk packet
+uint8_t sportTail = 0;  // position of first byte to be read (to use when Tx does not ACK previous dwnlnk packet
 uint8_t sportDataLen = 0 ; // number of entries in the buffer (from 0 up to 8)
-uint8_t cleanSportData[8]; // one set of Sport data in the format to be used by SX1280 (and in sportData[]) so without START, stuffing, CRC 
 
 volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
 
@@ -364,7 +365,7 @@ void ICACHE_RAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
 */
 
 uint8_t checkSimilarSport(){
-    uint8_t tail = sportTail;
+    uint8_t tail = sportTailWhenAck; // we start looking from this to avoid updating a frame that have already been sent but not yet confirmed
     // look in circular buffer from the first occurence (if any)
     // return the position of a found set of data
     //        or the size of the circular buffer if not found.
@@ -382,12 +383,12 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
 {             // START byte has already been removed in the frame bing processed
               // frame contains at least 8 bytes but can be more (due to stuffing)
               // first remove stuff and check length and CRC. 
-              // if OK, append a new (adapted) message to a circular buffer sportData[] (used with sportTail,  sportHead, IdxOK) 
+              // if OK, append a new (adapted) message to a circular buffer sportData[] (used with sportTail,  sportHead sportTailWhenAck) 
     
     sport_index = unstuff(); // first remove stuff from sRxData[] having sport_index bytes
             // frame then contains now PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4, CRC (= 8 bytes normally)
-    if(sport_index >= 8)
-    {
+    if(sport_index >= 8) 
+    {  //the received frame contains at least 8 bytes 
         if(CheckSportData(&sRxData[0]))//crc ok
         {
             // create a frame in the format ready to be sent
@@ -405,18 +406,6 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
             } else {
                 // discard the incoming frame
             }
-            /*
-            //New SPORT frame will be generated and will have "logically" 10 bytes 
-            //0x7E, PHID,PRIM,ID1,ID2,VAL1,VAL2,VAL3,VAL4, CRC  
-            // but some bytes are stuffed and so there can be more than 10 bytes in the new buffer
-            StoreSportDataByte(START_STOP);  //0x7E 
-            StoreSportDataByte(sTxData[1]);   //PHID = last polling byte having been used
-            StoreSportDataByte(sRxData[0]);   //PRIM
-            for(uint8_t i = 1; i< (sport_index - 1);i++)
-            {   // note: we do not push to sportData the original CRC
-                StuffSportBytes(sRxData[i]);
-            }
-            */
             uint8_t phId ;
             phId = sTxData[1] & 0x1F ;
             if ( phId < 28 )

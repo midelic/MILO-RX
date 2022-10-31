@@ -107,10 +107,10 @@ uint16_t wordTemp;
 bool sbusAllowed = false;   // true means sbus/pwm can be generated because at least 1 rc signal has been received (and if failsafe values are applied, there is no NO PULSE)
 uint32_t slotBeginAt;
 uint16_t LED_count = 0;
-uint8_t RxData[15];
+uint8_t RxData[NBR_BYTES_IN_PACKET]; 
 uint32_t bindingTime = 0;
 uint32_t MProtocol_id = 0;
-uint8_t PayloadLength = 15;
+uint8_t PayloadLength = NBR_BYTES_IN_PACKET; // number of bytes in a packet
 uint8_t FrameType = 0;
 uint32_t LastReceivedPacketTime;
 uint32_t lastYieldMicros;
@@ -192,12 +192,12 @@ MiLo_statistics MiLoStats;
 
 //TELEMETRY
 #ifdef TELEMETRY
-    uint8_t frame[15];// frame to be sent to TX
+    uint8_t frame[NBR_BYTES_IN_PACKET];// frame to be sent to TX
     uint32_t tlmDataLinkType = 0;
     //uint8_t telemetryRX = 0;// when 1 next slot is downlink telemetry
-    uint8_t TelemetryExpectedId;
-    uint8_t dowlinkTlmId;
-    uint8_t UplinkTlmId = 0;
+    uint8_t dwnlnkTlmExpectedId;
+    uint8_t downlinkTlmId;
+    uint8_t uplinkTlmId = 0;
     bool skipUntilStart = false;
     volatile bool sportMSPflag = false;
     uint8_t sportMSPdatastuff[16];
@@ -215,7 +215,7 @@ void ICACHE_RAM_ATTR callSportSwSerial(void);
 void ICACHE_RAM_ATTR SportPollISR(void);
 void ICACHE_RAM_ATTR3 MiloTlmSent(void);
 void ICACHE_RAM_ATTR3 MiLoTlm_build_frame();
-void ICACHE_RAM_ATTR3 MiLoTlm_append_sport_data(uint8_t *buf);
+//void ICACHE_RAM_ATTR3 MiLoTlm_append_sport_data(uint8_t *buf);
 uint8_t ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t pas);
 void  ConfigTimer();
 void SX1280_SetTxRxMode(uint8_t mode);
@@ -868,15 +868,17 @@ void loop()
         #ifdef TELEMETRY 
             if (FrameType == TLM_PACKET) // process uplink tlm frame
             {
+                uplinkTlmId = (RxData[3] & 0X03);  // 2 lower bytes
+                downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
                 if ((RxData[3] & 0x0F) > 0)
                 { //Frame type is uplink telemetry and no. of sport bytes >0
                     sportCount = (RxData[3] >> 4); // 4 upper bytes
-                    UplinkTlmId = (RxData[3] & 0X0F);  // 4 lower bytes
+                    
                     for (uint8_t i = 0; i <= sportCount; i++)
                         ReceivedSportData[i] = RxData[i + 3]; //transfer all sport telemetry data in a buffer including No. of bytes in sport telemetry (uplink frame)
                     #ifdef SPORT_TELEMETRY   //  !!!!!!! perhaps we could merge the 2 for in one for and even avoid storing in ReceivedSportData[] 
                         if (sportCount > 0) {
-                            for (uint8_t i = 1; i <= sportCount; i++)
+                            for (uint8_t i = 1; i <= sportCount; i++)  // not sure this is correct about last byte
                                 smartPortDataReceive(ReceivedSportData[i]);// process all bytes of uplink tlm frame
                             sportCount = 0;
                         }
@@ -885,7 +887,7 @@ void loop()
                 }
             }
             // save the last dwn link telemetry id received in a valid frame (can be A RCData or uplink frame) 
-            if (FrameType != BIND_PACKET) dowlinkTlmId = (RxData[0] >> 4) & 0x0F; // main 4 bits
+            if (FrameType != BIND_PACKET) downlinkTlmId = (RxData[0] >> 2) & 0x0F; // main 4 bits
         #endif
         if (FrameType != TLM_PACKET && FrameType != BIND_PACKET)
         {     // BIND_PACKET are discarded here because we wait for 5 consecutive frames and then we process them in another place
@@ -1066,6 +1068,7 @@ void MiLoRxBind(void)
 } // end MiloRxBind
 
 #ifdef SPORT_TELEMETRY
+/*        
     void ICACHE_RAM_ATTR3 MiLoTlm_append_sport_data()
     {
         // a frame sent by SX1280 can contains 10 bytes while a Sport set of data contains only 8 bytes
@@ -1172,7 +1175,7 @@ void MiLoRxBind(void)
                 Serial.println(" ");
         #endif
     }
-
+*/
     void  ConfigTimer()
     {
         noInterrupts();
@@ -1197,57 +1200,130 @@ void MiLoRxBind(void)
 #endif // end SPORT_TELEMETRY
 
 #ifdef TELEMETRY
-    void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()
-    {    // see _config.h for the downlink tlm frame structure (max 10 bytes of payload)
-        //uint8_t nbr_bytesIn = 0;
-        frame[0] = (frame[0] & 0XF0 ) | tlmDataLinkType ; // update the LSB part
-        frame[1] = MiLoStorage.txid[0]; ;
-        frame[2] = MiLoStorage.txid[1];
-        frame[3] = ( ( dowlinkTlmId & 0X0F) << 4) | (UplinkTlmId ) ;
-        frame[4] = MiLoTlmDataLink(tlmDataLinkType);
-        tlmDataLinkType = (tlmDataLinkType + 1)%3;
-        if (dowlinkTlmId == TelemetryExpectedId) { // we will update the payload only if we can (previous frame has been received by Tx)
-            // dowlinkTlmId is received from TX
-            // it is increased by TX when TX receives a downlink tlm frame
-            MiLoTlm_append_sport_data(); // add Sport data (in 2 parts if required) and update frame[0] accordinly
-        } // else just keep existing data
+/*
+        # RX downlink telemetry frame sent separate at a fixed rate of 1:3;frame rate 7ms. Can contain 2 Sport frame 
+    0. - bits 7...2 : MSB of TXID1 (6 bits)
+       - bits 1...0 : current downlink tlm counter (2 bits); when received TX should send this counter + 1type of link data packet(RSSI/SNR /LQI) (2 bits= 3 values currently) 
+    1. - bits 7...2 : MSB of TXID2 (6 bits)
+       - bits 1...0 : last upllink tlm counter received (2 bits); 
+    2. - bit 7 : reserve
+         bits 6..5 : recodified PRIM from sport frame1 (0X30=>0, 0X31=>1,0X32=>2, 0X10=>0)
+         bits 4..0 : PHID from sport frame1 (5 bits using a mask 0X1F; 0X1F = no data; 0X1E = link quality data)
+    3. - bit 7 : reserve
+         bits 6..5 : recodified PRIM from sport frame2 (0X30=>0, 0X31=>1,0X32=>2, 0X10=>0)
+         bits 4..0 : PHID from sport frame2 (5 bits using a mask 0X1F; 0X1F = no data; 0X1E = link quality data)
+    4. field ID1 from sport frame1
+    5. field ID2 from sport frame1
+    6...9. Value from sport frame1 (4 bytes)
+    10. field ID1 from sport frame2
+    11. field ID2 from sport frame2
+    12...15. Value from sport frame2 (4 bytes)
+*/
+    #define PHID_LINK_QUALITY 0X1E
+    #define PHID_NO_DATA      0X1F
+    
+    
+    uint8_t convertPrimPhid(uint8_t sportTailWhenAck){ // in return set bit7 = 1 in case of error
+        uint8_t convert ;
+        switch (sportData[sportTailWhenAck+1]) {   
+            case 10:
+                convert = 3;
+                break;
+            case 30:
+                convert = 0;
+                break;
+            case 31:
+                convert = 1;
+                break;
+            case 32:
+                convert = 2;
+                break;
+            default:
+                convert = 0XFF;
+                debugln("error in conversion of PRIM");
+        }
+        convert = (convert <<5) | (sportData[sportTailWhenAck] & 0X01F); 
+        if  ( (sportData[sportTailWhenAck] & 0X01F) > 0X1B ){
+            debugln("error in conversion of PHID");
+            convert |= 0X80 ; // set bit 7 to 1
+        }
+        return convert << 5;
+    }
+    
+    uint32_t lastLinkqAckedMicros = 0;
+    uint32_t lastLinkqToAckMicros =  0;
+    void appendTlmFrame()
+    { // fill frame[2...15] with 2 set of data 
+        // first part is filled with link quality data when timelap since previous exceeds so msec or if there are less than 2 sport data available
+        
+        if ( (sportDataLen < 2) || ((micros() - lastLinkqAckedMicros) > 500) )
+        { // fill with link quality data
+            lastLinkqToAckMicros = micros();
+            getRFlinkInfo();
+            frame[2] = PHID_LINK_QUALITY;
+            if (antenna) frame[4] = MiLoStats.uplink_RSSI_2;//antenna
+            else         frame[4] = MiLoStats.uplink_RSSI_1;
+            frame[5] = MiLoStats.uplink_SNR;
+            frame[6]= MiLoStats.uplink_Link_quality;
+            frame[7] = missingPackets;
+            frame[8] = getCurrentChannelIdx();
+            frame[9] = 0;
+        } else if (sportDataLen > 0 ) {
+            frame[2] = convertPrimPhid(sportTailWhenAck);
+            if ( frame[2] & 0X80) { // in case of error discard the data
+                frame[2]  = PHID_NO_DATA;
+                memset( &frame[4] , 0, 6);   
+            } else {
+                memcpy( &frame[4] , &sportData[sportTailWhenAck + 1 ] , 6);
+            }
+            sportTailWhenAck = (sportTailWhenAck + 8 ) & 0x3F;    
+        } else {
+            frame[2] = PHID_NO_DATA;
+            memset( &frame[4] , 0, 6);    
+        } 
+        // at this stage, the first part id filled; now we do the second part
+        if (sportTailWhenAck != sportHead) { // there is at least one second set of data available
+            frame[3] = convertPrimPhid(sportTailWhenAck);
+            if ( frame[3] & 0X80) { // in case of error discard the data
+                frame[3]  = PHID_NO_DATA;
+                memset( &frame[10] , 0, 6);   
+            } else {
+                memcpy( &frame[10] , &sportData[sportTailWhenAck + 1 ] , 6);
+            }
+            sportTailWhenAck = (sportTailWhenAck + 8 ) & 0x3F;    
+        } else {
+            frame[3] = PHID_NO_DATA;
+            memset( &frame[10] , 0, 6);    
+        } 
+        
 
-        TelemetryExpectedId = (dowlinkTlmId + 1) & 0x0F; // calcuate Id that would allow an update for next downlink tlm frame
+    }
+    void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()
+    {     
+        frame[0] = (MiLoStorage.txid[0] & 0XFC ) | downlinkTlmId; 
+        frame[1] = (MiLoStorage.txid[1] & 0XFC ) | uplinkTlmId;
+        if (sportTail != sportTailWhenAck) {
+            if (downlinkTlmId == dwnlnkTlmExpectedId)
+            { // previous dwnlnk frame has been ack so we can move sportTail to sportTailWhenAck
+                lastLinkqAckedMicros = lastLinkqToAckMicros ; // avoid to generate linkquality data on each frame
+                sportTail = (sportTail + 8 ) & 0X3F ; // we first move one step forward.
+                sportDataLen--;
+                if (sportTail != sportTailWhenAck ) { // move one step more
+                    sportTail = (sportTail + 8 ) & 0X3F ; // we first move one step forward.
+                    sportDataLen--;
+                    if (sportTail != sportTailWhenAck ) debugln("Error in handling sportTail");
+                }
+                sportTail = sportTailWhenAck;
+            } else{ // when no Ack, roll back sportTailWhenAck to sportTail
+                sportTailWhenAck = sportTail;
+            } 
+        }
+        dwnlnkTlmExpectedId = (downlinkTlmId + 1) & 0x03; // calcuate Id that would allow an update for next downlink tlm frame
+        appendTlmFrame();   // fill frame[2...15]
         #ifdef DEBUG_SPORT
-            Serial.print("type="); Serial.print(frame[0] & 0x03);
-            Serial.print(" val="); Serial.print(frame[4] ,HEX);
-            Serial.print(" case="); 
-            switch( frame[0] >> 4){
-                case 0b0000: // 0b0000 = no sport data to transmit
-                    Serial.print(" ---- ");
-                    break;
-                case 0b1000:  // 0b1000 = 8 bytes only (one set of data) 
-                    Serial.print(" 8 -- ");
-                    break;
-                case 0b1001: // 0b1001 = 6 bytes only (remaining part)
-                    Serial.print(" 6 -- ");
-                    break;
-                case 0b1010: // 0b1010 = 4 bytes only (remaining part)
-                    Serial.print(" 4 -- ");
-                    break;
-                case 0b1011: // 0b1011 = 2 bytes only (remaining part)
-                    Serial.print(" 2 -- ");
-                    break;
-                case 0b1100: // 0b1100 = 8 + 2 bytes 
-                    Serial.print(" 8 + 2 ");
-                    break;
-                case 0b1101: // 0b1101 = 6 + 4 bytes
-                    Serial.print(" 6 + 4 ");
-                    break;
-                case 0b1110: // 0b1110 = 4 + 6 bytes
-                    Serial.print(" 4 + 6 ");
-                    break;
-                case 0b1111: // 0b1111 = 2 + 8 bytes
-                    Serial.print(" 2 + 8 ");
-                    break;
-            }  
-            for(uint8_t i = 0;i<10;i++){
-                Serial.print(frame[i+5],HEX);  Serial.print(" ; ");
+            Serial.print("pack= ");  
+            for(uint8_t i = 0;i<NBR_BYTES_IN_PACKET;i++){
+                Serial.print(frame[i],HEX);  Serial.print(" ; ");
             }
             Serial.println(""); 
         #endif  
@@ -1264,6 +1340,7 @@ void MiLoRxBind(void)
         SX1280_SetMode(SX1280_MODE_TX);
     }
 
+/*
     uint8_t  ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t bit)
     {
         static uint8_t link = 0 ;
@@ -1285,6 +1362,7 @@ void MiLoRxBind(void)
         }
         return link;
     }
+*/    
 #endif // end TELEMETRY
 
 #ifdef SPORT_TELEMETRY
@@ -1315,7 +1393,7 @@ void MiLoRxBind(void)
         idxs = indx;
     }
 
-    //Sports received from TX(MSP)
+    //Sport received from TX(MSP) in a uplink packet
     void  smartPortDataReceive(uint8_t c)
     {
         static bool byteStuffing = false;

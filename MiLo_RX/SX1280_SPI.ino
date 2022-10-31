@@ -485,7 +485,7 @@ bool  ICACHE_RAM_ATTR3 SX1280_Begin()
     SX1280_ConfigModParamsLoRa(SX1280_LORA_BW_0800, SX1280_LORA_SF6, SX1280_LORA_CR_4_7); //Configure Modulation Params                                                                          
     SX1280_WriteCommand(SX1280_RADIO_SET_AUTOFS, 0x01,15);     //Enable auto FS                                                                 
     SX1280_WriteReg(0x0891, (SX1280_ReadReg(0x0891) | 0xC0));  //default is low power mode, switch to high sensitivity instead
-    SX1280_SetPacketParamsLoRa(12, SX1280_LORA_PACKET_IMPLICIT, 15, SX1280_LORA_CRC_ON, SX1280_LORA_IQ_NORMAL); 
+    SX1280_SetPacketParamsLoRa(12, SX1280_LORA_PACKET_IMPLICIT, NBR_BYTES_IN_PACKET, SX1280_LORA_CRC_ON, SX1280_LORA_IQ_NORMAL); 
     //SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, SX1280_IRQ_TX_DONE | SX1280_IRQ_RX_DONE, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);  //set IRQ to both RXdone/TXdone on DIO1
     SX1280_SetDioIrqParams(SX1280_IRQ_RADIO_ALL, SX1280_IRQ_RX_DONE, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);  //set IRQ to both RXdone/TXdone on DIO1
     if (OPT_USE_SX1280_DCDC)
