@@ -274,8 +274,10 @@ MiLo_rf_pref_params_s *MiLo_currAirRate_RFperfParams;
 
 MiLo_mod_settings_s MiLo_AirRateConfig[RATE_MAX] =
 {
-    {0, RADIO_TYPE_SX128x_LORA, RATE_LORA_150HZ,  SX1280_LORA_BW_0800, SX1280_LORA_SF6,  SX1280_LORA_CR_LI_4_7, 7000, TLM_RATIO_1_3, 12, 15 },
-    {1, RADIO_TYPE_SX128x_LORA, RATE_LORA_100HZ,  SX1280_LORA_BW_0800, SX1280_LORA_SF7,  SX1280_LORA_CR_LI_4_6, 9000, TLM_RATIO_1_3, 12, 15}
+    {0, RADIO_TYPE_SX128x_LORA, RATE_LORA_150HZ,  SX1280_LORA_BW_0800, SX1280_LORA_SF6,
+      SX1280_LORA_CR_LI_4_7, 7000, TLM_RATIO_1_3, 12, NBR_BYTES_IN_PACKET },
+    {1, RADIO_TYPE_SX128x_LORA, RATE_LORA_100HZ,  SX1280_LORA_BW_0800, SX1280_LORA_SF7,
+      SX1280_LORA_CR_LI_4_6, 9000, TLM_RATIO_1_3, 12, NBR_BYTES_IN_PACKET}
 };
 
 MiLo_rf_pref_params_s MiLo_AirRateRFperf[RATE_MAX] =
@@ -639,7 +641,7 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
 
 
 void saveRcFrame() {
- // process a valid RC frame (can be a frame with failsafe data)
+    // process a valid RC frame (can be a frame with failsafe data)
     c[0]  = (uint16_t)((RxData[4] | RxData[5]  << 8) & 0x07FF);
     c[1]  = (uint16_t)((RxData[5]  >> 3  |  RxData[6] << 5) & 0x07FF);
     c[2]  = (uint16_t)((RxData[6]  >> 6  | RxData[7]  << 2  | RxData[8] << 10) & 0x07FF);
@@ -759,6 +761,7 @@ void handleDio1() {
     if (irqStatus & (SX1280_IRQ_RX_DONE | SX1280_IRQ_CRC_ERROR | SX1280_IRQ_RX_TX_TIMEOUT))
     {
         if (irqStatus & SX1280_IRQ_CRC_ERROR) {
+            G3PULSE(1);G3PULSE(3); G3PULSE(1);
             #ifdef STATISTIC
                 TotalCrcErrors += 1 ;//bad packets that not pass the crc check
             #endif
@@ -886,12 +889,11 @@ void loop()
         
                 }
             }
-            // save the last dwn link telemetry id received in a valid frame (can be A RCData or uplink frame) 
-            if (FrameType != BIND_PACKET) downlinkTlmId = (RxData[0] >> 2) & 0x0F; // main 4 bits
         #endif
         if (FrameType != TLM_PACKET && FrameType != BIND_PACKET)
         {     // BIND_PACKET are discarded here because we wait for 5 consecutive frames and then we process them in another place
             sbusAllowed = true; // as we received a valid frame we can allow generating Sbus and PWM ;
+            downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
             saveRcFrame(); // save data from Rc channels (even in EEPROM if failsafe is activated)
                             // if SBUS is defined, data are stored also in channel[] but frame is not yet generated 
             //SBUS_frame(); // create frame mainly based on channel[]
@@ -1068,114 +1070,6 @@ void MiLoRxBind(void)
 } // end MiloRxBind
 
 #ifdef SPORT_TELEMETRY
-/*        
-    void ICACHE_RAM_ATTR3 MiLoTlm_append_sport_data()
-    {
-        // a frame sent by SX1280 can contains 10 bytes while a Sport set of data contains only 8 bytes
-        // In order to use all 10 available bytes, we can put part of 2 Sport sets of data in a single frame
-        // So we can have 9 cases which are coded like this
-        // 0b0000 = no sport data to transmit
-        // 0b1000 = 8 bytes only (one set of data) 
-        // 0b1001 = 6 bytes only (remaining part)
-        // 0b1010 = 4 bytes only (remaining part)
-        // 0b1011 = 2 bytes only (remaining part)
-        // 0b1100 = 8 + 2 bytes 
-        // 0b1101 = 6 + 4 bytes
-        // 0b1110 = 4 + 6 bytes
-        // 0b1111 = 2 + 8 bytes
-        // So bit 3 = 0  means there is no data; else there are data to transmit
-        // bit 2 = 0 means there is one (full or rest) data ; 1 means there are 2 set of data
-        // bit 1..0 identify the case about how many bytes are in the first part
-        // this code is inserted in the 4 MSB of frame[0]
-        // we also use a variable remainingBytes with the number of bytes to be added in the next frame 
-        //             a buffer remaining[] with the remaining part (6 bytes max)
-        // In the function, we fill the payload with the sport data and the MSB of frame[0] with the case
-        uint8_t sportCase = 0;
-        static uint8_t remainingBytes = 0;
-        static uint8_t remainingSportData[6] ;
-        memset(&frame[5], 0, 10); // fill payload with 0X00
-        if ( sportDataLen == 0) // no new data received from sensor
-        {
-            if (remainingBytes == 0)
-            { // no remaining part and no data available 
-                // nothing to do (except update frame[0] - done at the end)
-            } else if  (remainingBytes == 6)
-            { // send only the remaining part
-                sportCase = 0b1001;
-                memcpy( &frame[5] , &remainingSportData[0], 6);
-                remainingBytes = 0;
-            } else if  (remainingBytes == 4)
-            { // send only the remaining part
-                sportCase = 0b1010;
-                memcpy( &frame[5] , &remainingSportData[0], 4);
-                remainingBytes = 0;
-            } else if  (remainingBytes == 2)
-            { // send only the remaining part
-                sportCase = 0b1011;
-                memcpy( &frame[5] , &remainingSportData[0], 2);
-                remainingBytes = 0;
-            }
-        } else { // there are some new data
-            if (remainingBytes == 0)
-            { // no remaining part and no data available 
-                if ( sportDataLen == 1) 
-                { // there is only one set of data available
-                    sportCase = 0b1000;
-                    memcpy( &frame[5] , &sportData[sportTail], 8);
-                    sportTail = (sportTail + 8) & 0X3F;
-                    sportDataLen--;
-                    remainingBytes = 0;
-                } else 
-                {   // sent 8+2
-                    sportCase = 0b1100;
-                    memcpy( &frame[5] , &sportData[sportTail], 8);
-                    sportTail = (sportTail + 8) & 0X3F;
-                    sportDataLen--;
-                    memcpy( &frame[5+8] , &sportData[sportTail], 2);
-                    memcpy( &remainingSportData[0] , &sportData[sportTail+2], 6);
-                    sportTail = (sportTail + 8) & 0X3F;
-                    sportDataLen--;
-                    remainingBytes = 6;
-                }
-            } else if (remainingBytes == 6) 
-            { // 0b1101 = 6 + 4 bytes
-                    sportCase = 0b1101;
-                    memcpy( &frame[5] , &remainingSportData[0], 6);
-                    memcpy( &frame[5+6] , &sportData[sportTail], 4);
-                    memcpy( &remainingSportData[0] , &sportData[sportTail+4], 4);
-                    sportTail = (sportTail + 8) & 0X3F;
-                    sportDataLen--;
-                    remainingBytes = 4;
-            } else if (remainingBytes == 4) 
-            { // 0b1110 = 4 + 6 bytes
-                    sportCase = 0b1110;
-                    memcpy( &frame[5] , &remainingSportData[0], 4);
-                    memcpy( &frame[5+4] , &sportData[sportTail], 6);
-                    memcpy( &remainingSportData[0] , &sportData[sportTail+4], 6);
-                    sportTail = (sportTail + 8) & 0X3F;
-                    sportDataLen--;
-                    remainingBytes = 2;
-            } else if (remainingBytes == 2) 
-            { // 0b1111 = 2 + 8 bytes
-                    sportCase = 0b1111;
-                    memcpy( &frame[5] , &remainingSportData[0], 2);
-                    memcpy( &frame[5+2] , &sportData[sportTail], 8);
-                    sportTail = (sportTail + 8) & 0X3F;
-                    sportDataLen--;
-                    remainingBytes = 0;
-            }   
-        }
-        frame[0] =  (frame[0] & 0x0F ) | (sportCase << 4); // update the 4 MSB
-        #ifdef DEBUG_SPORT
-            Serial.print("After update Tail="); Serial.print(sportTail); Serial.print(" Head="); Serial.print(sportHead); 
-            Serial.print(" remain: ");
-                for (uint8_t i = 0 ; i < remainingBytes ; i++) {
-                    Serial.print(remainingSportData[i], HEX) ;Serial.print(" ; "); 
-                }
-                Serial.println(" ");
-        #endif
-    }
-*/
     void  ConfigTimer()
     {
         noInterrupts();
@@ -1226,16 +1120,16 @@ void MiLoRxBind(void)
     uint8_t convertPrimPhid(uint8_t sportTailWhenAck){ // in return set bit7 = 1 in case of error
         uint8_t convert ;
         switch (sportData[sportTailWhenAck+1]) {   
-            case 10:
+            case 0X10:
                 convert = 3;
                 break;
-            case 30:
+            case 0X30:
                 convert = 0;
                 break;
-            case 31:
+            case 0X31:
                 convert = 1;
                 break;
-            case 32:
+            case 0X32:
                 convert = 2;
                 break;
             default:
@@ -1253,8 +1147,8 @@ void MiLoRxBind(void)
     uint32_t lastLinkqAckedMicros = 0;
     uint32_t lastLinkqToAckMicros =  0;
     void appendTlmFrame()
-    { // fill frame[2...15] with 2 set of data 
-        // first part is filled with link quality data when timelap since previous exceeds so msec or if there are less than 2 sport data available
+    { // fill frame[2...15] with max 2 sets of data 
+        // first part is filled with link quality data when timelap since previous exceeds xx msec or if there are less than 2 sport data available
         
         if ( (sportDataLen < 2) || ((micros() - lastLinkqAckedMicros) > 500) )
         { // fill with link quality data
@@ -1264,9 +1158,9 @@ void MiLoRxBind(void)
             if (antenna) frame[4] = MiLoStats.uplink_RSSI_2;//antenna
             else         frame[4] = MiLoStats.uplink_RSSI_1;
             frame[5] = MiLoStats.uplink_SNR;
-            frame[6]= MiLoStats.uplink_Link_quality;
-            frame[7] = missingPackets;
-            frame[8] = getCurrentChannelIdx();
+            frame[6] = MiLoStats.uplink_Link_quality;
+            frame[7] = missingPackets;         // note : instead of sending the current value, we should calculate a max over a define timelap.
+            frame[8] = getCurrentChannelIdx(); // note: this does not make lot of sense; it is more usefull in frames TX >> RX
             frame[9] = 0;
         } else if (sportDataLen > 0 ) {
             frame[2] = convertPrimPhid(sportTailWhenAck);
@@ -1274,7 +1168,7 @@ void MiLoRxBind(void)
                 frame[2]  = PHID_NO_DATA;
                 memset( &frame[4] , 0, 6);   
             } else {
-                memcpy( &frame[4] , &sportData[sportTailWhenAck + 1 ] , 6);
+                memcpy( &frame[4] , &sportData[sportTailWhenAck + 2 ] , 6); 
             }
             sportTailWhenAck = (sportTailWhenAck + 8 ) & 0x3F;    
         } else {
@@ -1288,7 +1182,7 @@ void MiLoRxBind(void)
                 frame[3]  = PHID_NO_DATA;
                 memset( &frame[10] , 0, 6);   
             } else {
-                memcpy( &frame[10] , &sportData[sportTailWhenAck + 1 ] , 6);
+                memcpy( &frame[10] , &sportData[sportTailWhenAck + 2 ] , 6);
             }
             sportTailWhenAck = (sportTailWhenAck + 8 ) & 0x3F;    
         } else {
@@ -1316,13 +1210,31 @@ void MiLoRxBind(void)
                 sportTail = sportTailWhenAck;
             } else{ // when no Ack, roll back sportTailWhenAck to sportTail
                 sportTailWhenAck = sportTail;
+                Serial.println("Roll Tail back");
             } 
         }
         dwnlnkTlmExpectedId = (downlinkTlmId + 1) & 0x03; // calcuate Id that would allow an update for next downlink tlm frame
+        #ifdef DEBUG_SPORT
+            Serial.print("Tail="); Serial.print(sportTail); Serial.print(" ifAck="); Serial.print(sportTailWhenAck); Serial.print(" data=");
+            uint8_t idx = sportTail;
+            for (uint8_t i=0 ; i < sportDataLen ; i++){
+                for (uint8_t j=0 ; j<8; j++){
+                    Serial.print(sportData[idx + j],HEX) ; Serial.print(";");
+                }
+                Serial.print("  /  ");
+                idx = (idx+8) & 0X3F; //max 64 bytes in circular buffer
+            }
+            Serial.println(" ");
+        #endif
         appendTlmFrame();   // fill frame[2...15]
         #ifdef DEBUG_SPORT
-            Serial.print("pack= ");  
-            for(uint8_t i = 0;i<NBR_BYTES_IN_PACKET;i++){
+            Serial.print("if Ack="); Serial.print(sportTailWhenAck);
+            Serial.print(" pack=");
+            Serial.print(frame[0]&0XFC,HEX); Serial.print("-"); Serial.print(frame[0]&0X03); Serial.print(" ; ");
+            Serial.print(frame[1]&0XFC,HEX); Serial.print("-"); Serial.print(frame[1]&0X03); Serial.print(" ; ");  
+            Serial.print((frame[2]&0b01100000)>>5,HEX); Serial.print("/"); Serial.print(frame[2]&0X1F); Serial.print(" ; ");  
+            Serial.print((frame[3]&0b01100000)>>5,HEX); Serial.print("/"); Serial.print(frame[3]&0X1F); Serial.print(" ; ");  
+            for(uint8_t i = 4;i<NBR_BYTES_IN_PACKET;i++){
                 Serial.print(frame[i],HEX);  Serial.print(" ; ");
             }
             Serial.println(""); 
