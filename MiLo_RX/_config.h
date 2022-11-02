@@ -45,7 +45,7 @@
 //#define HC_BIND
 //#define USER_MAX_POWER
 //#define TELEMETRY // mstrens removed to test
-//#define HC_SPORT
+
 
 #if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined DIY_RX
   #define DIVERSITY
@@ -178,7 +178,7 @@
     1. - bits 7...2 : MSB of TXID2 (6 bits)
        - bits 1...0 : last upllink tlm counter received (2 bits); 
     2. - bit 7 : reserve
-         bits 6..5 : recodified PRIM from sport frame1 (0X30=>0, 0X31=>1,0X32=>2, 0X10=>0)
+         bits 6..5 : recodified PRIM from sport frame1 (0X30=>0, 0X31=>1,0X32=>2, 0X10=>3)
          bits 4..0 : PHID from sport frame1 (5 bits using a mask 0X1F; 0X1F = no data; 0X1E = link quality data)
     3. - bit 7 : reserve
          bits 6..5 : recodified PRIM from sport frame2 (0X30=>0, 0X31=>1,0X32=>2, 0X10=>0)

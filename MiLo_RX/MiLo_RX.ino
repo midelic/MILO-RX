@@ -15,7 +15,7 @@
     along with this code.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// to do : reduce dioISR and move part in main loop
+
 // to do : add CRC to the data stored in EEPROM; when reading EEPROM, if CRC is wrong use default values.
 // check soft Serial with interrupt
 
@@ -205,6 +205,7 @@ MiLo_statistics MiLoStats;
     volatile uint8_t idxs = 0;
     uint8_t smartPortRxBytes = 0;
     uint8_t ReceivedSportData[11];//transfer all sport telemetry data received from TX in a buffer including No. of bytes in sport telemetry frame(uplink frame)
+    volatile bool sportPollIsrFlag = false ; // flag to inform main loop that sport polling timer fire.
 #endif
 
 #define NOP() __asm__ __volatile__("nop")
@@ -220,6 +221,8 @@ uint8_t ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t pas);
 void  ConfigTimer();
 void SX1280_SetTxRxMode(uint8_t mode);
 void  smartPortDataReceive(uint8_t c);
+void  ICACHE_RAM_ATTR handleSportPoll();
+
 uint8_t bind_jumper(void);
 
 #ifdef SPORT_TELEMETRY
@@ -377,7 +380,7 @@ void setup()
         ConfigTimer();  // start timer 1 to send the polling request or the uplink tlm frame to the sensor every 12 msec 
     #endif
     smoothedInterval = MiLo_currAirRate_Modparams->interval;
-    t_outMicros= FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT; // at start up we use a long delay (476msev = 7000*68 usec) 
+    t_outMicros= FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // at start up we use a long delay (476msev = 7000*68 usec) 
     slotBeginAt = micros();
     debugln("End of setup: SX1280 is OK");
     #ifdef DEBUG_ON_GPIO3
@@ -471,7 +474,7 @@ void handleShortTimeout()
     if (missingPackets > MAX_MISSING_PKT)// we just lost the connection
     {
         isConnected2Tx = false; // previously it was t_out = FHSS_CHANNELS_NUM;// wait max 68 slots of 7 msec before exiting while()
-        t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT; // 2000 is to be sure that interval is big enoug to cover 68 slots
+        t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // 2000 is to be sure that interval is big enoug to cover 68 slots
 //        setChannelIdx(0) ; // skip to the first channel in the list because only the first 5 are used to get connection
 //        currFreq = GetCurrFreq(); //set frequency first or an error will occur!!!
 //        SX1280_SetFrequencyReg(currFreq); 
@@ -576,7 +579,7 @@ bool isReceivedFrameValid() { // return true for a valid frame
 
 void prepareNextSlot() { // a valid frame has been received; perform frequency hop and initialized some flags/counters
     isConnected2Tx = true; // previously it was t_out = 1;           // set timeout on 1 because next packet should be within 7 mse
-    t_outMicros = smoothedInterval + 500; // 500 is a margin e.g. to take care of some jitter   
+    t_outMicros = smoothedInterval + MARGIN_SHORT_TIMEOUT; // MARGIN_SHORT_TIMEOUT is a margin e.g. to take care of some jitter   
     if ((FrameType != TLM_PACKET && (RxData[3] >> 7)== 1) || FrameType == TLM_PACKET ) { 
         packetSeq = 1; // 1 means that next slot must be used to send a downlink telemetry packet
     } else { // when next frame is not a downlink, we skip to next channel
@@ -843,12 +846,11 @@ void loop()
                                    // when frame is full, check it, convert it and 
                                    // put data in a circular buffer (sportData[]) that will be handled by downlink tlm slot.
         #endif
-        
-        #ifdef  DEBUG_SIM_SPORT_SENSOR
-            generateDummySportDataFromSensor();  // add data to a circular buffer to be sent by SX1280 just like callSportSWSerial would do.
-                                                 // interval between 2 frames can be defined 
+        #ifdef SPORT_TELEMETRY
+        if ( sportPollIsrFlag){ 
+            handleSportPoll(); // perform a polling (or forward a uplink tlm frame) at regular interval (12msec)
+        }
         #endif
-        
         if (! isConnected2Tx) { // not needed to yield when connected because it is already done at begining of the loop
                                 // it is only when not connected that we can stay in while more that 7000 msec
                                 // avoiding yield is good because it can take up to 300 msec on ESP8266 
@@ -1081,6 +1083,14 @@ void MiLoRxBind(void)
 
     void  ICACHE_RAM_ATTR SportPollISR()
     {       
+        sportPollIsrFlag = true;
+    }
+
+    void  ICACHE_RAM_ATTR handleSportPoll()
+    {
+        cli();
+        sportPollIsrFlag = false; // reset the ISR flag    
+        sei();
         if (sportMSPflag)
         {
             memcpy((void *)sTxData, sportMSPdatastuff, idxs);
@@ -1141,7 +1151,7 @@ void MiLoRxBind(void)
             debugln("error in conversion of PHID");
             convert |= 0X80 ; // set bit 7 to 1
         }
-        return convert << 5;
+        return convert;
     }
     
     uint32_t lastLinkqAckedMicros = 0;
@@ -1214,7 +1224,7 @@ void MiLoRxBind(void)
             } 
         }
         dwnlnkTlmExpectedId = (downlinkTlmId + 1) & 0x03; // calcuate Id that would allow an update for next downlink tlm frame
-        #ifdef DEBUG_SPORT
+        #ifdef DEBUG_SPORT_SPORTDATA
             Serial.print("Tail="); Serial.print(sportTail); Serial.print(" ifAck="); Serial.print(sportTailWhenAck); Serial.print(" data=");
             uint8_t idx = sportTail;
             for (uint8_t i=0 ; i < sportDataLen ; i++){
@@ -1228,16 +1238,18 @@ void MiLoRxBind(void)
         #endif
         appendTlmFrame();   // fill frame[2...15]
         #ifdef DEBUG_SPORT
-            Serial.print("if Ack="); Serial.print(sportTailWhenAck);
-            Serial.print(" pack=");
-            Serial.print(frame[0]&0XFC,HEX); Serial.print("-"); Serial.print(frame[0]&0X03); Serial.print(" ; ");
-            Serial.print(frame[1]&0XFC,HEX); Serial.print("-"); Serial.print(frame[1]&0X03); Serial.print(" ; ");  
-            Serial.print((frame[2]&0b01100000)>>5,HEX); Serial.print("/"); Serial.print(frame[2]&0X1F); Serial.print(" ; ");  
-            Serial.print((frame[3]&0b01100000)>>5,HEX); Serial.print("/"); Serial.print(frame[3]&0X1F); Serial.print(" ; ");  
-            for(uint8_t i = 4;i<NBR_BYTES_IN_PACKET;i++){
-                Serial.print(frame[i],HEX);  Serial.print(" ; ");
-            }
-            Serial.println(""); 
+            if ( ((frame[2]&0X1F) < 0X1E ) || ((frame[3]&0X1F) < 0X1E ) ) { // print only when part 1 or 2 if filled with sportdata. 
+                Serial.print("ifAck="); Serial.print(sportTailWhenAck);
+                Serial.print(" pack=");
+                Serial.print(frame[0]&0XFC,HEX); Serial.print("-"); Serial.print(frame[0]&0X03); Serial.print(";");
+                Serial.print(frame[1]&0XFC,HEX); Serial.print("-"); Serial.print(frame[1]&0X03); Serial.print(";");  
+                Serial.print((frame[2]&0b01100000)>>5); Serial.print("/"); Serial.print(frame[2]&0X1F,HEX); Serial.print(";");  
+                Serial.print((frame[3]&0b01100000)>>5); Serial.print("/"); Serial.print(frame[3]&0X1F,HEX); Serial.print(";");  
+                for(uint8_t i = 4;i<NBR_BYTES_IN_PACKET;i++){
+                    Serial.print(frame[i],HEX);  Serial.print(";");
+                }
+                Serial.println("");
+            }     
         #endif  
     }
 

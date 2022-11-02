@@ -147,7 +147,7 @@ uint8_t  ICACHE_RAM_ATTR nextID()   // find the next Sport ID to be used for pol
         if ( poll_idx == 99 )
         {
             phase = 1 ;
-            return 0 ;
+            return 0 ;//MSW_SERIAL
         }
     }
     return poll_idx ;
@@ -167,6 +167,9 @@ void  ICACHE_RAM_ATTR tx_sport_poll()  // send the polling code
         state = TXPENDING;
         timer0_attachInterrupt(SerialBitISR); 
         timer0_write(ESP.getCycleCount() + 2*BIT_TIME);
+    #endif
+    #ifdef DEBUG_SIM_SPORT_SENSOR
+        generateDummySportDataFromSensor(); // simulate immediately a reply from sensor adding data to sRxData and processing them
     #endif
 }
 
@@ -365,6 +368,17 @@ void ICACHE_RAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
 */
 
 uint8_t checkSimilarSport(){
+    // note: this function is not 100% correct.
+    // imagine folowing scenario: 
+    // sportData[] contains already a set of data that have been sent to Tx in the second part (the first part being also a sensor dataset and not a link quality set)
+    // TX has not yet acknowledge
+    // a new set of data arrives from sensor with the same 4 first bytes
+    // we will append the new set of data
+    // we now have to create a new downlink frame but Tx has not give the ACK so we roll back SportTailIfAck to sportTail
+    // suppose now that it is time to fill first part of packet with link quality data and so only first set from circular buffer will be added in second part.
+    // so our second set will not be part of the packet (and we have 2 identical KEY in the circular buffer).
+    // if new data arrives from sensor with identical key, only the first one will be updated.
+    // so at the end we could send the oldiest data after having sent freshier data.  
     uint8_t tail = sportTailWhenAck; // we start looking from this to avoid updating a frame that have already been sent but not yet confirmed
     // look in circular buffer from the first occurence (if any)
     // return the position of a found set of data
@@ -380,8 +394,7 @@ uint8_t checkSimilarSport(){
     return MAX_SMARTPORT_BUFFER_SIZE;
 }
 void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sensor (stored in SRxData)
-{             // START byte has already been removed in the frame bing processed
-              // frame contains at least 8 bytes but can be more (due to stuffing)
+{             // frame contains at least 8 bytes but can be more (due to stuffing) PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4, CRC
               // first remove stuff and check length and CRC. 
               // if OK, append a new (adapted) message to a circular buffer sportData[] (used with sportTail,  sportHead sportTailWhenAck) 
     
@@ -419,32 +432,59 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
 
 
 #ifdef DEBUG_SIM_SPORT_SENSOR
-    uint8_t debugSportDataReadyToSend[20] = {
-        //0x7E, PHID,PRIM,ID1,ID2,VAL1,VAL2,VAL3,VAL4, CRC
-        // #define VARIO_FIRST_ID          0x0110
-        // a real frame from sensor has a START byte and no END byte but this START has already been removed in callSerial
-        // so it is not present at the beginning of those debug data.
-        // a 0X7E is added manually to the debug data to mark the end of the dummy buffer; this 0X7E is discarded during this process 
-        0x10 , 0X05,  0X00, 0XC2, 0, 0, 0, 0X28, 0X7E,
-    };
-
+    
     uint32_t lastSportGeneratedMillis = 0;
     #define DEBUG_SPORT_INTERVAL 500  // interval between 2 dummy frames (must be at least about 20 to let SX1280 sent the frame)
-
+    uint32_t nextDummyValue = 0;  // value to put in the sport dummy frame
+    uint8_t nextID2 = 0;          // id2 of the field to be put in the sport dummy frame
+    
     void generateDummySportDataFromSensor(){
         if ( ( millis() - lastSportGeneratedMillis ) > DEBUG_SPORT_INTERVAL ) {
-            lastSportGeneratedMillis = millis();
-            // copy data in sRxData[] 
-            uint8_t i = 0;
-            while ( ( i < 20) && ( debugSportDataReadyToSend[i] != 0X7E) ) {
-                sRxData[i] = debugSportDataReadyToSend[i] ; // store up to next START  (not included)
-                i++;       
+            lastSportGeneratedMillis = millis();        
+            uint16_t crc ;
+            uint8_t tempBuffer[8];
+            tempBuffer[0] = 0X10 ; // type of packet : data
+            tempBuffer[1] = 0X05    ; 
+            tempBuffer[2] = nextID2 & 0X0F ; 
+            tempBuffer[3] = nextDummyValue >> 0 ; // value 
+            tempBuffer[4] = nextDummyValue >> 8 ;  
+            tempBuffer[5] = nextDummyValue >> 16 ;  
+            tempBuffer[6] = nextDummyValue >> 24; // value
+            
+            crc = tempBuffer[0] ;
+            for (uint8_t i = 1; i<=6;i++){
+                crc +=  tempBuffer[i]; //0-1FF
+                crc += crc >> 8 ; //0-100
+                crc &= 0x00ff ;
             }
-            sport_index = i;
-            sTxData[1] = 0X83;  // simulate that sensor replies to polling ID 0X83
+            tempBuffer[7] = 0xFF-crc ;  // CRC in buffer
+            // copy and convert bytes
+            // Byte in frame has value 0x7E is changed into 2 bytes: 0x7D 0x5E
+            // Byte in frame has value 0x7D is changed into 2 bytes: 0x7D 0x5D
+            sport_index = 0;
+            for (uint8_t i = 0 ; i<8 ; i++){
+                if (tempBuffer[i] == 0x7E) {
+                    sRxData[sport_index++] = 0x7D;
+                    sRxData[sport_index++] = 0x5E;
+                } else if (tempBuffer[i] == 0x7D) {
+                    sRxData[sport_index++] = 0x7D;
+                    sRxData[sport_index++] = 0x5D;
+                } else {
+                sRxData[sport_index++]= tempBuffer[i];
+                }
+            }
+            nextDummyValue++;                      // increase the value
+            nextID2++;                             // increase the ID2
+    
+            #ifdef DEBUG_SPORT
+                Serial.print("sRxdata=");
+                for(uint8_t i = 0; i < sport_index; i++){
+                    Serial.print(sRxData[i],HEX); Serial.print(" ; "); 
+                }
+                Serial.println(" ");
+            #endif
+            // here we have a frame (without START but with CRC and stuffed) in sRxData[] ready for processing
             ProcessSportData() ; // check the data and push them into the circular buffer sportData[] if OK
-            // at this stage sportData should contains 1 or several time the values where 0X83 is a dummy PHID
-            // 0X83, 0x10 , 0X05,  0X00, 0XC2, 0, 0, 0, 0X28,          
         }
     }
 #endif
