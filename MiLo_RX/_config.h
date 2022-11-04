@@ -15,15 +15,25 @@
     You should have received a copy of the GNU General Public License
     along with this code.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define DEBUG
-#define DEBUG_EEPROM
-//#define DEBUG_LOOP_TIMING  
-#define DEBUG_BIND
-//#define DEBUG_DATA
-#define DEBUG_SPORT
-#define DEBUG_ON_GPIO3
-#define DEBUG_SIM_SPORT_SENSOR
+//#define DEBUG_HELP_FUNCTIONS                      // create some functions to help debugging; one print
+//#define DEBUG_EEPROM               // print EEPROM data
+//#define DEBUG_BIND                // print bind data
+#define DEBUG_INCOMMING_SPORTDATA   // print a frame that has been read from a sport sensor (no PHID but with stuffing and original CRC) 
+//#define DEBUG_SPORT_SPORTDATA // print the original Sport data from sensor (or simulated)
+//#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
+//#define DEBUG_SIM_SPORT_SENSOR  // generate dummy Sport data; allow to use SX1280_SPORT_pin 3 for generating pulses
+//#define DEBUG_SPORT_SIM_GENERATION // print the dummy Sport data
+//#define DEBUG_DOWNLINK_TLM_FRAME  // print the data in the downlink tlm frame
+//#define DEBUG_SEND_POLLING        // print message to say that we output some bytes on sport
+//#define DEBUG_ON_GPIO1            // allow to generate pulses on pin 1 (e.g. to debug receiving timming on Sport); 
+                                // disable automatically SBUS and DEBUG_EEPROM DEBUG_BIND, DEBUG_SPORT_SPORTDATA, DEBUG_SPORT_SIM_GENERATION,
+                                // DEBUG_DOWNLINK_TLM_FRAME , DEBUG_SEND_POLLING, DEBUG_MSP, DEBUG_LOOP_TIMING , #define DEBUG_SERVODATA ,
+                                // DEBUG_HELP_FUNCTIONS 
+//#define DEBUG_MSP
+//#define DEBUG_LOOP_TIMING
+//#define DEBUG_SERVODATA
 
+//#define DEBUG_FHSS
 
 
 #ifdef ESP8266
@@ -38,13 +48,10 @@
 //#define NAMIMNO_RX_NANO_FLASH
 #define ESP8266_E28_2G4M20S
 
-
 #define MSW_SERIAL
-//#define SW_SERIAL
-
 //#define HC_BIND
 //#define USER_MAX_POWER
-//#define TELEMETRY // mstrens removed to test
+#define TELEMETRY 
 
 
 #if defined MATEK_RX_R24D ||defined NAMIMNO_RX_NANO_FLASH || defined DIY_RX
@@ -53,7 +60,7 @@
 
 //#define SWAMPING
 //#define RSSI_AVG
-//#define SPORT_TELEMETRY // mstrens removed to test
+#define SPORT_TELEMETRY 
 #define FAILSAFE
 
 //#define MinPower PWR_10mW
@@ -95,16 +102,61 @@
 #endif
 
 #ifdef DEBUG_ON_GPIO3
- #define G3ON digitalWrite(3,HIGH)
- #define G3OFF digitalWrite(3,LOW)
- #define G3TOGGLE digitalWrite(3,!digitalRead(3))
- #define G3PULSE(usec) digitalWrite(3,HIGH);delayMicroseconds(usec); digitalWrite(3,LOW)
+    #undef MSW_SERIAL 
+    #define G3ON digitalWrite(3,HIGH)
+    #define G3OFF digitalWrite(3,LOW)
+    #define G3TOGGLE digitalWrite(3,!digitalRead(3))
+    #define G3PULSE(usec) digitalWrite(3,HIGH);delayMicroseconds(usec); digitalWrite(3,LOW)
 #else
  #define G3ON 
  #define G3OFF 
  #define G3TOGGLE 
  #define G3PULSE(usec) 
 #endif
+
+#ifdef DEBUG_ON_GPIO1
+    #undef SBUS
+    #undef DEBUG_HELP_FUNCTIONS
+    #undef DEBUG_EEPROM
+    #undef DEBUG_BIND
+    #undef DEBUG_SPORT_SPORTDATA
+    #undef DEBUG_SPORT_SIM_GENERATION
+    #undef DEBUG_DOWNLINK_TLM_FRAME
+    #undef DEBUG_SEND_POLLING
+    #undef DEBUG_MSP
+    #undef DEBUG_LOOP_TIMING
+    #undef DEBUG_SERVODATA
+    #define G1ON digitalWrite(1,HIGH)
+    #define G1OFF digitalWrite(1,LOW)
+    #define G1TOGGLE digitalWrite(1,!digitalRead(1))
+    #define G1PULSE(usec) digitalWrite(1,HIGH);delayMicroseconds(usec); digitalWrite(1,LOW)
+#else
+    #define G1ON 
+    #define G1OFF 
+    #define G1TOGGLE 
+    #define G1PULSE(usec) 
+#endif
+
+#ifdef DEBUG_SIM_SPORT_SENSOR
+    #undef MSW_SERIAL
+    #define SPORT_TELEMETRY
+    #define TELEMETRY
+    #define DEBUG
+#endif
+
+#if defined(DEBUG_SPORT_SPORTDATA) || defined(DEBUG_SPORT_SIM_GENERATION) || defined(DEBUG_DOWNLINK_TLM_FRAME) ||\
+        defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_SERVODATA) ||\
+        defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA)
+    #undef SBUS  // disable SBUS because it uses the same pin
+    #define DEBUG_WITH_SERIAL_PRINT
+    #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}
+    #define debug(msg, ...)  { sprintf(debug_buf, msg , ##__VA_ARGS__); Serial.write(debug_buf);}
+#else
+    #define debugln(...) { } 
+    #define debug(...) { }
+#endif
+
+
 /*
     Protocol description:
     2.4Ghz LORA modulation

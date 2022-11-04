@@ -9,17 +9,20 @@ uplink telemetry frame:
 - smartPortDataReceive() synchronize on 0X7E, remove stuffing et copy into sportMSPdata[]
 - when we have 8 bytes in sportMSPdata[], set sportMSPflag = true and call sportMSPstuff()
 - sportMSPstuff() rempli sportMSPdatastuff[] avec 0X7E et le contenu de sportMSPdata[] avec stuffing + CRC
-- at regular interval (12msec), a timer1 fire and call SportPollISR()
-- if sportMSPflag is set, SportPollISR() copy  sportMSPdatastuff[] into sTxData[] and call sendMSPpacket()
+- at regular interval (12msec), a timer1 fire and call SportPollISR() that set a flag sportPollIsrFlag
+- main loop call handleSportPoll()  when sportPollIsrFlag is set 
+- handleSportPoll() , if sportMSPflag is set, copies  sportMSPdatastuff[] into sTxData[] and call sendMSPpacket()
 - sendMSPpacket() sent sTxDAta[] to the sensor via UART
    
 
 Incomming sport data
-- at regular interval (12msec), a timer1 fire and call SportPollISR()
-- if sportMSPflag is NOT set, SportPollISR() call tx_sport_poll()
+- at regular interval (12msec), a timer1 fire and call SportPollISR() that set a flag sportPollIsrFlag
+- main loop call handleSportPoll()  when sportPollIsrFlag is set 
+- handleSportPoll() , if sportMSPflag is NOT set,  call tx_sport_poll()
 - tx_sport_poll() fill sTxData[] with 2 bytes for a polling request and output the 2 bytes on the Sport port (UART)
+- after sending the 2 bytes, Sport bus listen for a reply from sensor
 - normally a sensor replies on the sport port and data are accumulated in sportbuff[[]
-      When debugging, we can simulate incomming data from sensor (filling Sxdata[] and calling ProcesssportData()). 
+      With #define DEBUG_SIM_SPORT_SENSOR , we can simulate incomming data from sensor (filling Sxdata[] and calling ProcesssportData()). 
 - main loop, call callSportSwSerial() 
 - callSportSwSerial() look if we have a full frame available (>= 8 bytes and more than 500usec since previous income)
 - if so, copy sportbuff[[] to sRxData[] and call ProcessSportData()

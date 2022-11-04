@@ -31,14 +31,7 @@
 #include "MiLo_FHSS.h"
 #include "SX1280.h"
 
-#ifdef DEBUG_SIM_SPORT_SENSOR
-    #undef MSW_SERIAL
-    #define SPORT_TELEMETRY
-    #define TELEMETRY
-    #define DEBUG
-#endif
-
-#if defined DEBUG
+#if defined DEBUG_HELP_FUNCTIONS
     void callMicrosSerial(){
         static uint32_t tim = 0 ;
         static uint32_t timt = 0 ;  
@@ -65,9 +58,6 @@
     }
 #endif
 
-#ifdef DEBUG_ON_GPIO3
-    #undef MSW_SERIAL 
-#endif
 #define RATE_DEFAULT 0
 #define RATE_BINDING 0
 #define RATE_100HZ 1 //100HZ
@@ -129,7 +119,7 @@ uint8_t packetSeq = 0;  // count the slots in a sequence 0, 1, 2; 1 means that n
                         // value is forced when a valid frame is received, it is increased by 1 in case of timeout when connected
                         // it is not used when not connected
 bool startWifi = false;
-bool processSportflag = false;
+//bool processSportflag = false;
 enum { // types of packet being received from TX
     BIND_PACKET = 0,
     CH1_8_PACKET1,
@@ -190,13 +180,14 @@ typedef struct
 } MiLo_statistics;
 MiLo_statistics MiLoStats;
 
+uint8_t downlinkTlmId;
+    
 //TELEMETRY
 #ifdef TELEMETRY
     uint8_t frame[NBR_BYTES_IN_PACKET];// frame to be sent to TX
     uint32_t tlmDataLinkType = 0;
     //uint8_t telemetryRX = 0;// when 1 next slot is downlink telemetry
     uint8_t dwnlnkTlmExpectedId;
-    uint8_t downlinkTlmId;
     uint8_t uplinkTlmId = 0;
     bool skipUntilStart = false;
     volatile bool sportMSPflag = false;
@@ -313,22 +304,30 @@ void setup()
     SetupTarget();
     delay(10);//wait for stabilization
     
-    #if defined(DEBUG) || defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_DATA)||defined (DEBUG_SPORT)
-        #undef SBUS
+    #if defined(DEBUG_WITH_SERIAL_PRINT) // in this case, SBUS is disabled (in _config.h)
         Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
         delay(1000); // added to have time to get first msg on arduino IDE terminal
-        Serial.println("Starting");
-        
-        #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}
-    #else
-        #define debugln(...) { } 
+        Serial.println("Starting");       
+    #endif
+    #ifdef DEBUG_ON_GPIO1
+      pinMode(1 , OUTPUT);
+      G1OFF;
+      G1PULSE(5); delay(5);G1PULSE(5); delay(5);G1PULSE(5); 
     #endif
     
+    #ifdef DEBUG_ON_GPIO3
+      pinMode(3 , OUTPUT);
+      G3OFF;
+    #endif
     #ifdef SBUS
         init_SBUS(); // sbus uses Serial.begin with inverted signal
     #endif
+
+
+
     #if defined SPORT_TELEMETRY
         initSportUart();// sport to sensort uses SW serial with the same pin for TX and Rx, signal is inverted
+        pinMode(SX1280_SPORT_pin,INPUT);
         sportHead = sportTail = 0;
     #endif
     
@@ -383,10 +382,7 @@ void setup()
     t_outMicros= FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // at start up we use a long delay (476msev = 7000*68 usec) 
     slotBeginAt = micros();
     debugln("End of setup: SX1280 is OK");
-    #ifdef DEBUG_ON_GPIO3
-      pinMode(3 , OUTPUT);
-      G3OFF;
-    #endif
+    
 } // end setup()
 
 void applyFailsafe() 
@@ -708,7 +704,7 @@ void saveRcFrame() {
             if (wordTemp > 800 && wordTemp < 2200)
             {
                 ServoData[i + j] = wordTemp;
-                #ifdef DEBUG_DATA
+                #ifdef DEBUG_SERVODATA
                     debugln(" S2 = %d", ServoData[2]);//throttle
                 #endif
                 #if defined SBUS
@@ -842,7 +838,8 @@ void loop()
         }
                 
         #if defined( MSW_SERIAL) 
-            //callSportSwSerial(); // read the data on the Sport bus and when a frame has been received, store it in sRxData[]
+            callSportSwSerial(); // get data from sport that have been stored by sportbuff[] (filled by an interrup)
+                                    // accumulate bytes it in sRxData[]
                                    // when frame is full, check it, convert it and 
                                    // put data in a circular buffer (sportData[]) that will be handled by downlink tlm slot.
         #endif
@@ -1237,7 +1234,7 @@ void MiLoRxBind(void)
             Serial.println(" ");
         #endif
         appendTlmFrame();   // fill frame[2...15]
-        #ifdef DEBUG_SPORT
+        #ifdef DEBUG_DOWNLINK_TLM_FRAME
             if ( ((frame[2]&0X1F) < 0X1E ) || ((frame[3]&0X1F) < 0X1E ) ) { // print only when part 1 or 2 if filled with sportdata. 
                 Serial.print("ifAck="); Serial.print(sportTailWhenAck);
                 Serial.print(" pack=");
@@ -1376,23 +1373,27 @@ void MiLoRxBind(void)
 
 
     // The sensor replies to the polling with a frame that starts by START code
-    //             contains at least 8 bytes but it can be more
+    //             contains at least 8 bytes but it can be more due to stuffing
 
     #ifdef MSW_SERIAL
         void  ICACHE_RAM_ATTR callSportSwSerial(){
-            cli();
             sport_index = sportindex;
-            if (sport_index >= 8) {
+            if (sport_index >= 8) { // 
                 if ((micros() - sportStuffTime) > 500){//If not receiving any new sport data in 500us
-                    disable_interrupt_serial_pin();//no need to keep interrupt on serial pin after transferring all data    
+                    detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));//no need to keep interrupt on serial pin after transferring all data    
+                    cli();
+                    sportindex = 0; //reset the counter (number of received bytes) used in the iterrupt 
+                    sei();
                     memcpy((void*)sRxData,(const void*)sportbuff,sport_index);
-                    processSportflag = true;                
+                    #ifdef DEBUG_INCOMMING_SPORTDATA
+                        Serial.print("Incoming Sport=");
+                        for (uint8_t i=0 ; i < sport_index ; i++){
+                            Serial.print(sRxData[i],HEX) ; Serial.print(";");
+                        }
+                        Serial.println(" ");
+                    #endif
+                    ProcessSportData();                
                 }
-            }
-            sei();
-            if(processSportflag){
-                ProcessSportData();
-                processSportflag = false;
             } 
         }
 
@@ -1413,10 +1414,14 @@ uint8_t bind_jumper(void)
 
 void ICACHE_RAM_ATTR dioISR()
 {
-    GPOS =1<<3 ; // mstrens to debug : Make a pulse to measure the time in ISR
+    #ifdef DEBUG_ON_GPIO3
+        GPOS =1<<3 ; // mstrens to debug : Make a pulse to measure the time in ISR ; GPOS is faster than digitalWrite()
+    #endif
     dioOccured = true ;
     microsInDioISR= micros();
-    GPOC= 1<<3;  // mstrens to debug : End of pulse to measure the time in ISR
+    #ifdef DEBUG_ON_GPIO3
+        GPOC= 1<<3;  // mstrens to debug : End of pulse to measure the time in ISR
+    #endif    
 }    
 
 #ifdef STATISTIC

@@ -13,8 +13,8 @@
 #define SX1280_SCK         14
 #define SX1280_CSN_pin     15
 //Serial
-#define SX1280_SPORT_RX_pin 3 // RX SPORT
-#define SX1280_SPORT_TX_pin 3 // TX SPORT
+#define SX1280_SPORT_pin 3 // RX and TX SPORT
+//#define SX1280_SPORT_TX_pin 3 // TX SPORT
 #define SX1280_SBUS_TX_pin   1//SBUS
 //Frontend PA/LNA
 #ifdef MATEK_RX_R24D

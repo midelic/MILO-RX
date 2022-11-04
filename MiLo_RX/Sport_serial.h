@@ -44,18 +44,23 @@ const uint8_t sport_ID[] = {
     0xF2, 0x53, 0x34, 0x95, 0x16, 0xB7,
     0x98, 0x39, 0xBA, 0x1B } ;
 
-uint8_t sport_rx_index[28] ;
-volatile  uint8_t sport_index = 0;
-volatile uint8_t sportindex = 0;  // number of bytes in sRxData
-uint8_t phase ;
+uint8_t sport_rx_index[28] ; // list of PHID of the sensors that replied to polling request( should be polled more often)
+uint8_t phase ;              // used in research of next pooling ID to be used (PHID)
 uint8_t pindex; 
 uint8_t ukindex ;   //unknown index
 uint8_t kindex ;   //known
+
+uint32_t nextSerialBitCycle; // next timestamp (in cycles) when we have to output/read next bit in software serial
+
 volatile uint8_t sTxData[MAX_SERIAL_BYTES]; // bytes ready to be sent to the sensor via sport (also used to send the 2 sport polling byte)
-uint8_t sRxData[MAX_SERIAL_BYTES];          // circular buffer that contains the bytes to be sent to handset (already reformatted)
+uint8_t sportTxCount;   // number of bytes (in sTxData) to send to the sensor via sport (for polling of uplink tlm)
+
 volatile uint8_t sportbuff[MAX_SERIAL_BYTES];
-//uint8_t SportIndexPolling;
-uint8_t sport_count;   // number of byte to send to the sensor
+volatile uint8_t sportindex = 0;  // number of bytes in sportbuff[]
+
+uint8_t sRxData[MAX_SERIAL_BYTES];          // circular buffer that contains the bytes received from sport (first unformatted and then reformatted)
+uint8_t sport_index = 0;          // copy of sportindex (freeze); is used in ProcessSportData to know the number of bytes in sRxData
+
 
 // circular buffer accumulates data received from sport sensor
 // data are in groups of 8 bytes : PHID, PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4
@@ -76,21 +81,21 @@ volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
     #define  RECEIVE         4
     #define  WAITING         5
 
-    #define CLEAR_TX_BIT  digitalWrite(SX1280_SPORT_TX_pin,LOW)
-    #define SET_TX_BIT  digitalWrite(SX1280_SPORT_TX_pin,HIGH)
-    #define BIT_TIME  1105    //(1389 - 284)//minus cycles spent on calling ISR
-    #define HLF_BIT_TIME  560
+    #define CLEAR_TX_BIT  GPOC=1<<SX1280_SPORT_pin  // = digitalWrite(SX1280_SPORT_pin,LOW) but about 10X faster
+    #define SET_TX_BIT  GPOS=1<<SX1280_SPORT_pin    // = digitalWrite(SX1280_SPORT_pin,HIGH) but about 10X faster
+    #define BIT_TIME  1389    //(1389 - 284)//minus cycles spent on calling ISR
+    #define BIT_TIME_GET_FIRST_BIT  1100 // value based on tests with DEBUG_ON_GPIO1 in order that read bit occurs at the right time
 
     uint8_t sportTXbit;   //sportTX bit counter.
     uint8_t sportRXbit;   //sportRX bit counter.
     uint8_t txcount;   // tx interrupt byte counter
     uint8_t sportTX;   // data to be transmitted.
     uint8_t sportRX;   //data to be received
-    uint8_t state;    //serial state
+    volatile uint8_t state;    //serial state
     void ICACHE_RAM_ATTR SerialBitISR(void);
     void ICACHE_RAM_ATTR SerialPinISR(void);
-    void ICACHE_RAM_ATTR enable_interrupt_serial_pin(){attachInterrupt(digitalPinToInterrupt(SX1280_SPORT_RX_pin), SerialPinISR, CHANGE);}
-    void ICACHE_RAM_ATTR disable_interrupt_serial_pin() { detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_RX_pin));} 
+    //oid ICACHE_RAM_ATTR enable_interrupt_serial_pin(){attachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin), SerialPinISR, RISING);}
+    //void ICACHE_RAM_ATTR disable_interrupt_serial_pin() { detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));} 
 #endif
 
 void generateDummySportDataFromSensor();
@@ -155,18 +160,24 @@ uint8_t  ICACHE_RAM_ATTR nextID()   // find the next Sport ID to be used for pol
 
 void  ICACHE_RAM_ATTR tx_sport_poll()  // send the polling code
 {
-    sport_count = 2;
-    sportindex = 0;
+    sportTxCount = 2;
     pindex = nextID();
+    #ifdef DEBUG_SEND_POLLING
+        debugln("Send polling %d", pindex);
+    #endif    
     sTxData[0] = START_STOP;
     sTxData[1] = sport_ID[pindex];
     #ifdef MSW_SERIAL   
-        disable_interrupt_serial_pin();
-        pinMode(SX1280_SPORT_TX_pin,OUTPUT);
+        noInterrupts();
+        sportindex = 0;
+        detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));
+        timer0_detachInterrupt(); // mstrens not sure it is needed
+        pinMode(SX1280_SPORT_pin,OUTPUT);
         CLEAR_TX_BIT;
         state = TXPENDING;
         timer0_attachInterrupt(SerialBitISR); 
         timer0_write(ESP.getCycleCount() + 2*BIT_TIME);
+        interrupts(); 
     #endif
     #ifdef DEBUG_SIM_SPORT_SENSOR
         generateDummySportDataFromSensor(); // simulate immediately a reply from sensor adding data to sRxData and processing them
@@ -175,38 +186,83 @@ void  ICACHE_RAM_ATTR tx_sport_poll()  // send the polling code
 
 void  ICACHE_RAM_ATTR sendMSPpacket()  // send an uplink frame to the sensor
 {
-    sportindex = 0 ;
-    sport_count = idxs;
+    sportTxCount = idxs;
     idxs = 0;
+    #ifdef DEBUG_SEND_POLLING
+        debugln("Send msp packet");
+    #endif    
+    
     #ifdef MSW_SERIAL       
-        disable_interrupt_serial_pin();
-        pinMode(SX1280_SPORT_TX_pin,OUTPUT);
+        noInterrupts();
+        sportindex = 0 ;
+        detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));
+        timer0_detachInterrupt(); // mstrens not sure it is needed
+        pinMode(SX1280_SPORT_pin,OUTPUT);
         CLEAR_TX_BIT;
         state = TXPENDING;
         timer0_attachInterrupt(SerialBitISR); 
         timer0_write(ESP.getCycleCount() + 2*BIT_TIME);
+        interrupts();
     #endif  
 }
 
 #ifdef MSW_SERIAL
-    void ICACHE_RAM_ATTR SerialPinISR()   // called when a pin changed (and we where waiting to receive a byte)
+    void ICACHE_RAM_ATTR SerialPinISR()   // called when a pin rise = start bit with inverted serial (we where waiting to receive a byte)
     {   
-        if(digitalRead(SX1280_SPORT_RX_pin)==HIGH)   // Pin is high,inverted signal
-        {  // When level goes up, it means we got a start bit
-            disable_interrupt_serial_pin();   //disable pin change interrupt         
-            timer0_attachInterrupt(SerialBitISR);
-            timer0_write(ESP.getCycleCount()+ BIT_TIME + HLF_BIT_TIME );//return one and an 1/2 period into the future.
+        //if(digitalRead(SX1280_SPORT_pin)==HIGH)   // Pin is high,inverted signal
+        //{  // When level goes up, it means we got a start bit
+            detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));   //disable pin change interrupt         
             sportRXbit = 0;   //Clear received bit counter.
-            sportRX = 0;
+            sportRX = 0;      // accumulate the bit received waiting for a full byte
             state = RECEIVE ;   // Change state
-        }
+            //G1PULSE(5);
+            timer0_attachInterrupt(SerialBitISR);
+            nextSerialBitCycle = ESP.getCycleCount() + BIT_TIME_GET_FIRST_BIT;
+            timer0_write(nextSerialBitCycle);  
+        //}
     }
-
+    
+    
     void ICACHE_RAM_ATTR SerialBitISR()  // interrupt called while sending bytes or after getting a start bit (for receive)
     {
         switch (state)
         {   
-            //Transmit Sport Byte.
+            case RECEIVE :
+                nextSerialBitCycle += BIT_TIME;
+                timer0_write(nextSerialBitCycle);
+                {   
+                    uint8_t data ;              
+                    data = sportRXbit ;
+                    if( data < 8 )
+                    {
+                        sportRXbit = data + 1 ;
+                        data = sportRX ;
+                        data >>= 1 ;   //Shift due to receiving LSB first.
+                        G1ON;
+                        if(digitalRead(SX1280_SPORT_pin)==0)
+                        {
+                            data |= 0x80 ; 
+                        }
+                        // could become which is probably faster:
+                        //data |= (((*GPIO_IN & 0B1000) >> 3 ) ^ 0B1); 
+                        G1OFF;
+                        sportRX = data ;
+                    }
+                    else      //receiving one byte completed
+                    {
+                        if (sportindex < 16)
+                        {               
+                            sportbuff[sportindex++] = sportRX ;    //store received bytes in a buffer
+                            if (sportindex >= 8){
+                                sportStuffTime = micros();
+                            }                       
+                        }                       
+                        timer0_detachInterrupt();//stop timer interrupt
+                        state = IDLE ;   //change state to idle 
+                        attachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.             
+                    }
+                }           
+                break; 
             case TRANSMIT :   // Output the TX buffer.
                 if( sportTXbit < 8 )
                 {
@@ -222,74 +278,50 @@ void  ICACHE_RAM_ATTR sendMSPpacket()  // send an uplink frame to the sensor
                     CLEAR_TX_BIT; 
                     state = STOP_BIT;
                 }
-                timer0_write(ESP.getCycleCount() + BIT_TIME);
+                nextSerialBitCycle += BIT_TIME;
+                timer0_write(nextSerialBitCycle);
                 break;
-            case STOP_BIT :  
-                if(++txcount < sport_count){
-                    SET_TX_BIT;
-                    timer0_write(ESP.getCycleCount() + BIT_TIME);           
+            case STOP_BIT :          // Stop bit has been generated
+                if(++txcount < sportTxCount){
+                    SET_TX_BIT;       // new start bit
+                    nextSerialBitCycle += BIT_TIME;
+                    timer0_write(nextSerialBitCycle);
                     sportTX = sTxData[txcount];     
                     sportTXbit = 0 ;
                     state = TRANSMIT ;
                 }
                 else
                 {
-                    pinMode(SX1280_SPORT_TX_pin,INPUT_PULLUP);   //RX serial on ESP8266 has pullup
-                    timer0_write(ESP.getCycleCount() + 15*BIT_TIME);//after256us go to listening mode
-                    state = WAITING;
+                    pinMode(SX1280_SPORT_pin,INPUT);   //RX serial on ESP8266 has pullup but Sport is inverted and it can't be used
+                    timer0_detachInterrupt();//stop timer interrupt
+                    state = IDLE ;   //change state to idle 
+                    attachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.
+                //
+                //    timer0_write(ESP.getCycleCount() + BIT_TIME);
+                //    state = WAITING;
                 }
                 break;
-            case RECEIVE :
-                timer0_write(ESP.getCycleCount() + BIT_TIME);
-                {   
-                    uint8_t data ;              
-                    data = sportRXbit ;
-                    if( data < 8 )
-                    {
-                        sportRXbit = data + 1 ;
-                        data = sportRX ;
-                        data >>= 1 ;   //Shift due to receiving LSB first.
-                        if(digitalRead(SX1280_SPORT_RX_pin)==0)
-                        {
-                            data |= 0x80 ; 
-                        }
-                        sportRX = data ;
-                    }
-                    else      //receiving one byte completed
-                    {
-                        if (sportindex < 16)
-                        {               
-                            sportbuff[sportindex++] = sportRX ;    //store received bytes in a buffer
-                            if (sportindex >= 8){
-                                sportStuffTime = micros();
-                            }                       
-                        }                       
-                        timer0_detachInterrupt();//stop timer interrupt
-                        state = IDLE ;   //change state to idle 
-                        enable_interrupt_serial_pin();   //switch to RX serial receive.             
-                    }
-                }           
-                break; 
             case TXPENDING :
-                SET_TX_BIT;
-                timer0_write(ESP.getCycleCount() + BIT_TIME);
+                SET_TX_BIT;                                  // output Start bit
+                nextSerialBitCycle= ESP.getCycleCount() + BIT_TIME;
+                timer0_write(nextSerialBitCycle);
                 sportTXbit = 0 ;
                 txcount = 0 ;
                 sportTX = sTxData[0];
                 state = TRANSMIT;
                 break;
-            case WAITING :  
-                timer0_detachInterrupt();//stop timer interrupt
-                state = IDLE ;   //change state to idle 
-                enable_interrupt_serial_pin();   //switch to RX serial receive.
-                break;
+            //case WAITING :  
+            //    timer0_detachInterrupt();//stop timer interrupt
+            //    state = IDLE ;   //change state to idle 
+            //    attachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.
+            //    break;
             case IDLE:
                 break;
         }
     }
 #endif // end MSW_SERIAL
 
-void initSportUart( )
+void initSportUart()
 {
 #ifdef MSW_SERIAL
     timer0_isr_init();
@@ -393,13 +425,12 @@ uint8_t checkSimilarSport(){
     }
     return MAX_SMARTPORT_BUFFER_SIZE;
 }
-void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sensor (stored in SRxData)
-{             // frame contains at least 8 bytes but can be more (due to stuffing) PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4, CRC
+void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sensor (stored in sRxData)
+{             // sRxData[] contains at least 8 bytes but can be more (due to stuffing) PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4, CRC
               // first remove stuff and check length and CRC. 
               // if OK, append a new (adapted) message to a circular buffer sportData[] (used with sportTail,  sportHead sportTailWhenAck) 
-    
     sport_index = unstuff(); // first remove stuff from sRxData[] having sport_index bytes
-            // frame then contains now PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4, CRC (= 8 bytes normally)
+            // sRxData[] then contains now PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4, CRC (= 8 bytes normally)
     if(sport_index >= 8) 
     {  //the received frame contains at least 8 bytes 
         if(CheckSportData(&sRxData[0]))//crc ok
@@ -423,7 +454,8 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
             phId = sTxData[1] & 0x1F ;
             if ( phId < 28 )
             {
-                sport_rx_index[phId] = 1;
+                sport_rx_index[phId] = 1; // mark that a sensor has replied
+                //debugln("PHID=%d",phId);
             }
         }
     }
@@ -475,8 +507,7 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
             }
             nextDummyValue++;                      // increase the value
             nextID2++;                             // increase the ID2
-    
-            #ifdef DEBUG_SPORT
+            #ifdef DEBUG_SPORT_SIM_GENERATION
                 Serial.print("sRxdata=");
                 for(uint8_t i = 0; i < sport_index; i++){
                     Serial.print(sRxData[i],HEX); Serial.print(" ; "); 
