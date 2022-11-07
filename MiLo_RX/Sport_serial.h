@@ -99,7 +99,7 @@ volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
 
 void generateDummySportDataFromSensor();
 
-uint8_t  ICACHE_RAM_ATTR nextID()   // find the next Sport ID to be used for polling
+uint8_t  ICACHE_RAM_ATTR3 nextID()   // find the next Sport ID to be used for polling
 {
     uint8_t i ;
     uint8_t poll_idx = 99 ; 
@@ -133,7 +133,7 @@ uint8_t  ICACHE_RAM_ATTR nextID()   // find the next Sport ID to be used for pol
     return 0 ;
 }
 
-void  ICACHE_RAM_ATTR tx_sport_poll()  // send the polling code
+void  ICACHE_RAM_ATTR3 tx_sport_poll()  // send the polling code
 {
     uint8_t pindex; 
     sportTxCount = 2;
@@ -160,7 +160,7 @@ void  ICACHE_RAM_ATTR tx_sport_poll()  // send the polling code
     #endif
 }
 
-void  ICACHE_RAM_ATTR sendMSPpacket()  // send an uplink frame to the sensor
+void  ICACHE_RAM_ATTR3 sendMSPpacket()  // send an uplink frame to the sensor
 {
     sportTxCount = idxs;
     idxs = 0;
@@ -304,7 +304,7 @@ void initSportUart()
 #endif
 }
 
-uint8_t ICACHE_RAM_ATTR CheckSportData(uint8_t *packet) // calculate CRC on the first 8 bytes in a buffer
+uint8_t ICACHE_RAM_ATTR3 CheckSportData(uint8_t *packet) // calculate CRC on the first 8 bytes in a buffer
 {
     uint16_t crc = 0 ;
     for ( uint8_t i = 0 ; i< 8 ; i++ )   //no crc
@@ -317,7 +317,7 @@ uint8_t ICACHE_RAM_ATTR CheckSportData(uint8_t *packet) // calculate CRC on the 
 }
 
 
-uint8_t ICACHE_RAM_ATTR unstuff()   // Remove stuffing in a buffer sRxData (filled by callSportData); return the (reduced) number of bytes
+uint8_t ICACHE_RAM_ATTR3 unstuff()   // Remove stuffing in a buffer sRxData (filled by callSportData); return the (reduced) number of bytes
 {
     uint8_t i ;
     uint8_t j ; 
@@ -339,41 +339,6 @@ uint8_t ICACHE_RAM_ATTR unstuff()   // Remove stuffing in a buffer sRxData (fill
     return j ;
 }
 
-/*
-void  ICACHE_RAM_ATTR StoreSportDataByte(uint8_t value)  // fill circular buffer sportData[len=Ox3F] with data from a sensor
-{                                                        // this buffer will be used to transmit to TX   
-    uint16_t next = (sportHead + 1) & 0x3F;   
-    if (next != idxOK)
-    {
-        sportData[sportHead] = value;
-        sportHead = next;
-    }
-}
-
-void ICACHE_RAM_ATTR StuffSportBytes(uint8_t a)  // store a stuffed byte 
-{
-    if(a ==START_STOP||a ==BYTE_STUFF){//0x7E or 0x7D
-        StoreSportDataByte(BYTE_STUFF);
-        a = (a)^ STUFF_MASK;
-    }
-    StoreSportDataByte(a); 
-}
-*/
-
-/* not used currently
-void ICACHE_RAM_ATTR sport_send(uint16_t id, uint32_t v, uint8_t prim)//9bytes
-{
-    StoreSportDataByte(START_STOP);
-    StoreSportDataByte(0x1A);
-    StoreSportDataByte(prim) ;   //0x10;0x32(MSP)
-    StuffSportBytes(id & 0xFF);
-    StuffSportBytes((id >> 8)&0xFF);     
-    StuffSportBytes(v & 0xFF);      
-    StuffSportBytes((v >> 8) & 0xFF);
-    StuffSportBytes((v >> 16) & 0xFF);
-    StuffSportBytes((v >> 24) & 0xFF);
-}
-*/
 
 uint8_t checkSimilarSport(){
     // note: this function is not 100% correct.
@@ -401,7 +366,7 @@ uint8_t checkSimilarSport(){
     }
     return MAX_SMARTPORT_BUFFER_SIZE;
 }
-void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sensor (stored in sRxData)
+void ICACHE_RAM_ATTR3 ProcessSportData()  // handle a frame received from the sensor (stored in sRxData)
 {             // sRxData[] contains at least 8 bytes but can be more (due to stuffing) PRIM, ID1, ID2, VAL1, VAL2, VAL3, VAL4, CRC
               // first remove stuff and check length and CRC. 
               // if OK, append a new (adapted) message to a circular buffer sportData[] (used with sportTail,  sportHead sportTailWhenAck) 
