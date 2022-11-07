@@ -18,8 +18,8 @@
 //#define DEBUG_HELP_FUNCTIONS                      // create some functions to help debugging; one print
 //#define DEBUG_EEPROM               // print EEPROM data
 //#define DEBUG_BIND                // print bind data
-#define DEBUG_FHSS                  // print the generated fhss channels
-#define DEBUG_INCOMMING_SPORTDATA   // print a frame that has been read from a sport sensor (no PHID but with stuffing and original CRC) 
+//#define DEBUG_FHSS                  // print the generated fhss channels
+//#define DEBUG_INCOMMING_SPORTDATA   // print a frame that has been read from a sport sensor (no PHID but with stuffing and original CRC) 
 //#define DEBUG_SPORT_SPORTDATA // print the original Sport data from sensor (or simulated)
 //#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
 //#define DEBUG_SIM_SPORT_SENSOR  // generate dummy Sport data; allow to use SX1280_SPORT_pin 3 for generating pulses
@@ -34,7 +34,6 @@
 //#define DEBUG_LOOP_TIMING
 //#define DEBUG_SERVODATA
 
-//#define DEBUG_FHSS
 
 
 #ifdef ESP8266
@@ -103,7 +102,9 @@
 #endif
 
 #ifdef DEBUG_ON_GPIO3
-    #undef MSW_SERIAL 
+    #undef MSW_SERIAL
+    #undef TELEMETRY
+    #undef SPORT_TELEMETRY 
     #define G3ON digitalWrite(3,HIGH)
     #define G3OFF digitalWrite(3,LOW)
     #define G3TOGGLE digitalWrite(3,!digitalRead(3))

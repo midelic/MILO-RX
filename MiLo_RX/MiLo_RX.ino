@@ -17,7 +17,14 @@
 
 
 // to do : add CRC to the data stored in EEPROM; when reading EEPROM, if CRC is wrong use default values.
-// check soft Serial with interrupt
+// Adapt uplink tlm packet handling (8 bytes fix per frame; rest = reserve)
+// code failsafe from handset (perhaps reorgonize fee bits in the format in order to have 3 consecutive bits)
+// include SBUS in main loop (based on enlapsed time and no counter)
+// test failsafe and sbus
+// in main loop, create a function to handle a received packet and call it perhaps inside the main while loop
+// in main while loop, avoid calling some functions if we are closed to the end of the timeout (to ensure handling timeout as soon as possible)
+
+
 
 #undef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
@@ -318,12 +325,11 @@ void setup()
     #ifdef DEBUG_ON_GPIO3
       pinMode(3 , OUTPUT);
       G3OFF;
+
     #endif
     #ifdef SBUS
         init_SBUS(); // sbus uses Serial.begin with inverted signal
     #endif
-
-
 
     #if defined SPORT_TELEMETRY
         initSportUart();// sport to sensort uses SW serial with the same pin for TX and Rx, signal is inverted
@@ -485,14 +491,14 @@ void handleShortTimeout()
         countFS = 0;    
         //packetSeq = 0;
         uplinkLQ = 0;
-        setChannelIdx(0); // when connection is lost we go back to the first channel (to be sure to listen on a syncro channel)
+        setChannelIdx(0); // when connection is lost we go back to the first channel (to listen on a channel that exist 2X in the fhss list)
         G3PULSE(1);// 
         SX1280_SetFrequencyReg(GetCurrFreq());    
     } else {
         packetSeq = (packetSeq + 1) %3; // on each short time out we increase packetSeq
         if ( packetSeq != 1) { // skip on next channel but only if next slot will not be a downlink 
             nextChannel(1);     
-            G3PULSE(1);
+            G3PULSE(2);
             SX1280_SetFrequencyReg(GetCurrFreq());
         }       
     }    
@@ -578,7 +584,7 @@ bool isReceivedFrameValid() { // return true for a valid frame
             }    
         }
         */   
-    } else { // when we try to synchronise RX with RX (not connected)
+    } else { // when not connected = we try to synchronise RX with TX 
         //if ( ( RxData[0] & 0x08 ) == 0 ){
         //   G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);
         //   return false; // reject frames not marked as on synchro channel
@@ -1150,7 +1156,7 @@ void MiLoRxBind(void)
     #define PHID_LINK_QUALITY 0X1E
     #define PHID_NO_DATA      0X1F
     
-    
+    #ifdef SPORT_TELEMETRY
     uint8_t convertPrimPhid(uint8_t sportTailWhenAck){ // in return set bit7 = 1 in case of error
         uint8_t convert ;
         switch (sportData[sportTailWhenAck+1]) {   
@@ -1223,9 +1229,8 @@ void MiLoRxBind(void)
             frame[3] = PHID_NO_DATA;
             memset( &frame[10] , 0, 6);    
         } 
-        
-
     }
+    #endif
     void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()
     {     
         frame[0] = (MiLoStorage.txid[0] & 0XFC ) | downlinkTlmId; 
