@@ -203,7 +203,7 @@ uint8_t downlinkTlmId;
 
 void   SetupTarget();
 void ICACHE_RAM_ATTR dioISR();
-void ICACHE_RAM_ATTR callSportSwSerial(void);
+void ICACHE_RAM_ATTR3 callSportSwSerial(void);
 void ICACHE_RAM_ATTR SportPollISR(void);
 void ICACHE_RAM_ATTR3 MiloTlmSent(void);
 void ICACHE_RAM_ATTR3 MiLoTlm_build_frame();
@@ -212,7 +212,7 @@ uint8_t ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t pas);
 void  ConfigTimer();
 void SX1280_SetTxRxMode(uint8_t mode);
 void  smartPortDataReceive(uint8_t c);
-void  ICACHE_RAM_ATTR handleSportPoll();
+void  ICACHE_RAM_ATTR3 handleSportPoll();
 
 uint8_t bind_jumper(void);
 
@@ -280,7 +280,7 @@ MiLo_rf_pref_params_s MiLo_AirRateRFperf[RATE_MAX] =
     {1, RATE_LORA_100HZ,  -112,  7605, 3500, 2500}
 };
 
-void  ICACHE_RAM_ATTR MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link (hz) index values
+void  ICACHE_RAM_ATTR3 MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link (hz) index values
 {
     MiLo_mod_settings_s *const ModParams = &MiLo_AirRateConfig[index];
     MiLo_rf_pref_params_s *const RFperf = &MiLo_AirRateRFperf[index];
@@ -1110,7 +1110,7 @@ void MiLoRxBind(void)
         sportPollIsrFlag = true;
     }
 
-    void  ICACHE_RAM_ATTR handleSportPoll()
+    void  ICACHE_RAM_ATTR3 handleSportPoll()
     {
         cli();
         sportPollIsrFlag = false; // reset the ISR flag    
@@ -1403,7 +1403,7 @@ void MiLoRxBind(void)
     //             contains at least 8 bytes but it can be more due to stuffing
 
     #ifdef MSW_SERIAL
-        void  ICACHE_RAM_ATTR callSportSwSerial(){
+        void  ICACHE_RAM_ATTR3 callSportSwSerial(){
             sport_index = sportindex;
             if (sport_index >= 8) { // 
                 if ((micros() - sportStuffTime) > 500){//If not receiving any new sport data in 500us
