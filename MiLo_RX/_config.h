@@ -18,6 +18,7 @@
 //#define DEBUG_HELP_FUNCTIONS                      // create some functions to help debugging; one print
 //#define DEBUG_EEPROM               // print EEPROM data
 //#define DEBUG_BIND                // print bind data
+#define DEBUG_FHSS                  // print the generated fhss channels
 #define DEBUG_INCOMMING_SPORTDATA   // print a frame that has been read from a sport sensor (no PHID but with stuffing and original CRC) 
 //#define DEBUG_SPORT_SPORTDATA // print the original Sport data from sensor (or simulated)
 //#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
@@ -146,7 +147,7 @@
 
 #if defined(DEBUG_SPORT_SPORTDATA) || defined(DEBUG_SPORT_SIM_GENERATION) || defined(DEBUG_DOWNLINK_TLM_FRAME) ||\
         defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_SERVODATA) ||\
-        defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA)
+        defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA) || defined(DEBUG_FHSS)
     #undef SBUS  // disable SBUS because it uses the same pin
     #define DEBUG_WITH_SERIAL_PRINT
     #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}
@@ -171,7 +172,10 @@
     
     # Normal frame channels 1-8; frame rate 7ms.
     
-    0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | synchro channel (bit 3) | Frame type(bits 2..0 (3 lsb bits))
+    //0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | synchro channel (bit 3) | Frame type(bits 2..0 (3 lsb bits))
+    0.- bits 7..6 next expected telemetry down link frame counter(sequence) (2 bits=4 val))
+      - bits 5..3 Failsafe ID (3 bits) 
+      - bits 2..0 Frame type (3 bits)
     1. txid1 TXID on 16 bits
     2. txid2
     3. flag next frame must be dwn tlm frame (bit 7) | flag requesing starting WIFI (bit 6) | Model ID /Rx_Num(bits 5....0 = 6 bits) 

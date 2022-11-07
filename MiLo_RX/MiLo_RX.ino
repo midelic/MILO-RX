@@ -306,7 +306,7 @@ void setup()
     
     #if defined(DEBUG_WITH_SERIAL_PRINT) // in this case, SBUS is disabled (in _config.h)
         Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
-        delay(1000); // added to have time to get first msg on arduino IDE terminal
+        delay(3000); // added to have time to get first msg on arduino IDE terminal
         Serial.println("Starting");       
     #endif
     #ifdef DEBUG_ON_GPIO1
@@ -331,7 +331,6 @@ void setup()
         sportHead = sportTail = 0;
     #endif
     
-    Fhss_Init();// setup some fhss fixed variables
     ReadEEPROMdata(address);
     #if defined(DEBUG_EEPROM)
         delay(1000);
@@ -354,6 +353,15 @@ void setup()
     #endif
     is_in_binding = false;
     //MiLoRxBinding(0); // ReadEEPROMdata and set is_in_binding = false;
+    #ifdef DEBUG_FHSS
+    // we generate several fhss sequence just to see if the aglo is OK
+        for (uint8_t i ; i< 20; i++){ 
+            Fhss_Init();// setup some fhss fixed variables
+            Fhss_generate(MProtocol_id+i*1000); // generates the used frequency (based on param in EEPROM)
+            yield();
+        }
+    #endif
+    Fhss_Init();// setup some fhss fixed variables
     Fhss_generate(MProtocol_id); // generates the used frequency (based on param in EEPROM)
     isConnected2Tx = false; // previously it was : t_out= FHSS_CHANNELS_NUM; // whe have to start trying to get a connection
     currFreq = GetCurrFreq(); //set frequency first or an error will occur!!!
@@ -553,6 +561,11 @@ bool isReceivedFrameValid() { // return true for a valid frame
         return false;  // when no uplink telemetry, Rx mum should be correct
     }
     if ( isConnected2Tx ) {  // when connected 
+        if ( getCurrentChannelIdx() != (RxData[15] & 0x3F )) {
+            G3PULSE(1);G3PULSE(1);G3PULSE(1);
+            return false ;  // reject frame when channel in frame is not the expected one
+        }    
+        /*  This code was used when we had synchro channels in the first 5 channels
         if ( ( RxData[0] & 0x08 ) == 0 ) { // if we receive a non synchro frame
             if ( getCurrentChannelIdx() < FHSS_SYNCHRO_CHANNELS_NUM ) {
                 G3PULSE(1);G3PULSE(1);G3PULSE(1);
@@ -563,12 +576,26 @@ bool isReceivedFrameValid() { // return true for a valid frame
                 G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);
                 return false; // reject frames marked as synchro channel when current channel is a not a synchro channel
             }    
-        }    
+        }
+        */   
     } else { // when we try to synchronise RX with RX (not connected)
-        if ( ( RxData[0] & 0x08 ) == 0 ){
-           G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);
-           return false; // reject frames not marked as on synchro channel
+        //if ( ( RxData[0] & 0x08 ) == 0 ){
+        //   G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);
+        //   return false; // reject frames not marked as on synchro channel
+        //}
+        if ( getCurrentChannelIdx() == (RxData[15] & 0x3F )) return true ;
+        if ( (getCurrentChannelIdx() == 0) && ( (RxData[15] & 0x3F ) == 18) ){ // synchro at mid channel
+            setChannelIdx(18); // synchronize on indx 18
+            SX1280_SetFrequencyReg(GetCurrFreq()); // adapt frequency (perhaps we do not perform a freq hop immediately)
+            return true ;
+        }
+        if ( (getCurrentChannelIdx() == 18) && ( (RxData[15] & 0x3F ) == 0) ){ // synchro on first channel
+            setChannelIdx(0); // synchronize on indx 0
+            SX1280_SetFrequencyReg(GetCurrFreq()); // adapt frequency (perhaps we do not perform a freq hop immediately)
+            return true ;
         } 
+        G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);
+        return false; // reject frames when channel does not match 
     }   
     return true;                 
 }                           

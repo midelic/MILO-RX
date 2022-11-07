@@ -45,10 +45,9 @@ const uint8_t sport_ID[] = {
     0x98, 0x39, 0xBA, 0x1B } ;
 
 uint8_t sport_rx_index[28] ; // list of PHID of the sensors that replied to polling request( should be polled more often)
-uint8_t phase ;              // used in research of next pooling ID to be used (PHID)
-uint8_t pindex; 
-uint8_t ukindex ;   //unknown index
-uint8_t kindex ;   //known
+uint8_t phase = 0 ;              // used in research of next pooling ID to be used (PHID)
+uint8_t ukindex =0;   //unknown index
+uint8_t kindex =0;   //known
 
 uint32_t nextSerialBitCycle; // next timestamp (in cycles) when we have to output/read next bit in software serial
 
@@ -103,63 +102,40 @@ void generateDummySportDataFromSensor();
 uint8_t  ICACHE_RAM_ATTR nextID()   // find the next Sport ID to be used for polling
 {
     uint8_t i ;
-    uint8_t poll_idx ; 
+    uint8_t poll_idx = 99 ; 
     if (phase)  // poll known
     {
-        poll_idx = 99 ;
-        for ( i = 0 ; i < 28 ; i++ )
+        for ( i = 0 ; i < 28 ; i++ )  // search max 28 X 
         {
-            if ( sport_rx_index[kindex] )
-            {
-                poll_idx = kindex ;
-            }
-            kindex++ ;
-            if ( kindex >= 28 )
+            if ( sport_rx_index[kindex] ) { poll_idx = kindex ; }
+            if ( ++kindex >= 28 )
             {
                 kindex = 0 ;
                 phase = 0 ;
-                break ;
+                break;
             }
-            if ( poll_idx != 99 )
-            {
-                break ;
-            }
-        }
-        if ( poll_idx != 99 )
-        {
-            return poll_idx ;
+            if ( poll_idx != 99 ) { return poll_idx ; }
         }
     }
-    
-    if ( phase == 0 )
+    // if a known has not been found or if we where looking for an unknown because last known was 28th  
+    for ( i = 0 ; i < 28 ; i++ ) // search max 28 X
     {
-        for ( i = 0 ; i < 28 ; i++ )
+        if ( sport_rx_index[ukindex] == 0 )
         {
-            if ( sport_rx_index[ukindex] == 0 )
-            {
-                poll_idx = ukindex ;
-                phase = 1 ;
-            }
-            if (++ukindex > 27 )
-            {
-                ukindex = 0 ;
-            }
-            if ( poll_idx != 99 )
-            {
-                return poll_idx ;
-            }
+            poll_idx = ukindex ; // Use the unknown index 
+            phase = 1 ; // next time we will search a known PHID
         }
-        if ( poll_idx == 99 )
-        {
-            phase = 1 ;
-            return 0 ;//MSW_SERIAL
-        }
+        if (++ukindex >= 28 ) { ukindex = 0 ; } // prepare next search
+        if ( poll_idx != 99 ) { return poll_idx ; } // if found, use it.
     }
-    return poll_idx ;
+    // At this stage no we did not found an unsued channel
+    phase = 1 ;
+    return 0 ;
 }
 
 void  ICACHE_RAM_ATTR tx_sport_poll()  // send the polling code
 {
+    uint8_t pindex; 
     sportTxCount = 2;
     pindex = nextID();
     #ifdef DEBUG_SEND_POLLING
@@ -454,8 +430,21 @@ void ICACHE_RAM_ATTR ProcessSportData()  // handle a frame received from the sen
             phId = sTxData[1] & 0x1F ;
             if ( phId < 28 )
             {
-                sport_rx_index[phId] = 1; // mark that a sensor has replied
-                //debugln("PHID=%d",phId);
+                if (sport_rx_index[phId] == 0) { // if new sensor, then mark it
+                    sport_rx_index[phId] = 1; // mark that a new sensor has replied
+                    if ( kindex < phId) {
+                        // when kindex is < PHID and there is no KNOWN id before new PHID,
+                        // then we have to change kindex to avoid sending the same PHID in the pooling request 
+                        while (( kindex < phId) && (sport_rx_index[kindex] == 0)){ // advance kindex to next used avoid sending the same PHID several times in sequence
+                            kindex++;
+                        }
+                        if (kindex == phId) kindex++; // advance 1 more to avoid new phid
+                    }
+                    //Serial.print("PHID=");Serial.print(phId);Serial.print(" upd kindex=");Serial.println(kindex);
+                    //Serial.print("hase=");Serial.print(phase);Serial.print(" ukindex=");Serial.println(ukindex); 
+                    //debugln("PHID=%d  kindex=%d",phId, kindex);
+                }    
+                
             }
         }
     }
