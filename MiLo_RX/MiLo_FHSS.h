@@ -126,13 +126,9 @@ uint8_t curr_i= 0;
 
 uint8_t freq_list_len;              // number of channels in the list of all frequencies e.g. 79
 uint8_t fhss_bind_channel_list_len; // number of channels in bind list e.g. 1
-uint8_t fhss_section_len;           // number of channels in a section  = fhss_freq_list / FHSS_SYNCHRO_CHANNELS_NUM ; // SECTION_NUM = 79 / 5 = 15
-uint8_t fhss_max_channel ;          // max number of channels that may be used for synchro e.g. 15 *5 = 75 in order to stay in one of the section
 
 const uint32_t* fhss_freq_list;
 const uint8_t* fhss_bind_channel_list;
-
-extern bool isConnected2Tx;
 
 uint16_t prng(void)
 {
@@ -323,7 +319,7 @@ uint16_t prng(void)
         uint8_t ch;
         // do not take a channel that is blocked 
         for (ch = 0; ch < 76; ch++) 
-        {   // search the rn unused channels in used_synchro_list (where a whole section is used only once)
+        {   // search the rn unused channels in blocked list
             if (blocked_flag[ch]) continue;
             if (i == rn)  return ch; // ch is our next index
             i++;

@@ -172,7 +172,7 @@
     
     # Normal frame channels 1-8; frame rate 7ms.
     
-    //0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | synchro channel (bit 3) | Frame type(bits 2..0 (3 lsb bits))
+    //0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | reserve (bit 3) | Frame type(bits 2..0 (3 lsb bits))
     0.- bits 7..6 next expected telemetry down link frame counter(sequence) (2 bits=4 val))
       - bits 5..3 Failsafe ID (3 bits) 
       - bits 2..0 Frame type (3 bits)
@@ -193,7 +193,7 @@
     15. reserve
 
     # Normal frame channels 9-16 separate; frame rate 7ms.
-    0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | synchro channel (bit 3) | Frame type(bits 2..0 (3 lsb bits))
+    0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | reserve (bit 3) | Frame type(bits 2..0 (3 lsb bits))
     1. txid1 TXID on 16 bits
     2. txid2
     3. flag next frame must be dwn tlm frame (bit 7) | flag requesing starting WIFI (bit 6) | Model ID /Rx_Num(bits 5....0 = 6 bits) 
@@ -211,7 +211,7 @@
     15. reserve
     
     # TX uplink telemetry frame can be sent separate ;frame rate 7ms;1:6 telemetry data rate.
-    0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | Frame type(bits 2..0 (3 lsb bits))
+    0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | reserve (bit 3) | Frame type(bits 2..0 (3 lsb bits))
     1. txid1 TXID on 16 bits
     2. txid2
     3. no. of bytes in sport frame(on max 4bits 7..4) | reserve (2bits 3..2) | telemetry uplink counter sequence(2 bits 1..0)
