@@ -124,7 +124,6 @@ const uint8_t fhss_bind_channel_list_2p4[] =
 
 uint32_t _seed;
 bool is_in_binding;
-uint8_t cnt ;
 uint8_t curr_i= 0;
 
 uint8_t freq_list_len;              // number of channels in the list of all frequencies e.g. 79
@@ -393,12 +392,27 @@ uint16_t prng(void)
     bool used_flag[FREQ_LIST_LEN];           // keep trace of used channels
     bool blocked_flag[FREQ_LIST_LEN];        // keep trace of blocked channels during the irerations
         
+    #ifdef DEBUG_WITH_FIXED_FHSS
+        uint8_t debug_ch_list[] =     // 37 values
+        {
+            7, 22 , 37, 52, 67,  //0-4
+            3, 27, 34, 56, 60,   //5-9
+            0, 26, 32, 45, 71,   //10-14
+            11, 16, 41, 7, 62,  //15-19
+            1, 29, 42, 47, 61,   //20-24
+            10, 17, 30, 55, 63,  //25-29
+            14, 28, 44, 57, 74,  //30-34
+            12, 18,  //35-39
+        };
+    #endif        
+
 
     void  Fhss_Init()
     {
         fhss_freq_list = fhss_freq_list_2p4;
         fhss_bind_channel_list = fhss_bind_channel_list_2p4;
         fhss_bind_channel_list_len = (uint8_t)(sizeof(fhss_bind_channel_list_2p4) / sizeof(uint8_t));
+        
         curr_i = 0;
         is_in_binding = false;
         _seed = 0;
@@ -432,6 +446,12 @@ uint16_t prng(void)
                 //printBlockedChannels();
             }
         }
+        #ifdef DEBUG_WITH_FIXED_FHSS
+            for (uint8_t k = 0; k < FHSS_CHANNELS_NUM; k++) {
+                ch_list[k] = debug_ch_list[k];
+                fhss_list[k] = fhss_freq_list[ch_list[k]];
+            }
+        #endif
         #ifdef DEBUG_FHSS
             printAllChannels();
             uint8_t r1=0;
@@ -447,6 +467,11 @@ uint16_t prng(void)
             Serial.print("per range="); Serial.print(r1); Serial.print(" ; "); Serial.print(r2); Serial.print(" ; ");
             Serial.print(r3); Serial.print(" ; "); Serial.print(r4); Serial.println(" "); 
         #endif
+        //mark all channels as equally bad
+        for (uint8_t k = 0; k < FHSS_CHANNELS_NUM; k++) {
+            fhss_last_rssi[k] = -128 ;
+        }
+        curr_i = 0; 
     }
 
     #ifdef DEBUG_FHSS
@@ -577,7 +602,7 @@ uint32_t  ICACHE_RAM_ATTR3 GetCurrFreq(void)
 uint32_t  bestX(void)
 {
     uint8_t i_best = 0;
-    for (uint8_t i = 0; i < cnt; i++) 
+    for (uint8_t i = 0; i < FHSS_CHANNELS_NUM; i++) 
     {
         if (fhss_last_rssi[i] > fhss_last_rssi[i_best]) i_best = i;
     }
