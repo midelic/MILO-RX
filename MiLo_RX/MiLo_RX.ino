@@ -193,17 +193,20 @@ uint8_t downlinkTlmId;
 #ifdef TELEMETRY
     uint8_t frame[NBR_BYTES_IN_PACKET];// frame to be sent to TX
     uint32_t tlmDataLinkType = 0;
-    //uint8_t telemetryRX = 0;// when 1 next slot is downlink telemetry
     uint8_t dwnlnkTlmExpectedId;
     uint8_t uplinkTlmId = 0;
-    bool skipUntilStart = false;
-    volatile bool sportMSPflag = false;
-    uint8_t sportMSPdatastuff[16];
-    uint8_t sportMSPdata[16];
-    volatile uint8_t idxs = 0;
-    uint8_t smartPortRxBytes = 0;
-    uint8_t ReceivedSportData[11];//transfer all sport telemetry data received from TX in a buffer including No. of bytes in sport telemetry frame(uplink frame)
     volatile bool sportPollIsrFlag = false ; // flag to inform main loop that sport polling timer fire.
+    
+    // to send uplink tlm to sensor
+    struct sportMsp_t{
+        uint8_t len;        // number of used bytes in frame
+        uint8_t frame[16];  // contains a frame ready to be sent to sensor (START + stuff bytes + CRC)
+    };
+    sportMsp_t sportMspData[4];
+    uint8_t sportMspTail = 0; // index in the array where to get data
+    uint8_t sportMspHead = 0; // index in the array where to put data
+    uint8_t sportMspCount = 0; // number of used items in the array
+    
 #endif
 
 #define NOP() __asm__ __volatile__("nop")
@@ -478,16 +481,13 @@ void handleShortTimeout()
             SX1280_SetTxRxMode(RX_EN);// do first to allow LNA stabilise
         #endif
         SX1280_SetMode(SX1280_MODE_RX);
+    } else {
+        missingPackets++;
     }
-
-    missingPackets++;
     if (missingPackets > MAX_MISSING_PKT)// we just lost the connection
     {
         isConnected2Tx = false; // previously it was t_out = FHSS_CHANNELS_NUM;// wait max 68 slots of 7 msec before exiting while()
         t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // 2000 is to be sure that interval is big enoug to cover 68 slots
-//        setChannelIdx(0) ; // skip to the first channel in the list because only the first 5 are used to get connection
-//        currFreq = GetCurrFreq(); //set frequency first or an error will occur!!!
-//        SX1280_SetFrequencyReg(currFreq); 
         countFS = 0;    
         //packetSeq = 0;
         uplinkLQ = 0;
@@ -557,38 +557,18 @@ bool isReceivedFrameValid() { // return true for a valid frame
     SX1280_ReadBuffer(FIFOaddr, RxData, PayloadLength);
     SX1280_GetLastPacketStats();
     frameReceived = false;  // reset the flag saying a frame with good CRC has been received
-    if ((RxData[1] != MiLoStorage.txid[0]) || RxData[2] != MiLoStorage.txid[1]){ // Only if correct txid will pass
+    if ((RxData[1] != MiLoStorage.txid[0]) || (RxData[2] != MiLoStorage.txid[1]) ||((RxData[3] & 0x3F) != MiLoStorage.rx_num))
+    { // Only if correct txid and rx_num will pass
         G3PULSE(1);
         return false;
     }    
     FrameType = (RxData[0] & 0x07) ;   // extract the frame type (will be used for many checks later on) 
-    if ( ( FrameType != TLM_PACKET) && ((RxData[3] & 0x3F) != MiLoStorage.rx_num) ) {
-        G3PULSE(1);G3PULSE(1);    
-        return false;  // when no uplink telemetry, Rx mum should be correct
-    }
     if ( isConnected2Tx ) {  // when connected 
         if ( getCurrentChannelIdx() != (RxData[15] & 0x3F )) {
             G3PULSE(1);G3PULSE(1);G3PULSE(1);
             return false ;  // reject frame when channel in frame is not the expected one
-        }    
-        /*  This code was used when we had synchro channels in the first 5 channels
-        if ( ( RxData[0] & 0x08 ) == 0 ) { // if we receive a non synchro frame
-            if ( getCurrentChannelIdx() < FHSS_SYNCHRO_CHANNELS_NUM ) {
-                G3PULSE(1);G3PULSE(1);G3PULSE(1);
-                return false; // reject frames marked as on not synchro channel when current channel is a synchro channel
-            }
-        } else { //  we received a synchro frame
-            if ( getCurrentChannelIdx() >= FHSS_SYNCHRO_CHANNELS_NUM ){ 
-                G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);
-                return false; // reject frames marked as synchro channel when current channel is a not a synchro channel
-            }    
-        }
-        */   
+        }       
     } else { // when not connected = we try to synchronise RX with TX 
-        //if ( ( RxData[0] & 0x08 ) == 0 ){
-        //   G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);G3PULSE(1);
-        //   return false; // reject frames not marked as on synchro channel
-        //}
         if ( getCurrentChannelIdx() == (RxData[15] & 0x3F )) return true ;
         if ( (getCurrentChannelIdx() == 0) && ( (RxData[15] & 0x3F ) == 18) ){ // synchro at mid channel
             setChannelIdx(18); // synchronize on indx 18
@@ -842,19 +822,20 @@ void loop()
             cli();
             dioOccured = false; //reset the flag set in ISR  
             sei();
-            handleDio1(); // handle interrupt and set frameReceived to true when     
+            handleDio1(); // handle interrupt ( reset inyterrupt, read SX1280 incoming data and set frameReceived to true)     
             if (frameReceived) 
             {             // a frame has been received from the TX with a good CRC (flag has been set in DioISR)
                 G3PULSE(5); // to debug when a frame has been received
                 if ( isReceivedFrameValid()) { //check if frame is valid
                     G3PULSE(10);// to debug when a frame is valid
                     slotBeginAt = dioISRMicros ;  // resynchronise RX on TX
-                    packetToDecode = true;//flag ,packet ready to decode (can be any type and will be processed outside the while)              
+                    prepareNextSlot(); //  we first prepare next slot (e.g. frequency hop if allowed ) and update some flags/counters
+                    decodeSX1280Packet();
                     break; // exit while(1)
                 }
             }
         }
-        if ((micros() - slotBeginAt) >= t_outMicros)
+        if ((micros() - slotBeginAt) >= t_outMicros)  // timeout
         {// when timeout occurs (after 1 or FHSS_CHANNELS_NUM * interval; so after 7ms or 476 msec
             if ( isConnected2Tx )// if we where connected and just waited for 1 interval = 7 msec
             {
@@ -892,49 +873,6 @@ void loop()
     } // end while(1)
 
     // when we arrive here, it means that OR a valid frame has been received OR a time out (short ot long) occurs
-    if( packetToDecode ) { // when we get a valid frame
-        prepareNextSlot(); //  we first prepare next slot (e.g. frequency hop if allowed ) and update some flags/counters
-        #ifdef USE_WIFI
-            if (FrameType  != TLM_PACKET) 
-            { // If WIFI is requested in the frame, we start it (after 5 consecutive wifi frames); then we do not exit
-                checkStartWIFI();
-            }      
-        #endif
-        #ifdef TELEMETRY 
-            if (FrameType == TLM_PACKET) // process uplink tlm frame
-            {
-                uplinkTlmId = (RxData[3] & 0X03);  // 2 lower bytes
-                downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
-                if ((RxData[3] & 0x0F) > 0)
-                { //Frame type is uplink telemetry and no. of sport bytes >0
-                    sportCount = (RxData[3] >> 4); // 4 upper bytes
-                    
-                    for (uint8_t i = 0; i <= sportCount; i++)
-                        ReceivedSportData[i] = RxData[i + 3]; //transfer all sport telemetry data in a buffer including No. of bytes in sport telemetry (uplink frame)
-                    #ifdef SPORT_TELEMETRY   //  !!!!!!! perhaps we could merge the 2 for in one for and even avoid storing in ReceivedSportData[] 
-                        if (sportCount > 0) {
-                            for (uint8_t i = 1; i <= sportCount; i++)  // not sure this is correct about last byte
-                                smartPortDataReceive(ReceivedSportData[i]);// process all bytes of uplink tlm frame
-                            sportCount = 0;
-                        }
-                    #endif
-        
-                }
-            }
-        #endif
-        if (FrameType != TLM_PACKET && FrameType != BIND_PACKET)
-        {     // BIND_PACKET are discarded here because we wait for 5 consecutive frames and then we process them in another place
-            sbusAllowed = true; // as we received a valid frame we can allow generating Sbus and PWM ;
-            downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
-            saveRcFrame(); // save data from Rc channels (even in EEPROM if failsafe is activated)
-                            // if SBUS is defined, data are stored also in channel[] but frame is not yet generated 
-            //SBUS_frame(); // create frame mainly based on channel[]
-        }
-        packetToDecode = false;// received packet has been decoded       
-        #ifdef STATISTIC
-            LQICalc();
-        #endif
-    }  // end of packetToDecode == true 
     
     #if defined(TELEMETRY) // process downlink tlm
         if ( (packetSeq == 1 ) && ( isConnected2Tx) ) // previously there was a test on (t_out != FHSS_CHANNELS_NUM)
@@ -974,6 +912,38 @@ void loop()
     #endif
 } // end main loop
 
+void decodeSX1280Packet() { // when we get a valid frame whe handle it
+    #ifdef USE_WIFI
+        if (FrameType  != TLM_PACKET) 
+        { // If WIFI is requested in the frame, we start it (after 5 consecutive wifi frames); then we do not exit
+            checkStartWIFI();
+        }      
+    #endif
+    #ifdef TELEMETRY 
+        if (FrameType == TLM_PACKET) // process uplink tlm frame
+        {
+            uplinkTlmId = (RxData[3] & 0XC0) >> 6 ;  // 2 upper bits to be sent back in a downlink frame as ack
+            downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
+            // format the packet (add START + stuffing + CRC) in sportMspData[4]  
+            sportMSPstuff(&RxData[4]) ; // process 8 bytes starting from RxData and add them to sportMspData[]
+            // update sportMspData[].frame, sportMspData[].len and sportMspTail, sportMspHead and sportMspCount
+        }
+    #endif
+    if (FrameType != TLM_PACKET && FrameType != BIND_PACKET)
+    {     // BIND_PACKET are discarded here because we wait for 5 consecutive frames and then we process them in another place
+        sbusAllowed = true; // as we received a valid frame we can allow generating Sbus and PWM ;
+        downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
+        saveRcFrame(); // save data from Rc channels (even in EEPROM if failsafe is activated)
+                        // if SBUS is defined, data are stored also in channel[] but frame is not yet generated 
+        //SBUS_frame(); // create frame mainly based on channel[]
+    }
+    #ifdef STATISTIC
+        LQICalc();
+    #endif
+}  
+
+
+
 void   SetupTarget()
 {
     if (LED_pin != -1) pinMode(LED_pin, OUTPUT);
@@ -1001,45 +971,6 @@ void   SetupTarget()
     #endif
     EEPROM.begin(EEPROM_SIZE);
 }
-
-/*
-void  MiLoRxBinding(uint8_t bind) {
-    while (1)
-    {
-        if (bind == 0)
-        {
-            ReadEEPROMdata(address);//if flashing again new firmware need rebinding
-            #if defined(DEBUG_EEPROM)
-                delay(1000);
-                debugln("txid1 = %d,txid2 = %d,rx_num = %d,chanskip = %d", MiLoStorage.txid[0], MiLoStorage.txid[1], MiLoStorage.rx_num, MiLoStorage.chanskip);
-                debugln("MP_id = %d" ,MProtocol_id );
-                //for(uint8_t i = 0 ;i < 16;i++)
-                //{
-                //   Serial.println(MiLoStorage.FS_data[i]);
-                //}
-            #endif
-            #ifdef HC_BIND
-                MProtocol_id = 7059696;
-                MiLoStorage.rx_num = 0;
-                MiLoStorage.txid[0] = 240;
-                MiLoStorage.txid[1] = 184;          
-                //MProtocol_id = 13788120;
-                //MiLoStorage.rx_num = 0;
-                //MiLoStorage.txid[0] = 216;
-                //MiLoStorage.txid[1] = 99;        
-            #endif
-            is_in_binding = false;
-            break;
-        }
-        else
-        { //binding time
-            digitalWrite(LED_pin, HIGH);
-            MiLoRxBind();
-        }
-        yield();//shut-up WDT
-    }
-}
-*/
 
 void MiLoRxBind(void)
 {
@@ -1116,16 +1047,17 @@ void MiLoRxBind(void)
         sportPollIsrFlag = true;
     }
 
-    void  ICACHE_RAM_ATTR3 handleSportPoll()
+    void  ICACHE_RAM_ATTR3 handleSportPoll() // this is called in main loop if timer for Sport fires
     {
         cli();
         sportPollIsrFlag = false; // reset the ISR flag    
         sei();
-        if (sportMSPflag)
+        if (sportMspCount)   // We have some uplink tlm data in sportMspData[] to send to sensor
         {
-            memcpy((void *)sTxData, sportMSPdatastuff, idxs);
-            sendMSPpacket();
-            sportMSPflag = 0;
+            memcpy((void *)sTxData, &sportMspData[sportMspTail].frame[0], sportMspData[sportMspTail].len);
+            sendMSPpacket(sportMspData[sportMspTail].len);  // Start a background process (ISR) to send sTxData[] (with len bytes)  
+            sportMspTail = (sportMspTail + 1) & 0X03; // do not exceed 4 values in circular buffer
+            sportMspCount--;
         }
         else
             tx_sport_poll();
@@ -1231,7 +1163,7 @@ void MiLoRxBind(void)
         } 
     }
     #endif
-    void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()
+    void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()  // just create a downlink tlm frame ; sending is done in MiloTlmSent()
     {     
         frame[0] = (MiLoStorage.txid[0] & 0XFC ) | downlinkTlmId; 
         frame[1] = (MiLoStorage.txid[1] & 0XFC ) | uplinkTlmId;
@@ -1282,7 +1214,7 @@ void MiLoRxBind(void)
         #endif  
     }
 
-    void  ICACHE_RAM_ATTR3 MiloTlmSent()
+    void  ICACHE_RAM_ATTR3 MiloTlmSent() // create and send a downlink tlm frame to TX
     {
         MiLoTlm_build_frame();
         delayMicroseconds(500);//just in case  // mstrens : this is probably not enough to let TX being in receiving mode at the end of his sending slot
@@ -1293,120 +1225,41 @@ void MiLoRxBind(void)
         SX1280_SetMode(SX1280_MODE_TX);
     }
 
-/*
-    uint8_t  ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t bit)
-    {
-        static uint8_t link = 0 ;
-        getRFlinkInfo();
-        switch (bit)
-        {
-        case 0:
-            if (antenna)
-                link = MiLoStats.uplink_RSSI_2;//antenna
-            else
-                link = MiLoStats.uplink_RSSI_1;
-            break;
-        case 1:
-            link = MiLoStats.uplink_SNR;
-            break;
-        case 2:
-            link = MiLoStats.uplink_Link_quality;
-            break;
-        }
-        return link;
-    }
-*/    
+    
 #endif // end TELEMETRY
 
 #ifdef SPORT_TELEMETRY
-    void  sportMSPstuff(uint8_t *p)//stuffing back
+    void  sportMSPstuff(uint8_t *p)// add START + stuff uplink tlm data + CRC
     {
+        if (sportMspCount > 3) return; // discard if array is full
         uint16_t crc_s = 0;
         uint8_t indx = 0;
-        
-        sportMSPdatastuff[indx++] = 0x7E;
-        sportMSPdatastuff[indx++] = p[0];    
+        sportMspData[sportMspHead].frame[indx++] = 0x7E; // add START
+        sportMspData[sportMspHead].frame[indx++] = p[0]; // add first byt; no stuff not in CRC 
         for (uint8_t i = 1 ; i < 9; i++)
         {
             if (i == 8)
                 p[i] = 0xff - crc_s;//this is the crc byte
             if (p[i] == 0x7D || p[i] == 0x7E)
             {
-                sportMSPdatastuff[indx++] = 0x7D;
-                sportMSPdatastuff[indx++] = p[i] ^ 0x20;
+                sportMspData[sportMspHead].frame[indx++] = 0x7D;
+                sportMspData[sportMspHead].frame[indx++] = p[i] ^ 0x20;
             }
             else
             {
-                sportMSPdatastuff[indx++] = p[i];   ;
+                sportMspData[sportMspHead].frame[indx++] = p[i];   ;
             }
             crc_s += p[i]; //0-1FF
             crc_s += crc_s >> 8; //0-100
             crc_s &= 0x00ff;
         }
-        idxs = indx;
+        sportMspData[sportMspHead].len = indx;
+        sportMspHead =  (sportMspHead + 1) & 0X03; // advance Head (max 4 values)
+        sportMspCount++;
     }
-
-    //Sport received from TX(MSP) in a uplink packet
-    void  smartPortDataReceive(uint8_t c)
-    {
-        static bool byteStuffing = false;
-        if (c == 0x7E)
-        {
-            smartPortRxBytes = 0;
-            skipUntilStart = false;
-            return;
-        }
-        else if (skipUntilStart)
-        {
-            return;
-        }
-        uint8_t* rxBuffer = (uint8_t*)&sportMSPdata;
-        
-        if (smartPortRxBytes == 0)
-        {
-            if (c)
-                rxBuffer[smartPortRxBytes++] = c;
-            else
-                skipUntilStart = true;
-        }
-        else
-        {
-            if (c == 0x7D)
-            {
-                byteStuffing = true;
-                return;
-            }
-            if (byteStuffing)
-            {
-                c ^= 0x20;
-                byteStuffing = false;
-            }
-            rxBuffer[smartPortRxBytes++] = c;
-            if (smartPortRxBytes >= 8)
-            {
-                #ifdef DEBUG_MSP
-                    debugln("sportMSPdata = %d,smartPortRxBytes= %d" sportMSPdata[smartPortRxBytes],smartPortRxBytes);
-                #endif
-                #ifdef HAS_LUA
-                    //if(checkRxconfigfromTX()){}//future dev.this are configurations from TX to RX(LUA/basic scripts.)
-                    //else
-                #endif
-                {
-                    cli();
-                    sportMSPflag = true;
-                    sportMSPstuff(sportMSPdata);
-                    sei();
-                }
-                smartPortRxBytes = 0;
-                skipUntilStart = true;
-            }
-        }
-    }
-
 
     // The sensor replies to the polling with a frame that starts by START code
     //             contains at least 8 bytes but it can be more due to stuffing
-
     #ifdef MSW_SERIAL
         void  ICACHE_RAM_ATTR3 callSportSwSerial(){
             sport_index = sportindex;

@@ -51,8 +51,8 @@ uint8_t kindex =0;   //known
 
 uint32_t nextSerialBitCycle; // next timestamp (in cycles) when we have to output/read next bit in software serial
 
-volatile uint8_t sTxData[MAX_SERIAL_BYTES]; // bytes ready to be sent to the sensor via sport (also used to send the 2 sport polling byte)
-uint8_t sportTxCount;   // number of bytes (in sTxData) to send to the sensor via sport (for polling of uplink tlm)
+volatile uint8_t sTxData[MAX_SERIAL_BYTES]; // bytes formatted to be sent to the sensor via sport (also used to send the 2 sport polling bytes)
+volatile uint8_t sportTxCount;   // number of bytes (in sTxData) to send to the sensor via sport (for polling of uplink tlm)
 
 volatile uint8_t sportbuff[MAX_SERIAL_BYTES];
 volatile uint8_t sportindex = 0;  // number of bytes in sportbuff[]
@@ -160,10 +160,9 @@ void  ICACHE_RAM_ATTR3 tx_sport_poll()  // send the polling code
     #endif
 }
 
-void  ICACHE_RAM_ATTR3 sendMSPpacket()  // send an uplink frame to the sensor
+void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame to the sensor
 {
-    sportTxCount = idxs;
-    idxs = 0;
+    sportTxCount = nbrBytes; // sportTxCount is decreased in the ISR when bytes are sent
     #ifdef DEBUG_SEND_POLLING
         debugln("Send msp packet");
     #endif    
