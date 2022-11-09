@@ -17,11 +17,9 @@
 
 
 // to do : add CRC to the data stored in EEPROM; when reading EEPROM, if CRC is wrong use default values.
-// Adapt uplink tlm packet handling (8 bytes fix per frame; rest = reserve)
 // code failsafe from handset (perhaps reorgonize fee bits in the format in order to have 3 consecutive bits)
 // include SBUS in main loop (based on enlapsed time and no counter)
 // test failsafe and sbus
-// in main loop, create a function to handle a received packet and call it perhaps inside the main while loop
 // in main while loop, avoid calling some functions if we are closed to the end of the timeout (to ensure handling timeout as soon as possible)
 
 
@@ -74,11 +72,11 @@
 //Failsafe
 #ifdef TX_FAILSAFE
     bool setFSfromTx = false;
-    bool fsStarted      = false;
-    bool fsChanged   = false;
+    //bool fsStarted      = false;
+    //bool fsChanged   = false;
 #endif
 //Failsafe RX
-bool setFSfromRx = false;
+//bool setFSfromRx = false;
 uint16_t countFS = 0;
 
 //EEPROM
@@ -95,12 +93,12 @@ uint16_t ServoData[16]; // rc channels to be used for Sbus (received from Tx or 
 volatile int32_t missingPackets = 0;
 bool packetToDecode = false; // true means that a packet (any type) has been received from Tx and must be decoded
 uint8_t jumper = 0;
-uint16_t c[8];
+
 bool isConnected2Tx = false;
 //uint8_t t_out = FHSS_CHANNELS_NUM; // replaced by a flag isConnected2Tx
 uint32_t t_outMicros ;
 uint32_t t_tune = 500;
-uint16_t wordTemp;
+
 bool sbusAllowed = false;   // true means sbus/pwm can be generated because at least 1 rc signal has been received (and if failsafe values are applied, there is no NO PULSE)
 uint32_t slotBeginAt;
 uint16_t LED_count = 0;
@@ -127,16 +125,16 @@ uint8_t packetSeq = 0;  // count the slots in a sequence 0, 1, 2; 1 means that n
                         // it is not used when not connected
 bool startWifi = false;
 //bool processSportflag = false;
-enum { // types of packet being received from TX
-    BIND_PACKET = 0,
-    CH1_8_PACKET1,
-    CH1_8_PACKET2,
-    CH1_16_PACKET,
-    TLM_PACKET,
-    FLSF_PACKET1,
-    FLSF_PACKET2,
-};
 
+enum{ // types of packet being received from TX
+        BIND_PACKET = 0,
+        CH1_8_PACKET, //  channels 1-8
+        CH9_16_PACKET, // channels 9-16
+        TLM_PACKET,
+        FS1_8_PACKET,  //  failsafe values for channels 1-8
+        FS9_16_PACKET, //  failsafe values for channels 9-16
+    };
+    
 
 typedef struct {
     uint8_t txid[2];
@@ -653,6 +651,8 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
 
 
 void saveRcFrame() {
+    uint16_t c[8];    
+    uint16_t wordTemp;
     // process a valid RC frame (can be a frame with failsafe data)
     c[0]  = (uint16_t)((RxData[4] | RxData[5]  << 8) & 0x07FF);
     c[1]  = (uint16_t)((RxData[5]  >> 3  |  RxData[6] << 5) & 0x07FF);
@@ -664,97 +664,56 @@ void saveRcFrame() {
     c[7]  = (uint16_t)((RxData[13] >> 5 | RxData[14] << 3) & 0x07FF);
 
     uint8_t j = 0;
+    if ( (FrameType == CH9_16_PACKET) || (FrameType == FS9_16_PACKET) ) j = 8;
     #if defined TX_FAILSAFE
-        fs_started = false;
-        static uint8_t chan = 7;
-    #endif
-    switch (FrameType)
-    {
-        case CH1_8_PACKET1:
-        case CH1_8_PACKET2:
-            j = 0;
-            break;
-        case CH1_16_PACKET:
-            j = 8;
-            break;
-        #if defined TX_FAILSAFE
-        case  FLSF_PACKET1:
-            fs_started = true;
-            setFSfromTx = true;
-            j = 0;
-            break;
-        case  FLSF_PACKET2:
-            fs_started = true;
-            setFSfromTx = true;
-            j = 8;
-            break;
-        #endif
-        default:
-            j = 0;
-            break;
-    }
-    #if defined TX_FAILSAFE
-        if (fs_started)
-            chan = (chan + 1) % 8;
-    #endif
-    
-    for (uint8_t i = 0; i < 8; i++)
-    {
-        wordTemp = c[i];    
-        #if defined TX_FAILSAFE
-            if (fs_started && i == chan)
-            {
-                MiLoStorage.FS_data[chan + j] = word_temp; //custom FS
-                //FS from TX is not saved in EEPROM!
+        if ( (FrameType == FS1_8_PACKET) || (FrameType == FS1_8_PACKET) ) 
+        { // use failsafe but do not store them in EEPROM 
+            setFSfromTx = true;  // this will avoid setting jupmer = 1 and so avoid saving failsafe value with the Rx button
+            for (uint8_t i = 0; i < 8; i++) {
+                MiLoStorage.FS_data[i+j] = c[i];    
                 #ifdef DEBUG_FS
-                    if (fs_started)
-                        debugln("FS_data = %d" , MiLoStorage.FS_data[chan + j]);
+                    debugln("FS_data channel %d  = %d" , i+j+1, MiLoStorage.FS_data[i + j]);
                 #endif
             }
-            else
-        #endif
-        {
+        }        
+    #endif
+    if ( (FrameType == CH1_8_PACKET) || (FrameType == CH9_16_PACKET) ) 
+    { // store the values for servo(ppm) and for Sbus
+        for (uint8_t i = 0; i < 8; i++) {
+            wordTemp = c[i];
             if (wordTemp > 800 && wordTemp < 2200)
-            {
+            { // use only when the value is in normal range
                 ServoData[i + j] = wordTemp;
                 #ifdef DEBUG_SERVODATA
-                    debugln(" S2 = %d", ServoData[2]);//throttle
+                    debugln("servo data channel %d = %d", i+j+1 , ServoData[i+j]);
                 #endif
                 #if defined SBUS
                     channel[i+j] = (ServoData[i+j]-881)*1.6;//881-2159 to 0-2047
                     channel[i+j] = constrain(channel[i],0,2047);
                 #endif
             }
-        }
-        
-    }
-    
-    if (jumper
-            #ifdef TX_FAILSAFE
-            && fs_started == false
-            #endif
-            )
-    {
-        if (countFS++ >= MAX_MISSING_PKT)
-        {
-            if(LED_pin != -1) (countFS & 0x10) ? LED_off : LED_on;
-        }
-        if (countFS >= (2 * MAX_MISSING_PKT))
-        {
-            //detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin)); // replaced by noInterrupts   
-            for (uint8_t i = 0; i < 16; i++)
-            {
-                if (MiLoStorage.FS_data[i] != ServoData[i]) //only changed values
-                    EEPROMWriteInt(address + 4 + 2 * i, MiLoStorage.FS_data[i]);
+        } 
+        if (jumper)
+        {  // when button is pressed, while connected, the Rc channels are stored in EEPROM as failsafe values after blinking  
+            if (countFS++ >= MAX_MISSING_PKT)
+            { 
+                if(LED_pin != -1) (countFS & 0x10) ? LED_off : LED_on;
             }
-            noInterrupts();
-            EEPROM.commit();
-            interrupts();
-            //attachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin), dioISR, RISING); //replaced by interrupts()
-            jumper = 0;
-        }
-    }
-} // end processRcFrame
+            if (countFS >= (2 * MAX_MISSING_PKT))
+            {
+                for (uint8_t i = 0; i < 16; i++)
+                {
+                    if (MiLoStorage.FS_data[i] != ServoData[i]) //only changed values
+                        EEPROMWriteInt(address + 4 + 2 * i, MiLoStorage.FS_data[i]);
+                }
+                noInterrupts();
+                EEPROM.commit();
+                interrupts();
+                jumper = 0;
+            }
+        } // end of jumper    
+    } // end of CH.-._PACKET
+} // end saveRcFrame
 
 void handleDio1() {  
     // check the SX1280 irq flags and return true if a frame has been received with CRC OK 
@@ -790,6 +749,36 @@ void handleDio1() {
 
 }
 
+void decodeSX1280Packet() { // handle a valid frame (RcData or uplink tlm)
+    #ifdef USE_WIFI
+        if (FrameType  != TLM_PACKET) 
+        { // If WIFI is requested in the frame, we start it (after 5 consecutive wifi frames); then we do not exit
+            checkStartWIFI();
+        }      
+    #endif
+    #ifdef TELEMETRY 
+        if (FrameType == TLM_PACKET) // process uplink tlm frame
+        {
+            uplinkTlmId = (RxData[3] & 0XC0) >> 6 ;  // 2 upper bits to be sent back in a downlink frame as ack
+            downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
+            // format the packet (add START + stuffing + CRC) in sportMspData[4]  
+            sportMSPstuff(&RxData[4]) ; // process 8 bytes starting from RxData and add them to sportMspData[]
+            // update sportMspData[].frame, sportMspData[].len and sportMspTail, sportMspHead and sportMspCount
+        }
+    #endif
+    if (FrameType != TLM_PACKET && FrameType != BIND_PACKET)
+    {     // BIND_PACKET are discarded here because we wait for 5 consecutive frames and then we process them in another place
+        sbusAllowed = true; // as we received a valid frame we can allow generating Sbus and PWM ;
+        downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
+        saveRcFrame(); // save data from Rc channels or failsafe (those are not stored in EEPROM but sent at 9sec interval by handset to TX)
+                       // if SBUS is defined, data are stored also in channel[] but frame is not yet generated 
+        //SBUS_frame(); // create frame mainly based on channel[]
+    }
+    #ifdef STATISTIC
+        LQICalc();
+    #endif
+}  
+
 //++++++++++++++++++++++++++++++++++++++++   main loop   +++++++++++++++++++++++++++++++++++ 
 void loop()
 {
@@ -797,7 +786,7 @@ void loop()
     lastYieldMicros = micros();
     if (bind_jumper() && jumper == 0// when button is pushed and previously it was not pressed
             #ifdef TX_FAILSAFE
-            && setFSfromTx == false
+            && setFSfromTx == false  // and no failsafe data have been received from TX
             #endif
             )
         if (countFS == 0) //only at boot reset (Failsafe) no reset while the rx is bound
@@ -875,7 +864,7 @@ void loop()
     // when we arrive here, it means that OR a valid frame has been received OR a time out (short ot long) occurs
     
     #if defined(TELEMETRY) // process downlink tlm
-        if ( (packetSeq == 1 ) && ( isConnected2Tx) ) // previously there was a test on (t_out != FHSS_CHANNELS_NUM)
+        if ( (packetSeq == 1 ) && ( isConnected2Tx) ) 
         { // next slot must be used to send a downlink telemetry packet but only if there is a connection.
           // here we send a downlink tlm frame even if we just miss one or a few frames (but not loss the connection)
             #ifdef HAS_PA_LNA
@@ -912,35 +901,6 @@ void loop()
     #endif
 } // end main loop
 
-void decodeSX1280Packet() { // when we get a valid frame whe handle it
-    #ifdef USE_WIFI
-        if (FrameType  != TLM_PACKET) 
-        { // If WIFI is requested in the frame, we start it (after 5 consecutive wifi frames); then we do not exit
-            checkStartWIFI();
-        }      
-    #endif
-    #ifdef TELEMETRY 
-        if (FrameType == TLM_PACKET) // process uplink tlm frame
-        {
-            uplinkTlmId = (RxData[3] & 0XC0) >> 6 ;  // 2 upper bits to be sent back in a downlink frame as ack
-            downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
-            // format the packet (add START + stuffing + CRC) in sportMspData[4]  
-            sportMSPstuff(&RxData[4]) ; // process 8 bytes starting from RxData and add them to sportMspData[]
-            // update sportMspData[].frame, sportMspData[].len and sportMspTail, sportMspHead and sportMspCount
-        }
-    #endif
-    if (FrameType != TLM_PACKET && FrameType != BIND_PACKET)
-    {     // BIND_PACKET are discarded here because we wait for 5 consecutive frames and then we process them in another place
-        sbusAllowed = true; // as we received a valid frame we can allow generating Sbus and PWM ;
-        downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
-        saveRcFrame(); // save data from Rc channels (even in EEPROM if failsafe is activated)
-                        // if SBUS is defined, data are stored also in channel[] but frame is not yet generated 
-        //SBUS_frame(); // create frame mainly based on channel[]
-    }
-    #ifdef STATISTIC
-        LQICalc();
-    #endif
-}  
 
 
 

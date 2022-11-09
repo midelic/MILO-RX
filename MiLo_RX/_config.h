@@ -88,7 +88,7 @@
 #endif
 
 //#define SBUS // mstrens removed to test
-//#define TX_FAILSAFE
+#define TX_FAILSAFE
 //#define PWM_SERVO
 //#define ADC_VOLT
 #define STATISTIC

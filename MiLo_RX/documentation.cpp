@@ -99,42 +99,42 @@
     7. up to 15.  0xA7
 
 
-    # Frame Sequence
+    # Frame Sequence for sub protocol MCH16 or MEU_16
     0- downlink telemetry
-    1- RC channels 1_8_1 
+    1- RC channels 1_8
     2- RC channels 9_16
     3- downlink telemetry
-    4- RC channels 1_8_2
+    4- RC channels 1_8
     5 -uplink telemetry                 
     6- downlink telemetry
     7- RC channels 9_16
-    8- RC channels 1_8_1
+    8- RC channels 1_8
     9- downlink telemetry
     10- RC channels 9_16
     11- uplink telemetry               
     12- downlink telemetry
-    13- RC channels 1_8_2
+    13- RC channels 1_8
     14- RC channels 9_16
     15- downlink telemetry
     
     
-    0 - downlink telemetry
-    1- RC channels 1_8_1         
-    2- RC channels 1_8_2      
+    0 - downlink telemetry for sub protocol MCH8 or MEU_8
+    1- RC channels 1_8         
+    2- RC channels 1_8      
     3- downlink telemetry      
-    4- RC channels 1_8_1       
+    4- RC channels 1_8       
     5 -uplink telemetry              
     6- downlink telemetry      
-    7- RC channels 1_8_2         
-    8- RC channels 1_8_1          
+    7- RC channels 1_8         
+    8- RC channels 1_8          
     9- downlink telemetry            
-    10- RC channels 1_8_2       
+    10- RC channels 1_8       
     11- uplink telemetry           
     12- downlink telemetry
-    13- RC channels 1_8_1            
-    14- RC channels 1_8_2              
+    13- RC channels 1_8            
+    14- RC channels 1_8              
     15- downlink telemetry
-    16- RC channels 1_8_1            
+    16- RC channels 1_8            
     17  uplink telemetry              
     15- downlink telemetry
     
