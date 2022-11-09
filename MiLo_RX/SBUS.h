@@ -8,9 +8,8 @@
     
     uint16_t sbus[TXBUFFER_SIZE]; // frame to be sent via Serial.print()
     uint16_t sbusChannel[16];     // values to generate the sbus frame
-    uint8_t sbus_counter = 0;
+    
     uint32_t lastSbusMicros = 0; // last time that sbus has been generated
-
 
     void init_SBUS()
     {

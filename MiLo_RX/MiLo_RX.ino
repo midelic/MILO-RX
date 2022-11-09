@@ -18,7 +18,6 @@
 
 
 // to do : add CRC to the data stored in EEPROM; when reading EEPROM, if CRC is wrong use default values.
-// include SBUS in main loop (based on enlapsed time and no counter)
 // test failsafe and sbus
 // in main while loop, avoid calling some functions if we are closed to the end of the timeout (to ensure handling timeout as soon as possible)
 
@@ -464,9 +463,6 @@ void handleShortTimeout()
     
     if ( packetSeq == 1) { // if timeout occurs when we where in a slot for downlink 
                             // we have to go back in receive mode
-        #if defined(SBUS)
-            sbus_counter++; // ?????????????? 
-        #endif
         #ifdef HAS_PA_LNA
             SX1280_SetTxRxMode(RX_EN);// do first to allow LNA stabilise
         #endif
@@ -884,9 +880,6 @@ void loop()
                           //     So we are about 7.5msec after the TX started sending the missinf frame.   
             
         }    
-    #endif
-    #ifdef SBUS
-        sbus_counter++;
     #endif
     #ifdef STATISTIC
         if ( aPacketSeen > 5) packetCount = true;
