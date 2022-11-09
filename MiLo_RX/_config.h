@@ -22,7 +22,7 @@
 //#define DEBUG_INCOMMING_SPORTDATA   // print a frame that has been read from a sport sensor (no PHID but with stuffing and original CRC) 
 //#define DEBUG_SPORT_SPORTDATA // print the original Sport data from sensor (or simulated)
 //#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
-//#define DEBUG_SIM_SPORT_SENSOR  // generate dummy Sport data; allow to use SX1280_SPORT_pin 3 for generating pulses
+//#define DEBUG_SIM_SPORT_SENSOR  // generate dummy Sport data; allow to use SPORT_pin 3 for generating pulses
 //#define DEBUG_SPORT_SIM_GENERATION // print the dummy Sport data
 //#define DEBUG_DOWNLINK_TLM_FRAME  // print the data in the downlink tlm frame
 //#define DEBUG_SEND_POLLING        // print message to say that we output some bytes on sport

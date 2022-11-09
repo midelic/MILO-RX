@@ -80,8 +80,8 @@ volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
     #define  RECEIVE         4
     #define  WAITING         5
 
-    #define CLEAR_TX_BIT  GPOC=1<<SX1280_SPORT_pin  // = digitalWrite(SX1280_SPORT_pin,LOW) but about 10X faster
-    #define SET_TX_BIT  GPOS=1<<SX1280_SPORT_pin    // = digitalWrite(SX1280_SPORT_pin,HIGH) but about 10X faster
+    #define CLEAR_TX_BIT  GPOC=1<<SPORT_pin  // = digitalWrite(SPORT_pin,LOW) but about 10X faster
+    #define SET_TX_BIT  GPOS=1<<SPORT_pin    // = digitalWrite(SPORT_pin,HIGH) but about 10X faster
     #define BIT_TIME  1389    //(1389 - 284)//minus cycles spent on calling ISR
     #define BIT_TIME_GET_FIRST_BIT  1100 // value based on tests with DEBUG_ON_GPIO1 in order that read bit occurs at the right time
 
@@ -93,8 +93,8 @@ volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
     volatile uint8_t state;    //serial state
     void ICACHE_RAM_ATTR SerialBitISR(void);
     void ICACHE_RAM_ATTR SerialPinISR(void);
-    //oid ICACHE_RAM_ATTR enable_interrupt_serial_pin(){attachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin), SerialPinISR, RISING);}
-    //void ICACHE_RAM_ATTR disable_interrupt_serial_pin() { detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));} 
+    //oid ICACHE_RAM_ATTR enable_interrupt_serial_pin(){attachInterrupt(digitalPinToInterrupt(SPORT_pin), SerialPinISR, RISING);}
+    //void ICACHE_RAM_ATTR disable_interrupt_serial_pin() { detachInterrupt(digitalPinToInterrupt(SPORT_pin));} 
 #endif
 
 void generateDummySportDataFromSensor();
@@ -146,9 +146,9 @@ void  ICACHE_RAM_ATTR3 tx_sport_poll()  // send the polling code
     #ifdef MSW_SERIAL   
         noInterrupts();
         sportindex = 0;
-        detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));
+        detachInterrupt(digitalPinToInterrupt(SPORT_pin));
         timer0_detachInterrupt(); // mstrens not sure it is needed
-        pinMode(SX1280_SPORT_pin,OUTPUT);
+        pinMode(SPORT_pin,OUTPUT);
         CLEAR_TX_BIT;
         state = TXPENDING;
         timer0_attachInterrupt(SerialBitISR); 
@@ -170,9 +170,9 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
     #ifdef MSW_SERIAL       
         noInterrupts();
         sportindex = 0 ;
-        detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));
+        detachInterrupt(digitalPinToInterrupt(SPORT_pin));
         timer0_detachInterrupt(); // mstrens not sure it is needed
-        pinMode(SX1280_SPORT_pin,OUTPUT);
+        pinMode(SPORT_pin,OUTPUT);
         CLEAR_TX_BIT;
         state = TXPENDING;
         timer0_attachInterrupt(SerialBitISR); 
@@ -184,9 +184,9 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
 #ifdef MSW_SERIAL
     void ICACHE_RAM_ATTR SerialPinISR()   // called when a pin rise = start bit with inverted serial (we where waiting to receive a byte)
     {   
-        //if(digitalRead(SX1280_SPORT_pin)==HIGH)   // Pin is high,inverted signal
+        //if(digitalRead(SPORT_pin)==HIGH)   // Pin is high,inverted signal
         //{  // When level goes up, it means we got a start bit
-            detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));   //disable pin change interrupt         
+            detachInterrupt(digitalPinToInterrupt(SPORT_pin));   //disable pin change interrupt         
             sportRXbit = 0;   //Clear received bit counter.
             sportRX = 0;      // accumulate the bit received waiting for a full byte
             state = RECEIVE ;   // Change state
@@ -214,7 +214,7 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
                         data = sportRX ;
                         data >>= 1 ;   //Shift due to receiving LSB first.
                         G1ON;
-                        if(digitalRead(SX1280_SPORT_pin)==0)
+                        if(digitalRead(SPORT_pin)==0)
                         {
                             data |= 0x80 ; 
                         }
@@ -234,7 +234,7 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
                         }                       
                         timer0_detachInterrupt();//stop timer interrupt
                         state = IDLE ;   //change state to idle 
-                        attachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.             
+                        attachInterrupt(digitalPinToInterrupt(SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.             
                     }
                 }           
                 break; 
@@ -267,10 +267,10 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
                 }
                 else
                 {
-                    pinMode(SX1280_SPORT_pin,INPUT);   //RX serial on ESP8266 has pullup but Sport is inverted and it can't be used
+                    pinMode(SPORT_pin,INPUT);   //RX serial on ESP8266 has pullup but Sport is inverted and it can't be used
                     timer0_detachInterrupt();//stop timer interrupt
                     state = IDLE ;   //change state to idle 
-                    attachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.
+                    attachInterrupt(digitalPinToInterrupt(SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.
                 //
                 //    timer0_write(ESP.getCycleCount() + BIT_TIME);
                 //    state = WAITING;
@@ -288,7 +288,7 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
             //case WAITING :  
             //    timer0_detachInterrupt();//stop timer interrupt
             //    state = IDLE ;   //change state to idle 
-            //    attachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.
+            //    attachInterrupt(digitalPinToInterrupt(SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.
             //    break;
             case IDLE:
                 break;

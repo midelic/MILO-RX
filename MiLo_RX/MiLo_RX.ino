@@ -1,5 +1,6 @@
 /* **************************
     By Midelic on RCGroups
+
     **************************
     This project is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,7 +18,6 @@
 
 
 // to do : add CRC to the data stored in EEPROM; when reading EEPROM, if CRC is wrong use default values.
-// code failsafe from handset (perhaps reorgonize fee bits in the format in order to have 3 consecutive bits)
 // include SBUS in main loop (based on enlapsed time and no counter)
 // test failsafe and sbus
 // in main while loop, avoid calling some functions if we are closed to the end of the timeout (to ensure handling timeout as soon as possible)
@@ -77,6 +77,8 @@
 #endif
 //Failsafe RX
 //bool setFSfromRx = false;
+uint32_t lastReceivedRcFrameMicros = 0;
+#define FAILSAFE_INTERVAL 1000 // ms
 uint16_t countFS = 0;
 
 //EEPROM
@@ -89,7 +91,7 @@ uint32_t  address = 0;//EEPROM start adress
 #define MARGIN_LONG_TIMEOUT 10000 // margin (usec) to be added to the timeout used when not connected (to cover clock difference between TX and RX)
 #define MARGIN_SHORT_TIMEOUT 500 // margin (usec) to be added to the first timeout used when connected 
 
-uint16_t ServoData[16]; // rc channels to be used for Sbus (received from Tx or failsafe)
+uint16_t ServoData[16]; // rc channels values used for ppm (received from Tx or failsafe)
 volatile int32_t missingPackets = 0;
 bool packetToDecode = false; // true means that a packet (any type) has been received from Tx and must be decoded
 uint8_t jumper = 0;
@@ -334,7 +336,7 @@ void setup()
 
     #if defined SPORT_TELEMETRY
         initSportUart();// sport to sensort uses SW serial with the same pin for TX and Rx, signal is inverted
-        pinMode(SX1280_SPORT_pin,INPUT);
+        pinMode(SPORT_pin,INPUT);
         sportHead = sportTail = 0;
     #endif
     
@@ -401,11 +403,11 @@ void setup()
 } // end setup()
 
 void applyFailsafe() 
-// put failsafe values in ServoData[] and generates Sbus every 14 msec.
+// put failsafe values in ServoData[] for ppm and in sbusChannel[] for Sbus
 {
+    uint16_t word;
     for (uint8_t i = 0; i < 16; i++)
     {
-        uint16_t word;
         word = MiLoStorage.FS_data[i];
         if (word == NO_PULSE) //no pulse
         {
@@ -421,20 +423,10 @@ void applyFailsafe()
             ServoData[i] = word;
         }              
         #if defined(SBUS)
-            channel[i] = (ServoData[i]-881)*1.6;//881-2159 to 0-2047
-            channel[i] = constrain(channel[i],0,2047);
+            sbusChannel[i] = (ServoData[i]-881)*1.6;//881-2159 to 0-2047
+            sbusChannel[i] = constrain(sbusChannel[i],0,2047);
         #endif
     }
-    #if defined SBUS
-        SBUS_frame(); // fill Sbus frame with channels data
-        if (millis() - sbus_timer > 14)
-        { //only when connection lost, every 14ms
-            sbus_timer = millis();
-            if (sbusAllowed) // send Sbus only if at least one packet has already been received and failsafe do not use "NO_PULSE" (when failsafe values should be applied) 
-                for (uint8_t i = 0; i < TXBUFFER_SIZE; i++)
-                    Serial.write(sbus[i]);
-        }               
-    #endif
 } 
 
 void handleShortTimeout()
@@ -484,6 +476,9 @@ void handleShortTimeout()
     }
     if (missingPackets > MAX_MISSING_PKT)// we just lost the connection
     {
+        #if defined(FAILSAFE)
+            applyFailsafe() ; // put failsafe values in ServoData[] and sbusChannel[]
+        #endif
         isConnected2Tx = false; // previously it was t_out = FHSS_CHANNELS_NUM;// wait max 68 slots of 7 msec before exiting while()
         t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // 2000 is to be sure that interval is big enoug to cover 68 slots
         countFS = 0;    
@@ -688,8 +683,8 @@ void saveRcFrame() {
                     debugln("servo data channel %d = %d", i+j+1 , ServoData[i+j]);
                 #endif
                 #if defined SBUS
-                    channel[i+j] = (ServoData[i+j]-881)*1.6;//881-2159 to 0-2047
-                    channel[i+j] = constrain(channel[i],0,2047);
+                    sbusChannel[i+j] = (ServoData[i+j]-881)*1.6;//881-2159 to 0-2047
+                    sbusChannel[i+j] = constrain(sbusChannel[i],0,2047);
                 #endif
             }
         } 
@@ -769,10 +764,11 @@ void decodeSX1280Packet() { // handle a valid frame (RcData or uplink tlm)
     if (FrameType != TLM_PACKET && FrameType != BIND_PACKET)
     {     // BIND_PACKET are discarded here because we wait for 5 consecutive frames and then we process them in another place
         sbusAllowed = true; // as we received a valid frame we can allow generating Sbus and PWM ;
+        lastReceivedRcFrameMicros = micros(); // used to activate Failsafe when there is no RC packet since X mmsec
         downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
         saveRcFrame(); // save data from Rc channels or failsafe (those are not stored in EEPROM but sent at 9sec interval by handset to TX)
-                       // if SBUS is defined, data are stored also in channel[] but frame is not yet generated 
-        //SBUS_frame(); // create frame mainly based on channel[]
+                       // if SBUS is defined, data are stored also in sbusChannel[] but frame is not yet generated 
+        //SBUS_frame(); // create frame mainly based on sbusChannel[]
     }
     #ifdef STATISTIC
         LQICalc();
@@ -799,10 +795,6 @@ void loop()
         timer0_detachInterrupt();//timer0 is needed for wifi
         MiLoRxBind();  // note : we never exit this process: when binding is done, led is blinking and RX must be powerwed off and on again
     }
-    #if defined(FAILSAFE)
-        if (missingPackets > MAX_MISSING_PKT)
-            applyFailsafe() ; // put failsafe values in ServoData[] and generates Sbus every 14 msec.
-    #endif
     G3PULSE(50); // to debug when we enter a new while loop
     while (1) // exit only on timeout or when a valid frame is received
     {
@@ -851,6 +843,17 @@ void loop()
             handleSportPoll(); // perform a polling (or forward a uplink tlm frame) at regular interval (12msec)
         }
         #endif
+        #ifdef SBUS
+        // send Sbus frame on Serial once evey xx msec 
+        if ( ( micros() - lastSbusMicros) > SBUS_INTERVAL ) {
+            lastSbusMicros = micros();
+            if (sbusAllowed) 
+            {  // at least Rx has been connected and Failsafe is not activated with NO PULSE(sbusAllowed)
+                SBUS_frame(); // fill Sbus frame with channels data
+                for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial.write(sbus[i]);
+            }    
+        #endif
+        
         if (! isConnected2Tx) { // not needed to yield when connected because it is already done at begining of the loop
                                 // it is only when not connected that we can stay in while more that 7000 msec
                                 // avoiding yield is good because it can take up to 300 msec on ESP8266 
@@ -879,26 +882,16 @@ void loop()
                           // if we send just after having received a valid frame, it will be about 5msec after TX started sending the previous frame
                           // if we did not get a valid frame, then we had first to wait for the end of the timeout before we reach this point
                           //     So we are about 7.5msec after the TX started sending the missinf frame.   
-            #ifdef SBUS
-                sbus_counter++;
-            #endif
-            #ifdef STATISTIC
-                if ( aPacketSeen > 5) packetCount = true;
-            #endif
+            
         }    
     #endif
-        
-    #if defined  SBUS
-        // !!!!!!!!!!! this part is not good because sbus will not be generated every 14 msec when connection is lost (because we reach this point only once every 68*7 msec)
-        if (sbus_counter == 2)//sent out sbus on  every 14ms (timed by interval)
-        { 
-            sbus_counter = 0;
-            if (sbusAllowed) {
-                for (uint8_t i = 0; i < TXBUFFER_SIZE; i++)
-                    Serial.write(sbus[i]);
-            }  
-        }
+    #ifdef SBUS
+        sbus_counter++;
     #endif
+    #ifdef STATISTIC
+        if ( aPacketSeen > 5) packetCount = true;
+    #endif
+
 } // end main loop
 
 
@@ -1225,7 +1218,7 @@ void MiLoRxBind(void)
             sport_index = sportindex;
             if (sport_index >= 8) { // 
                 if ((micros() - sportStuffTime) > 500){//If not receiving any new sport data in 500us
-                    detachInterrupt(digitalPinToInterrupt(SX1280_SPORT_pin));//no need to keep interrupt on serial pin after transferring all data    
+                    detachInterrupt(digitalPinToInterrupt(SPORT_pin));//no need to keep interrupt on serial pin after transferring all data    
                     cli();
                     sportindex = 0; //reset the counter (number of received bytes) used in the iterrupt 
                     sei();

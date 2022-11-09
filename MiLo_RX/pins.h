@@ -13,9 +13,8 @@
 #define SX1280_SCK         14
 #define SX1280_CSN_pin     15
 //Serial
-#define SX1280_SPORT_pin 3 // RX and TX SPORT
-//#define SX1280_SPORT_TX_pin 3 // TX SPORT
-#define SX1280_SBUS_TX_pin   1//SBUS
+#define SPORT_pin 3 // RX and TX SPORT
+//#define SBUS_pin   1//SBUS   // for ESP8266, Sbus is always generated on the pin 1 because it uses Serial.print()
 //Frontend PA/LNA
 #ifdef MATEK_RX_R24D
     #define SX1280_TXEN_pin      10
