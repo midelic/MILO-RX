@@ -1,4 +1,6 @@
 //SBUS driver
+uint16_t sbusChannel[16];     // values to generate the sbus frame; is used to store data even if SBUS is not activated
+
 
 #if defined(SBUS)
     #define SBUS_SYNCBYTE 0x0F 
@@ -7,7 +9,6 @@
     #define SBUS_INTERVAL 9 // in msec
     
     uint16_t sbus[TXBUFFER_SIZE]; // frame to be sent via Serial.print()
-    uint16_t sbusChannel[16];     // values to generate the sbus frame
     
     uint32_t lastSbusMicros = 0; // last time that sbus has been generated
 

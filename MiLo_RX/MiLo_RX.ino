@@ -402,7 +402,7 @@ void setup()
 } // end setup()
 
 void applyFailsafe() 
-// put failsafe values in ServoData[] for ppm and in sbusChannel[] for Sbus
+// put failsafe converted values in ServoData[] for ppm and original failsafe values in sbusChannel[] for Sbus
 {
     uint16_t word;
     for (uint8_t i = 0; i < 16; i++)
@@ -419,11 +419,10 @@ void applyFailsafe()
         }
         else
         {
-            ServoData[i] = word;
+            ServoData[i] = (((word<<2)+word)>>3)+860; //value range 860<->2140 -125%<->+125%
         }              
         #if defined(SBUS)
-            sbusChannel[i] = (ServoData[i]-881)*1.6;//881-2159 to 0-2047
-            sbusChannel[i] = constrain(sbusChannel[i],0,2047);
+            sbusChannel[i] = word;
         #endif
     }
 } 
@@ -642,6 +641,8 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
 
 
 void saveRcFrame() {
+    // save the channels values in 
+    
     uint16_t c[8];    
     uint16_t wordTemp;
     // process a valid RC frame (can be a frame with failsafe data)
@@ -657,7 +658,7 @@ void saveRcFrame() {
     uint8_t j = 0;
     if ( (FrameType == CH9_16_PACKET) || (FrameType == FS9_16_PACKET) ) j = 8;
     #if defined TX_FAILSAFE
-        if ( (FrameType == FS1_8_PACKET) || (FrameType == FS1_8_PACKET) ) 
+        if ( (FrameType == FS1_8_PACKET) || (FrameType == FS9_16_PACKET) ) 
         { // use failsafe but do not store them in EEPROM 
             setFSfromTx = true;  // this will avoid setting jupmer = 1 and so avoid saving failsafe value with the Rx button
             for (uint8_t i = 0; i < 8; i++) {
@@ -669,21 +670,17 @@ void saveRcFrame() {
         }        
     #endif
     if ( (FrameType == CH1_8_PACKET) || (FrameType == CH9_16_PACKET) ) 
-    { // store the values for servo(ppm) and for Sbus
-        for (uint8_t i = 0; i < 8; i++) {
-            wordTemp = c[i];
-            if (wordTemp > 800 && wordTemp < 2200)
-            { // use only when the value is in normal range
-                ServoData[i + j] = wordTemp;
+    { // we store always the values for Sbus in sbusChannel[] because we need all 16 values somewhere when failsafe is set with the button
+        memcpy( &sbusChannel[j], &c[0], 8) ; // copy into SBUS
+        // we save them to ServoData when PWM is used; we convert the range  
+        #ifdef PWM_SERVO    
+            for (uint8_t i = 0; i < 8; i++) {
+                ServoData[i + j] = (((c[i]<<2)+c[i])>>3)+860;	//value range 860<->2140 -125%<->+125%
                 #ifdef DEBUG_SERVODATA
                     debugln("servo data channel %d = %d", i+j+1 , ServoData[i+j]);
-                #endif
-                #if defined SBUS
-                    sbusChannel[i+j] = (ServoData[i+j]-881)*1.6;//881-2159 to 0-2047
-                    sbusChannel[i+j] = constrain(sbusChannel[i],0,2047);
-                #endif
+                #endif                
             }
-        } 
+        #endif
         if (jumper)
         {  // when button is pressed, while connected, the Rc channels are stored in EEPROM as failsafe values after blinking  
             if (countFS++ >= MAX_MISSING_PKT)
@@ -694,7 +691,7 @@ void saveRcFrame() {
             {
                 for (uint8_t i = 0; i < 16; i++)
                 {
-                    if (MiLoStorage.FS_data[i] != ServoData[i]) //only changed values
+                    if (MiLoStorage.FS_data[i] != sbusChannel[i]) //only changed values
                         EEPROMWriteInt(address + 4 + 2 * i, MiLoStorage.FS_data[i]);
                 }
                 noInterrupts();
@@ -703,6 +700,7 @@ void saveRcFrame() {
                 jumper = 0;
             }
         } // end of jumper    
+
     } // end of CH.-._PACKET
 } // end saveRcFrame
 
