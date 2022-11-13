@@ -1,0 +1,7 @@
+{
+    "configuration": "xtal=80,vt=flash,exception=enabled,ResetMethod=ck,CrystalFreq=26,FlashFreq=40,FlashMode=qio,eesz=512K,led=2,ip=lm2f,dbg=Disabled,lvl=None____,wipe=none,baud=115200",
+    "board": "esp8266:esp8266:generic",
+    "sketch": "MiLo_RX\\MiLo_RX.ino",
+    "port": "COM5",
+    "output": "c:/temp/milo_rx/build"
+}

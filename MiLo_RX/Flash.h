@@ -33,7 +33,9 @@ void StoreEEPROMdata(uint32_t startAddress)
     for(uint8_t i = 0;i < 4;i++){
         EEPROM.write(startAddress+i,MProtocol_id >> (i*8));
     }
+    noInterrupts();
     bool eeRes = EEPROM.commit();
+    interrupts();
     #ifdef DEBUG_BIND
         if (eeRes) 
         {

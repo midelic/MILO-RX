@@ -9,7 +9,7 @@
     static uint32_t rxStartTime;
     extern uint8_t CurrentPower;
 
-    uint32_t ICACHE_RAM_ATTR SpreadingFactorToRSSIvalidDelayUs(uint8_t SF)
+    uint32_t ICACHE_RAM_ATTR3 SpreadingFactorToRSSIvalidDelayUs(uint8_t SF)
     {
     // The necessary wait time from RX start to valid instant RSSI reading
     // changes with the spreading factor setting.
@@ -38,7 +38,7 @@
         }
     }
 
-    int8_t ICACHE_RAM_ATTR PowerEnumToLBTLimit(uint8_t  txPower)
+    int8_t ICACHE_RAM_ATTR3 PowerEnumToLBTLimit(uint8_t  txPower)
     {
     // Calculated from EN 300 328, adjusted for 800kHz BW for sx1280
     // TL = -70 dBm/MHz + 10*log10(0.8MHz) + 10 × log10 (100 mW / Pout) (Pout in mW e.i.r.p.)
@@ -58,7 +58,7 @@
         }
     }
 
-    void ICACHE_RAM_ATTR BeginClearChannelAssessment(void)
+    void ICACHE_RAM_ATTR3 BeginClearChannelAssessment(void)
     {
         #ifdef HAS_PA_LNA
             SX1280_SetTxRxMode(RX_EN);// do first to enable LNA 
@@ -67,7 +67,7 @@
         rxStartTime = micros();
     }
 
-    bool ICACHE_RAM_ATTR ChannelIsClear(void)
+    bool ICACHE_RAM_ATTR3 ChannelIsClear(void)
     {
     // Read rssi after waiting the minimum RSSI valid delay.
     // If this function is called long enough after RX enable,

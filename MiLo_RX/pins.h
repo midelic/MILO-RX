@@ -13,9 +13,8 @@
 #define SX1280_SCK         14
 #define SX1280_CSN_pin     15
 //Serial
-#define SX1280_SPORT_RX_pin 3 // RX SPORT
-#define SX1280_SPORT_TX_pin 3 // TX SPORT
-#define SX1280_SBUS_TX_pin   1//SBUS
+#define SPORT_pin 3 // RX and TX SPORT
+//#define SBUS_pin   1//SBUS   // for ESP8266, Sbus is always generated on the pin 1 because it uses Serial.print()
 //Frontend PA/LNA
 #ifdef MATEK_RX_R24D
     #define SX1280_TXEN_pin      10
@@ -33,12 +32,14 @@
 #endif
 
 #ifdef ESP8266_E28_2G4M20S
-#undef SX1280_BUSY_pin
-#undef SX1280_RXEN_pin
-#undef SX1280_TXEN_pin
-#define SX1280_BUSY_pin 16
-#define SX1280_RXEN_pin -1
-#define SX1280_TXEN_pin  5
+    #undef SX1280_BUSY_pin
+    #undef SX1280_RXEN_pin
+    #undef SX1280_TXEN_pin
+    #undef LED_pin
+    #define LED_pin         -1
+    #define SX1280_BUSY_pin  16
+    #define SX1280_RXEN_pin -1
+    #define SX1280_TXEN_pin  5
 #endif
     
 #define IS_BIND_BUTTON_on   ( (BIND_pin != -1) && (digitalRead(BIND_pin)==LOW))
