@@ -99,7 +99,7 @@ volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
 
 void generateDummySportDataFromSensor();
 
-uint8_t  ICACHE_RAM_ATTR3 nextID()   // find the next Sport ID to be used for polling
+uint8_t ICACHE_RAM_ATTR3 nextID()   // find the next Sport ID to be used for polling
 {
     uint8_t i ;
     uint8_t poll_idx = 99 ; 

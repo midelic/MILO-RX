@@ -15,13 +15,14 @@
     You should have received a copy of the GNU General Public License
     along with this code.  If not, see <http://www.gnu.org/licenses/>.
 */
-//#define DEBUG_HELP_FUNCTIONS                      // create some functions to help debugging; one print
+//#define DEBUG_HELP_FUNCTIONS        // create some functions to help debugging; one print
 //#define DEBUG_EEPROM               // print EEPROM data
 //#define DEBUG_BIND                // print bind data
 //#define DEBUG_FHSS                  // print the generated fhss channels
 //#define DEBUG_INCOMMING_SPORTDATA   // print a frame that has been read from a sport sensor (no PHID but with stuffing and original CRC) 
 //#define DEBUG_SPORT_SPORTDATA // print the original Sport data from sensor (or simulated)
-//#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
+#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
+                                  // code contains then quite many pulses on pin 3 that allows to check that RX is synchronized with TX
 //#define DEBUG_SIM_SPORT_SENSOR  // generate dummy Sport data; allow to use SPORT_pin 3 for generating pulses
 //#define DEBUG_SPORT_SIM_GENERATION // print the dummy Sport data
 //#define DEBUG_DOWNLINK_TLM_FRAME  // print the data in the downlink tlm frame
@@ -33,8 +34,8 @@
 //#define DEBUG_MSP
 //#define DEBUG_LOOP_TIMING
 //#define DEBUG_SERVODATA
-
-
+#define DEBUG_RC_CHANNEL_DATA       // print 8 Rcchannels values received in a frame
+#define DEBUG_UPLINK_TLM_DATA       // print uplink tlm data received
 
 #ifdef ESP8266
 	#define ESP8266_PLATFORM
@@ -48,7 +49,7 @@
 //#define NAMIMNO_RX_NANO_FLASH
 #define ESP8266_E28_2G4M20S
 
-#define MSW_SERIAL
+//#define MSW_SERIAL
 //#define HC_BIND
 //#define USER_MAX_POWER
 #define TELEMETRY 
@@ -103,8 +104,8 @@
 
 #ifdef DEBUG_ON_GPIO3
     #undef MSW_SERIAL
-    #undef TELEMETRY
-    #undef SPORT_TELEMETRY 
+    //#undef TELEMETRY
+    //#undef SPORT_TELEMETRY 
     #define G3ON digitalWrite(3,HIGH)
     #define G3OFF digitalWrite(3,LOW)
     #define G3TOGGLE digitalWrite(3,!digitalRead(3))
@@ -148,7 +149,8 @@
 
 #if defined(DEBUG_SPORT_SPORTDATA) || defined(DEBUG_SPORT_SIM_GENERATION) || defined(DEBUG_DOWNLINK_TLM_FRAME) ||\
         defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_SERVODATA) ||\
-        defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA) || defined(DEBUG_FHSS)
+        defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA) || defined(DEBUG_FHSS) || defined(DEBUG_RC_CHANNEL_DATA) ||\
+        defined(DEBUG_UPLINK_TLM_DATA)
     #undef SBUS  // disable SBUS because it uses the same pin
     #define DEBUG_WITH_SERIAL_PRINT
     #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}

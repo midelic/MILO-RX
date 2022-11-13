@@ -78,10 +78,19 @@
 //bool setFSfromRx = false;
 uint32_t lastReceivedRcFrameMicros = 0;
 #define FAILSAFE_INTERVAL 1000 // ms
-uint16_t countFS = 0;
+uint16_t countFS = 0; // used to blink the led when pressing the button to reset the failsafe values
 
 //EEPROM
 uint32_t  address = 0;//EEPROM start adress
+
+enum{ // types of packet being received from TX
+        BIND_PACKET = 0,
+        CH1_8_PACKET, //  channels 1-8
+        CH9_16_PACKET, // channels 9-16
+        TLM_PACKET,
+        FS1_8_PACKET,  //  failsafe values for channels 1-8
+        FS9_16_PACKET, //  failsafe values for channels 9-16
+    };
 
 //Channels
 #define NO_PULSE  0
@@ -90,24 +99,24 @@ uint32_t  address = 0;//EEPROM start adress
 #define MARGIN_LONG_TIMEOUT 10000 // margin (usec) to be added to the timeout used when not connected (to cover clock difference between TX and RX)
 #define MARGIN_SHORT_TIMEOUT 500 // margin (usec) to be added to the first timeout used when connected 
 
-uint16_t ServoData[16]; // rc channels values used for ppm (received from Tx or failsafe)
-volatile int32_t missingPackets = 0;
-bool packetToDecode = false; // true means that a packet (any type) has been received from Tx and must be decoded
+uint16_t ServoData[16]; // rc channels values used for ppm (generated from sbusChannel[])
+volatile int32_t missingPackets = 0; // number of consecutive missing packets
+bool packetToDecode = false; // true means that a valid packet (any type with Rc or FS channels ot uplinl tlm) has been received from Tx and must be decoded
 uint8_t jumper = 0;
 
-bool isConnected2Tx = false;
+bool isConnected2Tx = false; // true means that the RX got a RC/FS channels or a uplink tlm packet that allows synchronization 
 //uint8_t t_out = FHSS_CHANNELS_NUM; // replaced by a flag isConnected2Tx
-uint32_t t_outMicros ;
+uint32_t t_outMicros ;  // time out for main while() loop
 uint32_t t_tune = 500;
 
 bool sbusAllowed = false;   // true means sbus/pwm can be generated because at least 1 rc signal has been received (and if failsafe values are applied, there is no NO PULSE)
-uint32_t slotBeginAt;
-uint16_t LED_count = 0;
-uint8_t RxData[NBR_BYTES_IN_PACKET]; 
+uint32_t slotBeginAt;       // theoretical timestamp when current slot starts 
+uint16_t LED_count = 0;     // used to toggle the LED when not connected
+uint8_t RxData[NBR_BYTES_IN_PACKET]; // store the packet received by SX1280
 uint32_t bindingTime = 0;
-uint32_t MProtocol_id = 0;
+uint32_t MProtocol_id = 0;  // unique ID provide by TX during binding; used to generate FHSS and to identify the sender of RX packets
 uint8_t PayloadLength = NBR_BYTES_IN_PACKET; // number of bytes in a packet
-uint8_t FrameType = 0;
+uint8_t FrameType = BIND_PACKET;
 uint32_t LastReceivedPacketTime;
 uint32_t lastYieldMicros;
 int32_t smoothedInterval;          // interval in us seconds that corresponds to that frequency
@@ -127,16 +136,6 @@ uint8_t packetSeq = 0;  // count the slots in a sequence 0, 1, 2; 1 means that n
 bool startWifi = false;
 //bool processSportflag = false;
 
-enum{ // types of packet being received from TX
-        BIND_PACKET = 0,
-        CH1_8_PACKET, //  channels 1-8
-        CH9_16_PACKET, // channels 9-16
-        TLM_PACKET,
-        FS1_8_PACKET,  //  failsafe values for channels 1-8
-        FS9_16_PACKET, //  failsafe values for channels 9-16
-    };
-    
-
 typedef struct {
     uint8_t txid[2];
     uint8_t rx_num;
@@ -153,23 +152,22 @@ STORAGE_MILO_DATA *MiLoStrgPtr , MiLoStorage;
 uint8_t uplinkLQ;
 int8_t LastPacketRSSI = 0;
 int8_t LastPacketSNR = 0;
-uint8_t aPacketSeen = 0;
-uint32_t TotalDroppedPacketCount ;
+uint8_t aPacketSeen = 0;  // count (up to 10) the number of packets that have been received
+//uint32_t TotalDroppedPacketCount ;
 uint32_t TotalCrcErrors ;
-uint32_t TotalPktErrors = 0;
+//uint32_t TotalPktErrors = 0;
 //uint32_t AntennaMissingPackets = 0 ;
 //uint16_t AntennaSwaps ;
-uint16_t DroppedPacketCount ;
-uint8_t ThisPacketDropped ;
+//uint16_t DroppedPacketCount ;
+//uint8_t ThisPacketDropped ;
 uint8_t DropHistory[100] ;
-uint8_t DropHistoryIndex ;
 uint8_t DropHistoryPercent ;
-uint8_t DropHistorySend ;
-bool packetCount = false;
+//uint8_t DropHistorySend ;
+//bool packetCount = false;
 uint8_t antenna = 0;
 
 uint8_t countUntilWiFi = 0;
-uint8_t sportCount = 0;
+//uint8_t sportCount = 0;
     
 
 typedef struct
@@ -335,7 +333,9 @@ void setup()
 
     #if defined SPORT_TELEMETRY
         initSportUart();// sport to sensort uses SW serial with the same pin for TX and Rx, signal is inverted
-        pinMode(SPORT_pin,INPUT);
+        #ifndef DEBUG_ON_GPIO3
+            pinMode(SPORT_pin,INPUT);
+        #endif
         sportHead = sportTail = 0;
     #endif
     
@@ -419,11 +419,9 @@ void applyFailsafe()
         }
         else
         {
-            ServoData[i] = (((word<<2)+word)>>3)+860; //value range 860<->2140 -125%<->+125%
-        }              
-        #if defined(SBUS)
+            ServoData[i] = (((word<<2)+word)>>3)+860; //value range 860<->2140 -125%<->+125%             
             sbusChannel[i] = word;
-        #endif
+        }
     }
 } 
 
@@ -445,20 +443,8 @@ void handleShortTimeout()
         }
     #endif
 
-    if (jumper)//jumper = 1 when failsafe is activated
-        countFS ++;
-    
-    #ifdef STATISTIC
-        if ( aPacketSeen > 5 )//count dropped packets when the receiver is receiveing normally packets
-        {
-            ThisPacketDropped = 1;
-            if (packetCount)//downlink uses one time slot so it will take one missing packet
-            {
-                ThisPacketDropped = 0;//compensate for downlink missing packet
-                packetCount = false;
-            }
-        }
-    #endif      
+    if (jumper)//jumper = 1 when button to reset failsafe has been activated
+        countFS ++; // used for led blinking
     
     if ( packetSeq == 1) { // if timeout occurs when we where in a slot for downlink 
                             // we have to go back in receive mode
@@ -468,6 +454,9 @@ void handleShortTimeout()
         SX1280_SetMode(SX1280_MODE_RX);
     } else {
         missingPackets++;
+        #ifdef STATISTIC
+            LQICalc(1);  // count this packet as dropped
+        #endif    
     }
     if (missingPackets > MAX_MISSING_PKT)// we just lost the connection
     {
@@ -598,9 +587,7 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
         #endif
     #endif
     missingPackets = 0;  // reset the number of consecutive missing packets
-    //t_tune = 500;
-    if (aPacketSeen < 10 ) 
-        aPacketSeen++ ;  // increase number of packets up to 10
+    if (aPacketSeen < 10 )  aPacketSeen++ ;  // increase number of packets up to 10
     if (jumper == 0){
         if(LED_pin != -1) LED_on;
     }    
@@ -644,7 +631,7 @@ void saveRcFrame() {
     // save the channels values in 
     
     uint16_t c[8];    
-    uint16_t wordTemp;
+    //uint16_t wordTemp;
     // process a valid RC frame (can be a frame with failsafe data)
     c[0]  = (uint16_t)((RxData[4] | RxData[5]  << 8) & 0x07FF);
     c[1]  = (uint16_t)((RxData[5]  >> 3  |  RxData[6] << 5) & 0x07FF);
@@ -657,6 +644,7 @@ void saveRcFrame() {
 
     uint8_t j = 0;
     if ( (FrameType == CH9_16_PACKET) || (FrameType == FS9_16_PACKET) ) j = 8;
+    
     #if defined TX_FAILSAFE
         if ( (FrameType == FS1_8_PACKET) || (FrameType == FS9_16_PACKET) ) 
         { // use failsafe but do not store them in EEPROM 
@@ -672,6 +660,13 @@ void saveRcFrame() {
     if ( (FrameType == CH1_8_PACKET) || (FrameType == CH9_16_PACKET) ) 
     { // we store always the values for Sbus in sbusChannel[] because we need all 16 values somewhere when failsafe is set with the button
         memcpy( &sbusChannel[j], &c[0], 8) ; // copy into SBUS
+        #ifdef DEBUG_RC_CHANNEL_DATA
+            debug("frame= %d , " , FrameType);
+            for (uint8_t i = 0; i < 1; i++) {  // i max set to 1 to test; could be increase to 8
+                debug(" %d ; ", sbusChannel[i]);
+            }
+            debugln(" ");    
+        #endif
         // we save them to ServoData when PWM is used; we convert the range  
         #ifdef PWM_SERVO    
             for (uint8_t i = 0; i < 8; i++) {
@@ -748,11 +743,21 @@ void decodeSX1280Packet() { // handle a valid frame (RcData or uplink tlm)
     #ifdef TELEMETRY 
         if (FrameType == TLM_PACKET) // process uplink tlm frame
         {
-            uplinkTlmId = (RxData[3] & 0XC0) >> 6 ;  // 2 upper bits to be sent back in a downlink frame as ack
             downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
-            // format the packet (add START + stuffing + CRC) in sportMspData[4]  
-            sportMSPstuff(&RxData[4]) ; // process 8 bytes starting from RxData and add them to sportMspData[]
-            // update sportMspData[].frame, sportMspData[].len and sportMspTail, sportMspHead and sportMspCount
+            if( ( (RxData[3] & 0XC0) >> 6 ) == uplinkTlmId ) { 
+                // we receive a message with the expected sequence, so we process it
+                uplinkTlmId++;
+                // format the packet (add START + stuffing + CRC) in sportMspData[4]  
+                #ifdef DEBUG_UPLINK_TLM_DATA
+                    debug("frame= %d , " , FrameType);
+                    for (uint8_t i = 4; i < 5; i++) {  // change i and max to print the full data 
+                        debug(" %d ; ", RxData[4+i]);
+                    }
+                    debugln(" ");    
+                #endif
+                sportMSPstuff(&RxData[4]) ; // process 8 bytes starting from RxData and add them to sportMspData[]
+                // update sportMspData[].frame, sportMspData[].len and sportMspTail, sportMspHead and sportMspCount
+            }    
         }
     #endif
     if (FrameType != TLM_PACKET && FrameType != BIND_PACKET)
@@ -764,9 +769,6 @@ void decodeSX1280Packet() { // handle a valid frame (RcData or uplink tlm)
                        // if SBUS is defined, data are stored also in sbusChannel[] but frame is not yet generated 
         //SBUS_frame(); // create frame mainly based on sbusChannel[]
     }
-    #ifdef STATISTIC
-        LQICalc();
-    #endif
 }  
 
 //++++++++++++++++++++++++++++++++++++++++   main loop   +++++++++++++++++++++++++++++++++++ 
@@ -779,7 +781,7 @@ void loop()
             && setFSfromTx == false  // and no failsafe data have been received from TX
             #endif
             )
-        if (countFS == 0) //only at boot reset (Failsafe) no reset while the rx is bound
+        if (countFS == 0) //only at boot reset (Failsafe) no reset of failsafe values while the rx is bound
         {
             countFS = 1;
             jumper = 1;
@@ -807,6 +809,8 @@ void loop()
                     prepareNextSlot(); //  we first prepare next slot (e.g. frequency hop if allowed ) and update some flags/counters
                     decodeSX1280Packet();
                     break; // exit while(1)
+                } else {
+                    Serial.println("Not valid");
                 }
             }
         }
@@ -833,19 +837,20 @@ void loop()
                                    // put data in a circular buffer (sportData[]) that will be handled by downlink tlm slot.
         #endif
         #ifdef SPORT_TELEMETRY
-        if ( sportPollIsrFlag){ 
+        if ( sportPollIsrFlag){  // flag is set by an interrupt from a timer 
             handleSportPoll(); // perform a polling (or forward a uplink tlm frame) at regular interval (12msec)
         }
         #endif
         #ifdef SBUS
-        // send Sbus frame on Serial once evey xx msec 
-        if ( ( micros() - lastSbusMicros) > SBUS_INTERVAL ) {
-            lastSbusMicros = micros();
-            if (sbusAllowed) 
-            {  // at least Rx has been connected and Failsafe is not activated with NO PULSE(sbusAllowed)
-                SBUS_frame(); // fill Sbus frame with channels data
-                for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial.write(sbus[i]);
-            }    
+            // send Sbus frame on Serial once evey xx msec 
+            if ( ( micros() - lastSbusMicros) > SBUS_INTERVAL ) {
+                lastSbusMicros = micros();
+                if (sbusAllowed) 
+                {  // at least Rx has been connected and Failsafe is not activated with NO PULSE(sbusAllowed)
+                    SBUS_frame(); // fill Sbus frame with channels data from sbusData[]
+                    for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial.write(sbus[i]);
+                }
+            }        
         #endif
         
         if (! isConnected2Tx) { // not needed to yield when connected because it is already done at begining of the loop
@@ -880,7 +885,7 @@ void loop()
         }    
     #endif
     #ifdef STATISTIC
-        if ( aPacketSeen > 5) packetCount = true;
+        LQICalc(0); // count this packet as received (not dropped)
     #endif
 
 } // end main loop
@@ -1254,22 +1259,23 @@ void ICACHE_RAM_ATTR dioISR()
 }    
 
 #ifdef STATISTIC
-    void LQICalc(){
-        uint8_t oldDropBit = DropHistory[DropHistoryIndex];
-        DropHistory[DropHistoryIndex] = ThisPacketDropped ;
-        if ( ++DropHistoryIndex >= 100 )
-        {
-            DropHistoryIndex = 0 ;
-        }
-        DropHistoryPercent += ThisPacketDropped ;
-        DropHistoryPercent -= oldDropBit ;
-        ThisPacketDropped = 0 ;
-        if ( ++DropHistorySend >= 30 )
-        {
-            if (DropHistoryPercent < 100)
-                uplinkLQ = (100 - DropHistoryPercent ) ;
-            DropHistorySend = 0 ;
-        }   
+    void LQICalc(uint8_t ThisPacketDropped){
+        static uint8_t DropHistoryIndex ;
+        if ( aPacketSeen > 5) {
+            uint8_t oldDropBit = DropHistory[DropHistoryIndex];
+            DropHistory[DropHistoryIndex] = ThisPacketDropped ;
+            if ( ++DropHistoryIndex >= 100 ) DropHistoryIndex = 0 ;
+            DropHistoryPercent += ThisPacketDropped ;
+            DropHistoryPercent -= oldDropBit ;
+            //ThisPacketDropped = 0 ;
+            //if ( ++DropHistorySend >= 30 )
+            //{
+                if (DropHistoryPercent <= 100)
+                    uplinkLQ = (100 - DropHistoryPercent ) ;
+            //    DropHistorySend = 0 ;
+            //
+            //}
+        }       
 }
 #endif // end STATISTIC
 
