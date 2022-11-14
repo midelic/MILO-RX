@@ -743,10 +743,12 @@ void decodeSX1280Packet() { // handle a valid frame (RcData or uplink tlm)
     #ifdef TELEMETRY 
         if (FrameType == TLM_PACKET) // process uplink tlm frame
         {
+            debugln("receiveUp recDwnC=%d recUpC=%d existingUpC=%d",\
+             (RxData[0] & 0X30) >> 4  , (RxData[3] & 0XC0) >> 6 , uplinkTlmId); 
             downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
             if( ( (RxData[3] & 0XC0) >> 6 ) == uplinkTlmId ) { 
                 // we receive a message with the expected sequence, so we process it
-                uplinkTlmId++;
+                uplinkTlmId = (uplinkTlmId + 1) & 0X03; 
                 // format the packet (add START + stuffing + CRC) in sportMspData[4]  
                 #ifdef DEBUG_UPLINK_TLM_DATA
                     debug("frame= %d , " , FrameType);
@@ -1134,6 +1136,7 @@ void MiLoRxBind(void)
                 Serial.println("Roll Tail back");
             } 
         }
+        debugln("sendDwn sentDwnC=%d expDwnC=%d sentUpC%d", downlinkTlmId , dwnlnkTlmExpectedId , uplinkTlmId);
         #ifdef DEBUG_SPORT_SPORTDATA
             Serial.print("Tail="); Serial.print(sportTail); Serial.print(" ifAck="); Serial.print(sportTailWhenAck); Serial.print(" data=");
             uint8_t idx = sportTail;

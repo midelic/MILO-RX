@@ -280,22 +280,23 @@ Checks on the sequences for uplink messages:
                                                                     SportToAck = SportTail
                                                                     if (SportCount > 0) sportCount-- 
                                                             - else roll back SportTail to SportToAck
+
 example of uplink sequence
                             uplinkTlmId(Rx )     frame       uplinkTlmId(TX)      expectedUlnkTlmId(TX)  data   SportCount
     initial values                0                                   0            0                               0
     Tx does not sent uplink                                                                                        
     Handset provide Sport data                                                                                     1
-    Tx sent uplink                                  0                             0->1           put first data 
+    Tx sent uplink                                  0<<                           0->1           put first data 
     Rx receives (0==0)           0->1 + handle data                  
-    RX sent                                         1
+    RX sent                                         >>1
     TX does not receive
-    Tx sent  (0!=1)                                 0            roll back                        put initial data
+    Tx sent  (0!=1)                                 0<<          roll back                        put initial data
     Rx receives (0!=1)  discard (already handled)                              
-    RX sent                                         1
+    RX sent                                         >>1
     TX does not receive
-    Tx sent  (0!=1)                                 0            roll back                        put initial data
+    Tx sent  (0!=1)                                 0<<            roll back                        put initial data
     Rx receives (0!=1)  discard                              
-    RX sent                                         1
+    RX sent                                         >>1
     TX receives                                                     0->1                          move to next data  1->0           
     Tx does not sent uplink  (no data)                     
     Handset provide new Sport data                                                                                   0->1   
