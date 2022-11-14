@@ -1080,10 +1080,11 @@ void MiLoRxBind(void)
     {     
         frame[0] = (MiLoStorage.txid[0] & 0XFC ) | downlinkTlmId; 
         frame[1] = (MiLoStorage.txid[1] & 0XFC ) | uplinkTlmId;
-        if (sportTail != sportTailWhenAck) {
+        if (sportTail != sportTailWhenAck) {  
             if (downlinkTlmId == dwnlnkTlmExpectedId)
             { // previous dwnlnk frame has been ack so we can move sportTail to sportTailWhenAck
                 lastLinkqAckedMicros = lastLinkqToAckMicros ; // avoid to generate linkquality data on each frame
+                dwnlnkTlmExpectedId = (downlinkTlmId + 1) & 0x03; // calcuate Id that would allow an update for next downlink tlm frame
                 sportTail = (sportTail + 8 ) & 0X3F ; // we first move one step forward.
                 sportDataLen--;
                 if (sportTail != sportTailWhenAck ) { // move one step more
@@ -1097,7 +1098,6 @@ void MiLoRxBind(void)
                 Serial.println("Roll Tail back");
             } 
         }
-        dwnlnkTlmExpectedId = (downlinkTlmId + 1) & 0x03; // calcuate Id that would allow an update for next downlink tlm frame
         #ifdef DEBUG_SPORT_SPORTDATA
             Serial.print("Tail="); Serial.print(sportTail); Serial.print(" ifAck="); Serial.print(sportTailWhenAck); Serial.print(" data=");
             uint8_t idx = sportTail;
