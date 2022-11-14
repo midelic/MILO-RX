@@ -71,11 +71,7 @@
 //Failsafe
 #ifdef TX_FAILSAFE
     bool setFSfromTx = false;
-    //bool fsStarted      = false;
-    //bool fsChanged   = false;
 #endif
-//Failsafe RX
-//bool setFSfromRx = false;
 uint32_t lastReceivedRcFrameMicros = 0;
 #define FAILSAFE_INTERVAL 1000 // ms
 uint16_t countFS = 0; // used to blink the led when pressing the button to reset the failsafe values
@@ -126,7 +122,6 @@ volatile bool dioOccured = false ;     // true when a dio1 interrupt occurs
 bool frameReceived = false;           // becomes true when a frame with good CRC has been received
 
 //Debug
-//uint16_t BackgroundTime;
 uint32_t debugTimer;
 char debug_buf[64];
 
@@ -134,7 +129,6 @@ uint8_t packetSeq = 0;  // count the slots in a sequence 0, 1, 2; 1 means that n
                         // value is forced when a valid frame is received, it is increased by 1 in case of timeout when connected
                         // it is not used when not connected
 bool startWifi = false;
-//bool processSportflag = false;
 
 typedef struct {
     uint8_t txid[2];
@@ -153,23 +147,13 @@ uint8_t uplinkLQ;
 int8_t LastPacketRSSI = 0;
 int8_t LastPacketSNR = 0;
 uint8_t aPacketSeen = 0;  // count (up to 10) the number of packets that have been received
-//uint32_t TotalDroppedPacketCount ;
 uint32_t TotalCrcErrors ;
-//uint32_t TotalPktErrors = 0;
-//uint32_t AntennaMissingPackets = 0 ;
-//uint16_t AntennaSwaps ;
-//uint16_t DroppedPacketCount ;
-//uint8_t ThisPacketDropped ;
 uint8_t DropHistory[100] ;
 uint8_t DropHistoryPercent ;
-//uint8_t DropHistorySend ;
-//bool packetCount = false;
 uint8_t antenna = 0;
 
 uint8_t countUntilWiFi = 0;
-//uint8_t sportCount = 0;
     
-
 typedef struct
 {
     uint8_t uplink_RSSI_1;
@@ -360,7 +344,6 @@ void setup()
         //MiLoStorage.txid[1] = 99;        
     #endif
     is_in_binding = false;
-    //MiLoRxBinding(0); // ReadEEPROMdata and set is_in_binding = false;
     #ifdef DEBUG_FHSS
     // we generate several fhss sequence just to see if the aglo is OK
         for (uint8_t i ; i< 20; i++){ 
@@ -463,8 +446,8 @@ void handleShortTimeout()
         #if defined(FAILSAFE)
             applyFailsafe() ; // put failsafe values in ServoData[] and sbusChannel[]
         #endif
-        isConnected2Tx = false; // previously it was t_out = FHSS_CHANNELS_NUM;// wait max 68 slots of 7 msec before exiting while()
-        t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // 2000 is to be sure that interval is big enoug to cover 68 slots
+        isConnected2Tx = false;// wait max 37 slots of 7 msec before exiting while()
+        t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // 2000 is to be sure that interval is big enoug to cover 37 slots
         countFS = 0;    
         //packetSeq = 0;
         uplinkLQ = 0;
@@ -482,7 +465,7 @@ void handleShortTimeout()
 }
 
 void handleLongTimeout()
-{ // when 68 time interval expires without receiving a frame, process LED, failsafe setup and frequency hop. 
+{ // when 37 *time interval expires without receiving a frame, process LED, failsafe setup and frequency hop. 
     if (jumper == 0) 
     { // When button is not pressed toggle LED to show that link is lost
         LED_count++;
@@ -499,7 +482,6 @@ void handleLongTimeout()
             delay(100); //blink LED
         }
         bool  saveFsToEprom = false;
-        //detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));    
         for (uint8_t i = 0 ; i < 16; i++)
         {
             if (MiLoStorage.FS_data[i] != 0)
@@ -574,13 +556,6 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
         G3PULSE(1);
         SX1280_SetFrequencyReg(GetCurrFreq());
     }
-    //uint32_t packet_Timer = micros() ;                  
-    //int32_t diff = packet_Timer - LastReceivedPacketTime ;
-    //LastReceivedPacketTime = packet_Timer ;
-    //if (( diff > 6300) && ( diff < 7700) ) {
-        //smoothedInterval = smoothedInterval + 0.1*(diff - smoothedInterval ); // automatic update of interval with smoothing formula
-    //}
-    //debugln("intval = %d ,diff = %d",smoothedInterval,diff);m
     #ifdef HAS_PA_LNA
         #ifdef EU_LBT
             BeginClearChannelAssessment();
@@ -606,9 +581,7 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
                 SX1280_SetMode(SX1280_MODE_SLEEP);//start sleep mode to reduce SX120 current before starting WiFi
                 timer0_detachInterrupt();//timer0 is needed for wifi
                 detachInterrupt(digitalPinToInterrupt(SX1280_DIO1_pin));
-                //??????????????????????????????????????????????
-                // perhaps we have also to detachInterrupt for timer1 used by Serial software ???????????????????????
-                //??????????????????????????????????????????????
+                timer1_detachInterrupt();
                 uint32_t Now = millis();
                 WIFI_start();
                 while(1){
@@ -648,7 +621,7 @@ void saveRcFrame() {
     #if defined TX_FAILSAFE
         if ( (FrameType == FS1_8_PACKET) || (FrameType == FS9_16_PACKET) ) 
         { // use failsafe but do not store them in EEPROM 
-            setFSfromTx = true;  // this will avoid setting jupmer = 1 and so avoid saving failsafe value with the Rx button
+            setFSfromTx = true;  // this will avoid setting jumper = 1 and so avoid saving failsafe value with the Rx button
             for (uint8_t i = 0; i < 8; i++) {
                 MiLoStorage.FS_data[i+j] = c[i];    
                 #ifdef DEBUG_FS
@@ -704,15 +677,6 @@ void handleDio1() {
     uint16_t irqStatus = SX1280_GetIrqStatus();
     SX1280_ClearIrqStatus(SX1280_IRQ_RADIO_ALL);
     frameReceived = false;
-    //   TX interrupt are probably not required because after sending, a short time out will occurs and
-    //        we will go back in receive mode in the handling of the short time out
-    //if (irqStatus & SX1280_IRQ_TX_DONE)
-    //{
-    //    #ifdef HAS_PA_LNA
-    //        SX1280_SetTxRxMode(TXRX_OFF);
-    //    #endif
-    //    currOpmode = SX1280_MODE_FS; // radio goes to FS after TX
-    //}
     if (irqStatus & (SX1280_IRQ_RX_DONE | SX1280_IRQ_CRC_ERROR | SX1280_IRQ_RX_TX_TIMEOUT))
     {
         if (irqStatus & SX1280_IRQ_CRC_ERROR) {
@@ -1267,14 +1231,8 @@ void ICACHE_RAM_ATTR dioISR()
             if ( ++DropHistoryIndex >= 100 ) DropHistoryIndex = 0 ;
             DropHistoryPercent += ThisPacketDropped ;
             DropHistoryPercent -= oldDropBit ;
-            //ThisPacketDropped = 0 ;
-            //if ( ++DropHistorySend >= 30 )
-            //{
                 if (DropHistoryPercent <= 100)
                     uplinkLQ = (100 - DropHistoryPercent ) ;
-            //    DropHistorySend = 0 ;
-            //
-            //}
         }       
 }
 #endif // end STATISTIC

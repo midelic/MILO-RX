@@ -21,7 +21,7 @@
 //#define DEBUG_FHSS                  // print the generated fhss channels
 //#define DEBUG_INCOMMING_SPORTDATA   // print a frame that has been read from a sport sensor (no PHID but with stuffing and original CRC) 
 //#define DEBUG_SPORT_SPORTDATA // print the original Sport data from sensor (or simulated)
-#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
+//#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
                                   // code contains then quite many pulses on pin 3 that allows to check that RX is synchronized with TX
 //#define DEBUG_SIM_SPORT_SENSOR  // generate dummy Sport data; allow to use SPORT_pin 3 for generating pulses
 //#define DEBUG_SPORT_SIM_GENERATION // print the dummy Sport data
@@ -34,22 +34,22 @@
 //#define DEBUG_MSP
 //#define DEBUG_LOOP_TIMING
 //#define DEBUG_SERVODATA
-#define DEBUG_RC_CHANNEL_DATA       // print 8 Rcchannels values received in a frame
-#define DEBUG_UPLINK_TLM_DATA       // print uplink tlm data received
+//#define DEBUG_RC_CHANNEL_DATA       // print 8 Rcchannels values received in a frame
+//#define DEBUG_UPLINK_TLM_DATA       // print uplink tlm data received
 
 #ifdef ESP8266
 	#define ESP8266_PLATFORM
 #endif
 //----Modules defs--------
-//#define EL24P//flywoo RX
+#define EL24P//flywoo RX
 //#define DIY_RX
 //#define MATEK_RX_R24D
 //#define MATEK_RX_R24S
-#define BETA_FPV_RX_NANO // or Cycloon clone
+//#define BETA_FPV_RX_NANO // or Cycloon clone
 //#define NAMIMNO_RX_NANO_FLASH
 //#define ESP8266_E28_2G4M20S
 
-//#define MSW_SERIAL
+#define MSW_SERIAL
 //#define HC_BIND
 //#define USER_MAX_POWER
 #define TELEMETRY 
@@ -88,7 +88,7 @@
     #define USER_MAX_POWER 10 //10mW for example can be defined whatever you need
 #endif
 
-//#define SBUS // mstrens removed to test
+#define SBUS // mstrens removed to test
 #define TX_FAILSAFE
 //#define PWM_SERVO
 //#define ADC_VOLT
@@ -96,7 +96,7 @@
 //#define SERVO_RATE
 //#define PARALLEL_SERVO
 //#define EU_LBT
-//#define USE_WIFI
+#define USE_WIFI
 
 #ifdef USE_WIFI
     #include "devWIFI_elegantOTA.h"

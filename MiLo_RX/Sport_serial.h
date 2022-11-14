@@ -93,8 +93,6 @@ volatile uint32_t sportStuffTime = 0;  //timing extra stuffing bytes
     volatile uint8_t state;    //serial state
     void ICACHE_RAM_ATTR SerialBitISR(void);
     void ICACHE_RAM_ATTR SerialPinISR(void);
-    //oid ICACHE_RAM_ATTR enable_interrupt_serial_pin(){attachInterrupt(digitalPinToInterrupt(SPORT_pin), SerialPinISR, RISING);}
-    //void ICACHE_RAM_ATTR disable_interrupt_serial_pin() { detachInterrupt(digitalPinToInterrupt(SPORT_pin));} 
 #endif
 
 void generateDummySportDataFromSensor();
@@ -171,7 +169,6 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
         noInterrupts();
         sportindex = 0 ;
         detachInterrupt(digitalPinToInterrupt(SPORT_pin));
-        timer0_detachInterrupt(); // mstrens not sure it is needed
         pinMode(SPORT_pin,OUTPUT);
         CLEAR_TX_BIT;
         state = TXPENDING;
@@ -184,8 +181,6 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
 #ifdef MSW_SERIAL
     void ICACHE_RAM_ATTR SerialPinISR()   // called when a pin rise = start bit with inverted serial (we where waiting to receive a byte)
     {   
-        //if(digitalRead(SPORT_pin)==HIGH)   // Pin is high,inverted signal
-        //{  // When level goes up, it means we got a start bit
             detachInterrupt(digitalPinToInterrupt(SPORT_pin));   //disable pin change interrupt         
             sportRXbit = 0;   //Clear received bit counter.
             sportRX = 0;      // accumulate the bit received waiting for a full byte
@@ -194,7 +189,6 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
             timer0_attachInterrupt(SerialBitISR);
             nextSerialBitCycle = ESP.getCycleCount() + BIT_TIME_GET_FIRST_BIT;
             timer0_write(nextSerialBitCycle);  
-        //}
     }
     
     
@@ -271,9 +265,6 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
                     timer0_detachInterrupt();//stop timer interrupt
                     state = IDLE ;   //change state to idle 
                     attachInterrupt(digitalPinToInterrupt(SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.
-                //
-                //    timer0_write(ESP.getCycleCount() + BIT_TIME);
-                //    state = WAITING;
                 }
                 break;
             case TXPENDING :
@@ -285,11 +276,6 @@ void  ICACHE_RAM_ATTR3 sendMSPpacket(uint8_t nbrBytes)  // send an uplink frame 
                 sportTX = sTxData[0];
                 state = TRANSMIT;
                 break;
-            //case WAITING :  
-            //    timer0_detachInterrupt();//stop timer interrupt
-            //    state = IDLE ;   //change state to idle 
-            //    attachInterrupt(digitalPinToInterrupt(SPORT_pin), SerialPinISR, RISING);   //switch to RX serial receive.
-            //    break;
             case IDLE:
                 break;
         }
@@ -339,22 +325,8 @@ uint8_t ICACHE_RAM_ATTR3 unstuff()   // Remove stuffing in a buffer sRxData (fil
 }
 
 
-uint8_t checkSimilarSport(){
-    // note: this function is not 100% correct.
-    // imagine folowing scenario: 
-    // sportData[] contains already a set of data that have been sent to Tx in the second part (the first part being also a sensor dataset and not a link quality set)
-    // TX has not yet acknowledge
-    // a new set of data arrives from sensor with the same 4 first bytes
-    // we will append the new set of data
-    // we now have to create a new downlink frame but Tx has not give the ACK so we roll back SportTailIfAck to sportTail
-    // suppose now that it is time to fill first part of packet with link quality data and so only first set from circular buffer will be added in second part.
-    // so our second set will not be part of the packet (and we have 2 identical KEY in the circular buffer).
-    // if new data arrives from sensor with identical key, only the first one will be updated.
-    // so at the end we could send the oldiest data after having sent freshier data.  
-    uint8_t tail = sportTailWhenAck; // we start looking from this to avoid updating a frame that have already been sent but not yet confirmed
-    // look in circular buffer from the first occurence (if any)
-    // return the position of a found set of data
-    //        or the size of the circular buffer if not found.
+uint8_t checkSimilarSport(){ 
+    uint8_t tail = sportTailWhenAck; // we start looking from this to avoid updating a frame that have already been sent but not yet confirmed.
     while ( tail != sportHead){
         if ( ( cleanSportData[0] == sportData[tail]) && ( cleanSportData[1] == sportData[tail+1] ) &&
             ( cleanSportData[2] == sportData[tail+2]) && ( cleanSportData[3] == sportData[tail+3] ) ){
