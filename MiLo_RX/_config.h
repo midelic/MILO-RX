@@ -47,7 +47,7 @@
 //#define MATEK_RX_R24S
 //#define BETA_FPV_RX_NANO // or Cycloon clone
 //#define NAMIMNO_RX_NANO_FLASH
-//#define ESP8266_E28_2G4M20S
+#define ESP8266_E28_2G4M20S
 
 #define MSW_SERIAL
 //#define HC_BIND
