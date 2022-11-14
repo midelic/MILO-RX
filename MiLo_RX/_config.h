@@ -41,7 +41,7 @@
 	#define ESP8266_PLATFORM
 #endif
 //----Modules defs--------
-#define EL24P//flywoo RX
+//#define EL24P//flywoo RX
 //#define DIY_RX
 //#define MATEK_RX_R24D
 //#define MATEK_RX_R24S
