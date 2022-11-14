@@ -200,4 +200,139 @@ Sending downlink tlm frame
     MiLoTlm_build_frame() checks if previous frame has been confirmed by Tx (update sportTail accordingly)
                           performs some compression in order to be able to put 2 set of data in one packet. 
 
+
+
+Checks on the sequences for dowlink messages:
+-------------------TX--------------------------   ---------------------RX---------------------------
+                                                   -create downlink tlm frame---MiLoTlm_build_frame()
+                                                        - put downlinkTlmId in frame[0]
+                                                        - if downlinkTlmId == dwnlnkTlmExpectedId
+                                                                - advance data to send next entry in circular buffer
+                                                                - dwnlnkTlmExpectedId = (downlinkTlmId +1) %3  // New line added !!!!!!!!!!!!!!!!
+                                                        - else roll back to previously sent data
+                                                        //- increase dwnlnkTlmExpectedId by 1 (put as comment)
+- receive a downlink tlm frame in frsky_process_telemetry()                                                        
+    - if buffer[0](2 bits)  == telemetry_counter
+         - increase telemetry_counter
+         - handle the frame
+    - else discard
+
+- create a frame - Milo_data_frame() or Milo_telemetry_frame()
+    - fill the frame with telemetry_counter
+                                                       
+                                                     - receive a frame (data or uplink) in decodeSX1280Packet()
+                                                           downlinkTlmId = bits 5..4 from message RxData[0] 
+examples of Downlink sequence
+                            telemetry counter     frame       downlinkTlmId  dwnlnkTlmExpectedId  data
+    initial values                0                                   0            0
+    Tx sent                       0                 0                 
+    Rx reveives                                                       0
+    Rx sent                                         0                 0            0->1           put first data
+    Tx receives (0==0)           0->1 + handle data                  
+    TX sent                                         1
+    RX does not receive
+    Rx sent  (0!=1)                                 0            roll back                        put initial data
+    Tx receives (0!=1)  discard                              
+    TX sent                                         1
+    RX does not receive
+    Rx sent  (0!=1)                                 0            roll back                        put initial data
+    Tx receives (0!=1)  discard                              
+    TX sent                                         1
+    RX receives                                                     0->1            
+    Rx sent  (1==1)                                 1                             1->2            put new data
+    Tx does not received
+    Tx sent                                         1
+    Rx receives                                                     1->1
+    Rx sent (1!=2)                                  1             rollback                        put previous data
+    Tx receives (1==1)           1->2 + handle data                  
+
+
+example with initial values that are not equal
+                            telemetry counter     frame       downlinkTlmId  dwnlnkTlmExpectedId  data
+    initial values                0                                   2            3
+    Tx sent                       0                 0                 
+    Rx reveives                                                       0
+    Rx sent                                         0                 0            0->1           put first data
+    Tx receives (0==0)           0->1 + handle data                  
+    So from here, sequence are synchronized again.
+
+
+
+Checks on the sequences for uplink messages:
+-------------------RX--------------------------     ---------------------TX---------------------------
+                                                    -create uplink tlm frame---Milo_telemetry_frame()
+                                                    This happens only when slot could be a uplink and SportCount>1    
+                                                        - put uplinkTlmId in packet[3] bits 7..6
+                                                        - if uplinkTlmId == expectedUplinkTlmId
+                                                                - expectedUplinkTlmId = (uplinkTlmId +1) %3 
+                                                        fill the data and increase SportTail by 8
+- receive a uplinkTlm frame in decodeSX1280Packet()                                                        
+    - if (RxData[3] & 0XC0) >> 6 ) == uplinkTlmId 
+         - increase uplinkTlmId
+         - handle the frame 
+    - else discard
+- create a downlink frame - MiLoTlm_build_frame()
+    - fill frame[1] bits 1..0 with uplinkTlmId                                                  
+                                                    - receive a frame (downlink) in frsky_process_telemetry()
+                                                            uplinkTlmId = buffer[1] & 0X03
+                                                            - if uplinkTlmId == expectedUplinkTlmId
+                                                                remove one entry from circular buffer (if possible)
+                                                                    SportToAck = SportTail
+                                                                    if (SportCount > 0) sportCount-- 
+                                                            - else roll back SportTail to SportToAck
+example of uplink sequence
+                            uplinkTlmId(Rx )     frame       uplinkTlmId(TX)      expectedUlnkTlmId(TX)  data   SportCount
+    initial values                0                                   0            0                               0
+    Tx does not sent uplink                                                                                        
+    Handset provide Sport data                                                                                     1
+    Tx sent uplink                                  0                             0->1           put first data 
+    Rx receives (0==0)           0->1 + handle data                  
+    RX sent                                         1
+    TX does not receive
+    Tx sent  (0!=1)                                 0            roll back                        put initial data
+    Rx receives (0!=1)  discard (already handled)                              
+    RX sent                                         1
+    TX does not receive
+    Tx sent  (0!=1)                                 0            roll back                        put initial data
+    Rx receives (0!=1)  discard                              
+    RX sent                                         1
+    TX receives                                                     0->1                          move to next data  1->0           
+    Tx does not sent uplink  (no data)                     
+    Handset provide new Sport data                                                                                   0->1   
+    Tx sent  (1==1)                                 1                             1->2            put new data
+    Rx does not received
+    Rx sent                                         1
+    Tx receives (1!=2)                                               1->1                     rollback (tail = ToAck)
+    Tx sent (1!=2)                                  1                                          put previous data
+    Rx receives (1==1)           1->2 + handle data                  
+    RX sent                                         2
+    Handset provide new Sport data                                                                                   1->2
+    TX receives (2==2)                                               1->2                         move to next data  2->1           
+    Tx sent (2==2)                                  2                                          put new data
+    
+
+example of uplink with initial values that are not equal
+                            uplinkTlmId(Rx )     frame       uplinkTlmId(TX)      expectedUlnkTlmId(TX)  data    SportCount
+    initial values                0                                   2            3                              0
+    Tx does not sent uplink (SportCount == 0)
+    Rx does not receive (no uplink sent)
+    Rx sent                                         0
+    TX receives  (0!=3)                                            2->0                          rollback (nihil) 0->0                                                                    
+    Handset provide Sport data                                                                                     1
+    Tx sent uplink                                  0                             0->1           put first data 
+    Rx receives (0==0)           0->1 + handle data                  
+    RX sent                                         1
+    TX does not receive
+    Tx sent  (0!=1)                                 0            roll back                        put initial data
+    Rx receives (0!=1)  discard (already handled)                              
+    RX sent                                         1
+    TX does not receive
+    Tx sent  (0!=1)                                 0            roll back                        put initial data
+    Rx receives (0!=1)  discard                              
+    RX sent                                         1
+    TX receives                                                     0->1                          move to next data  1->0           
+        
+
+
+
 */
