@@ -718,8 +718,8 @@ void decodeSX1280Packet() { // handle a valid frame (RcData or uplink tlm)
                 // format the packet (add START + stuffing + CRC) in sportMspData[4]  
                 #ifdef DEBUG_UPLINK_TLM_DATA
                     debug("frame= %d , " , FrameType);
-                    for (uint8_t i = 4; i < 5; i++) {  // change i and max to print the full data 
-                        debug(" %d ; ", RxData[4+i]);
+                    for (uint8_t i = 0; i < 8; i++) {  
+                        Serial.print(RxData[4+i],HEX);Serial.print(" ; ");
                     }
                     debugln(" ");    
                 #endif
@@ -971,6 +971,13 @@ void MiLoRxBind(void)
         sei();
         if (sportMspCount)   // We have some uplink tlm data in sportMspData[] to send to sensor
         {
+            #ifdef DEBUG_UPLINK_TLM_SENT_TO_SPORT
+                Serial.print("uplink sport= ");
+                for (uint8_t i = 0 ; i< sportMspData[sportMspTail].len ; i++){
+                    Serial.print( sportMspData[sportMspTail].frame[i], HEX); Serial.print(" ; ");
+                }
+                Serial.println(" ");
+            #endif
             memcpy((void *)sTxData, &sportMspData[sportMspTail].frame[0], sportMspData[sportMspTail].len);
             sendMSPpacket(sportMspData[sportMspTail].len);  // Start a background process (ISR) to send sTxData[] (with len bytes)  
             sportMspTail = (sportMspTail + 1) & 0X03; // do not exceed 4 values in circular buffer
@@ -1174,8 +1181,16 @@ void MiLoRxBind(void)
             crc_s &= 0x00ff;
         }
         sportMspData[sportMspHead].len = indx;
+        #ifdef DEBUG_UPLINK_TLM_DATA
+            debug("uplnk converted in %d bytes: " , indx);
+            for (uint8_t i = 0; i < indx; i++) {  
+                Serial.print(sportMspData[sportMspHead].frame[i],HEX);Serial.print(" ; ");
+            }
+            debugln("  h=%d, c=%d", sportMspHead , sportMspCount );        
+        #endif
         sportMspHead =  (sportMspHead + 1) & 0X03; // advance Head (max 4 values)
         sportMspCount++;
+        
     }
 
     // The sensor replies to the polling with a frame that starts by START code

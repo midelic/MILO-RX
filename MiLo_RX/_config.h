@@ -36,6 +36,7 @@
 //#define DEBUG_SERVODATA
 #define DEBUG_RC_CHANNEL_DATA       // print 8 Rcchannels values received in a frame
 #define DEBUG_UPLINK_TLM_DATA       // print uplink tlm data received
+#define DEBUG_UPLINK_TLM_SENT_TO_SPORT // print the uplink tlm as it would be sent on Sport port
 #define DEBUG_SEQUENCE              // print info about up and downlink counter when a frame is sent/received
 
 #ifdef ESP8266
@@ -50,7 +51,7 @@
 //#define NAMIMNO_RX_NANO_FLASH
 #define ESP8266_E28_2G4M20S
 
-//#define MSW_SERIAL
+#define MSW_SERIAL
 //#define HC_BIND
 //#define USER_MAX_POWER
 #define TELEMETRY 
@@ -89,7 +90,7 @@
     #define USER_MAX_POWER 10 //10mW for example can be defined whatever you need
 #endif
 
-//#define SBUS // mstrens removed to test
+#define SBUS
 #define TX_FAILSAFE
 //#define PWM_SERVO
 //#define ADC_VOLT
@@ -151,7 +152,7 @@
 #if defined(DEBUG_SPORT_SPORTDATA) || defined(DEBUG_SPORT_SIM_GENERATION) || defined(DEBUG_DOWNLINK_TLM_FRAME) ||\
         defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_SERVODATA) ||\
         defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA) || defined(DEBUG_FHSS) || defined(DEBUG_RC_CHANNEL_DATA) ||\
-        defined(DEBUG_UPLINK_TLM_DATA) || defined(DEBUG_SEQUENCE)
+        defined(DEBUG_UPLINK_TLM_DATA) || defined(DEBUG_SEQUENCE) || defined(DEBUG_UPLINK_TLM_SENT_TO_SPORT)
     #undef SBUS  // disable SBUS because it uses the same pin
     #define DEBUG_WITH_SERIAL_PRINT
     #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}
