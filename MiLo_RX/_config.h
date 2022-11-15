@@ -36,6 +36,7 @@
 //#define DEBUG_SERVODATA
 #define DEBUG_RC_CHANNEL_DATA       // print 8 Rcchannels values received in a frame
 #define DEBUG_UPLINK_TLM_DATA       // print uplink tlm data received
+#define DEBUG_UPLINK_TLM_SENT_TO_SPORT // print the uplink tlm as it would be sent on Sport port
 #define DEBUG_SEQUENCE              // print info about up and downlink counter when a frame is sent/received
 
 #ifdef ESP8266
@@ -151,7 +152,7 @@
 #if defined(DEBUG_SPORT_SPORTDATA) || defined(DEBUG_SPORT_SIM_GENERATION) || defined(DEBUG_DOWNLINK_TLM_FRAME) ||\
         defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_SERVODATA) ||\
         defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA) || defined(DEBUG_FHSS) || defined(DEBUG_RC_CHANNEL_DATA) ||\
-        defined(DEBUG_UPLINK_TLM_DATA) || defined(DEBUG_SEQUENCE)
+        defined(DEBUG_UPLINK_TLM_DATA) || defined(DEBUG_SEQUENCE) || defined(DEBUG_UPLINK_TLM_SENT_TO_SPORT)
     #undef SBUS  // disable SBUS because it uses the same pin
     #define DEBUG_WITH_SERIAL_PRINT
     #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}
