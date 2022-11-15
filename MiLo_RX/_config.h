@@ -21,7 +21,7 @@
 //#define DEBUG_FHSS                  // print the generated fhss channels
 //#define DEBUG_INCOMMING_SPORTDATA   // print a frame that has been read from a sport sensor (no PHID but with stuffing and original CRC) 
 //#define DEBUG_SPORT_SPORTDATA // print the original Sport data from sensor (or simulated)
-//#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
+#define DEBUG_ON_GPIO3          // allow to generate pulse on pin 3 (normaly Sport pin) for debuging; disable automatically MSW_SERIAL
                                   // code contains then quite many pulses on pin 3 that allows to check that RX is synchronized with TX
 //#define DEBUG_SIM_SPORT_SENSOR  // generate dummy Sport data; allow to use SPORT_pin 3 for generating pulses
 //#define DEBUG_SPORT_SIM_GENERATION // print the dummy Sport data
@@ -34,8 +34,9 @@
 //#define DEBUG_MSP
 //#define DEBUG_LOOP_TIMING
 //#define DEBUG_SERVODATA
-//#define DEBUG_RC_CHANNEL_DATA       // print 8 Rcchannels values received in a frame
-//#define DEBUG_UPLINK_TLM_DATA       // print uplink tlm data received
+#define DEBUG_RC_CHANNEL_DATA       // print 8 Rcchannels values received in a frame
+#define DEBUG_UPLINK_TLM_DATA       // print uplink tlm data received
+#define DEBUG_SEQUENCE              // print info about up and downlink counter when a frame is sent/received
 
 #ifdef ESP8266
 	#define ESP8266_PLATFORM
@@ -49,7 +50,7 @@
 //#define NAMIMNO_RX_NANO_FLASH
 #define ESP8266_E28_2G4M20S
 
-#define MSW_SERIAL
+//#define MSW_SERIAL
 //#define HC_BIND
 //#define USER_MAX_POWER
 #define TELEMETRY 
@@ -88,7 +89,7 @@
     #define USER_MAX_POWER 10 //10mW for example can be defined whatever you need
 #endif
 
-#define SBUS // mstrens removed to test
+//#define SBUS // mstrens removed to test
 #define TX_FAILSAFE
 //#define PWM_SERVO
 //#define ADC_VOLT
@@ -96,7 +97,7 @@
 //#define SERVO_RATE
 //#define PARALLEL_SERVO
 //#define EU_LBT
-#define USE_WIFI
+//#define USE_WIFI
 
 #ifdef USE_WIFI
     #include "devWIFI_elegantOTA.h"
@@ -150,7 +151,7 @@
 #if defined(DEBUG_SPORT_SPORTDATA) || defined(DEBUG_SPORT_SIM_GENERATION) || defined(DEBUG_DOWNLINK_TLM_FRAME) ||\
         defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_SERVODATA) ||\
         defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA) || defined(DEBUG_FHSS) || defined(DEBUG_RC_CHANNEL_DATA) ||\
-        defined(DEBUG_UPLINK_TLM_DATA)
+        defined(DEBUG_UPLINK_TLM_DATA) || defined(DEBUG_SEQUENCE)
     #undef SBUS  // disable SBUS because it uses the same pin
     #define DEBUG_WITH_SERIAL_PRINT
     #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}

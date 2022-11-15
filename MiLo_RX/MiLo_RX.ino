@@ -707,8 +707,10 @@ void decodeSX1280Packet() { // handle a valid frame (RcData or uplink tlm)
     #ifdef TELEMETRY 
         if (FrameType == TLM_PACKET) // process uplink tlm frame
         {
-            debugln("receiveUp recDwnC=%d recUpC=%d existingUpC=%d",\
-             (RxData[0] & 0X30) >> 4  , (RxData[3] & 0XC0) >> 6 , uplinkTlmId); 
+            #ifdef DEBUG_SEQUENCE
+                debugln("receiveUp recDwnC=%d recUpC=%d existingUpC=%d",\
+                 (RxData[0] & 0X30) >> 4  , (RxData[3] & 0XC0) >> 6 , uplinkTlmId); 
+            #endif
             downlinkTlmId = (RxData[0] & 0X30) >> 4 ; // bits 5..4 = downlinkTlmId
             if( ( (RxData[3] & 0XC0) >> 6 ) == uplinkTlmId ) { 
                 // we receive a message with the expected sequence, so we process it
@@ -1047,7 +1049,7 @@ void MiLoRxBind(void)
             frame[5] = MiLoStats.uplink_SNR;
             frame[6] = MiLoStats.uplink_Link_quality;
             frame[7] = missingPackets;         // note : instead of sending the current value, we should calculate a max over a define timelap.
-            frame[8] = getCurrentChannelIdx(); // note: this does not make lot of sense; it is more usefull in frames TX >> RX
+            frame[8] = 0; //getCurrentChannelIdx(); // note: this does not make lot of sense; it is more usefull in frames TX >> RX
             frame[9] = 0;
         } else if (sportDataLen > 0 ) {
             frame[2] = convertPrimPhid(sportTailWhenAck);
@@ -1100,7 +1102,9 @@ void MiLoRxBind(void)
                 Serial.println("Roll Tail back");
             } 
         }
+        #ifdef DEBUG_SEQUENCE
         debugln("sendDwn sentDwnC=%d expDwnC=%d sentUpC%d", downlinkTlmId , dwnlnkTlmExpectedId , uplinkTlmId);
+        #endif
         #ifdef DEBUG_SPORT_SPORTDATA
             Serial.print("Tail="); Serial.print(sportTail); Serial.print(" ifAck="); Serial.print(sportTailWhenAck); Serial.print(" data=");
             uint8_t idx = sportTail;
