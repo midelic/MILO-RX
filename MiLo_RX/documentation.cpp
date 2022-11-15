@@ -200,7 +200,7 @@ Sending downlink tlm frame
     MiLoTlm_build_frame() checks if previous frame has been confirmed by Tx (update sportTail accordingly)
                           performs some compression in order to be able to put 2 set of data in one packet. 
 
-
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Checks on the sequences for dowlink messages:
 -------------------TX--------------------------   ---------------------RX---------------------------
@@ -256,7 +256,7 @@ example with initial values that are not equal
     Tx receives (0==0)           0->1 + handle data                  
     So from here, sequence are synchronized again.
 
-
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Checks on the sequences for uplink messages:
 -------------------RX--------------------------     ---------------------TX---------------------------
