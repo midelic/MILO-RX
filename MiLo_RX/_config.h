@@ -50,7 +50,7 @@
 //#define NAMIMNO_RX_NANO_FLASH
 #define ESP8266_E28_2G4M20S
 
-//#define MSW_SERIAL
+#define MSW_SERIAL
 //#define HC_BIND
 //#define USER_MAX_POWER
 #define TELEMETRY 
@@ -89,7 +89,7 @@
     #define USER_MAX_POWER 10 //10mW for example can be defined whatever you need
 #endif
 
-//#define SBUS // mstrens removed to test
+#define SBUS
 #define TX_FAILSAFE
 //#define PWM_SERVO
 //#define ADC_VOLT
