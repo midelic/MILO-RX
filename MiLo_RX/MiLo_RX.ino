@@ -20,7 +20,6 @@
 // to do : add CRC to the data stored in EEPROM; when reading EEPROM, if CRC is wrong use default values.
 // test failsafe and sbus
 // in main while loop, avoid calling some functions if we are closed to the end of the timeout (to ensure handling timeout as soon as possible)
-// there are test on flagEuLbt but only when HAS_PA_LNA; not sure this is correct. I expect not.
 
 #if __has_include("_myDebugOptions.h") // && __has_include(<stdint.h>)
     # include "_myDebugOptions.h"
@@ -568,10 +567,7 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
         G3PULSE(1);
         SX1280_SetFrequencyReg(GetCurrFreq());
     }
-    #ifdef HAS_PA_LNA
-        if ( flagEuLbt ) BeginClearChannelAssessment();   // !!!!!!!!!!!!!! not sure it is correct to have it under HAS_PA_LNA;
-                                                          // even without PA, module could be above 10 mw 
-    #endif
+    if ( flagEuLbt ) BeginClearChannelAssessment(); 
     missingPackets = 0;  // reset the number of consecutive missing packets
     if (aPacketSeen < 10 )  aPacketSeen++ ;  // increase number of packets up to 10
     if (jumper == 0){
@@ -848,14 +844,11 @@ void loop()
         if ( (packetSeq == 1 ) && ( isConnected2Tx) ) 
         { // next slot must be used to send a downlink telemetry packet but only if there is a connection.
           // here we send a downlink tlm frame even if we just miss one or a few frames (but not loss the connection)
-            #ifdef HAS_PA_LNA
-                if ( (flagEuLbt) && (!ChannelIsClear()) ) { // !!!!!!!!!!!!!! not sure it is correct to have it under HAS_PA_LNA;
-                                                          // even without PA, module could be above 10 mw 
-                  SX1280_SetOutputPower(MinPower);  
-                } else {
-                    SX1280_SetOutputPower(MaxPower);
-                }
-            #endif
+            if ( (flagEuLbt) && (!ChannelIsClear()) ) {  
+                SX1280_SetOutputPower(MinPower);  
+            } else {
+                SX1280_SetOutputPower(MaxPower);
+            }
             MiloTlmSent();  // perhaps add some code to better synchronize with Tx slot timing
                           // if we send just after having received a valid frame, it will be about 5msec after TX started sending the previous frame
                           // if we did not get a valid frame, then we had first to wait for the end of the timeout before we reach this point

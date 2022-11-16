@@ -50,7 +50,7 @@
 #define STATISTIC
 //#define SERVO_RATE
 //#define PARALLEL_SERVO
-//#define USE_WIFI                 // allow to activate the wifi for firmware updates
+#define USE_WIFI                 // allow to activate the wifi for firmware updates
 
 /********************/
 /*** LOCAL CONFIG ***/
