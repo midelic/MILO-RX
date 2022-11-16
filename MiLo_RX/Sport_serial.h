@@ -391,7 +391,6 @@ void ICACHE_RAM_ATTR3 ProcessSportData()  // handle a frame received from the se
 #ifdef DEBUG_SIM_SPORT_SENSOR
     
     uint32_t lastSportGeneratedMillis = 0;
-    #define DEBUG_SPORT_INTERVAL 500  // interval between 2 dummy frames (must be at least about 20 to let SX1280 sent the frame)
     uint32_t nextDummyValue = 0;  // value to put in the sport dummy frame
     uint8_t nextID2 = 0;          // id2 of the field to be put in the sport dummy frame
     

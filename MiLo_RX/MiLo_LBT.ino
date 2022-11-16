@@ -1,5 +1,4 @@
 
-#ifdef EU_LBT
     #include "iface_sx1280.h"
     #include "SX1280.h"
     #if !defined(LBT_RSSI_THRESHOLD_OFFSET_DB)
@@ -7,7 +6,7 @@
     #endif
 
     static uint32_t rxStartTime;
-    extern uint8_t CurrentPower;
+    extern int8_t CurrentPower;
 
     uint32_t ICACHE_RAM_ATTR3 SpreadingFactorToRSSIvalidDelayUs(uint8_t SF)
     {
@@ -94,7 +93,7 @@
         bool channelClear = rssiInst < PowerEnumToLBTLimit(CurrentPower);//CurrentPower
         return channelClear;
     }
-#endif
+
 
 
 

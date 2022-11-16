@@ -1,7 +1,5 @@
 #pragma once
 
-//#define DEBUG_FHSS
-//#define DEBUG_WITH_FIXED_FHSS
 #define USE_4_RANGES  // always keep this uncomment except if you implement another algo to generate the fhss list 
 
 //from mLRS
