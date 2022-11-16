@@ -95,6 +95,7 @@ enum{ // types of packet being received from TX
 #define MARGIN_LONG_TIMEOUT 10000 // margin (usec) to be added to the timeout used when not connected (to cover clock difference between TX and RX)
 #define MARGIN_SHORT_TIMEOUT 500 // margin (usec) to be added to the first timeout used when connected 
 
+uint8_t flagEuLbt = 0;
 uint16_t ServoData[16]; // rc channels values used for ppm (generated from sbusChannel[])
 volatile int32_t missingPackets = 0; // number of consecutive missing packets
 bool packetToDecode = false; // true means that a valid packet (any type with Rc or FS channels ot uplinl tlm) has been received from Tx and must be decoded
@@ -601,8 +602,8 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
 
 
 void saveRcFrame() {
-    // save the channels values in 
-    
+    // save the channels values in sbusChannel[] (and ServoData[]) 
+    flagEuLbt = RxData[0] & 0X08
     uint16_t c[8];    
     //uint16_t wordTemp;
     // process a valid RC frame (can be a frame with failsafe data)
@@ -838,12 +839,11 @@ void loop()
         { // next slot must be used to send a downlink telemetry packet but only if there is a connection.
           // here we send a downlink tlm frame even if we just miss one or a few frames (but not loss the connection)
             #ifdef HAS_PA_LNA
-                #ifdef EU_LBT
-                    if (!ChannelIsClear()) 
-                        SX1280_SetOutputPower(MinPower);
-                    else
-                #endif
-                SX1280_SetOutputPower(MaxPower);
+                if ( (flagEuLbt) && (!ChannelIsClear()) ) {
+                  SX1280_SetOutputPower(MinPower);  
+                } else {
+                    SX1280_SetOutputPower(MaxPower);
+                }
             #endif
             MiloTlmSent();  // perhaps add some code to better synchronize with Tx slot timing
                           // if we send just after having received a valid frame, it will be about 5msec after TX started sending the previous frame
