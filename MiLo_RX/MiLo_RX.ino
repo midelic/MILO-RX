@@ -20,8 +20,11 @@
 // to do : add CRC to the data stored in EEPROM; when reading EEPROM, if CRC is wrong use default values.
 // test failsafe and sbus
 // in main while loop, avoid calling some functions if we are closed to the end of the timeout (to ensure handling timeout as soon as possible)
+// there are test on flagEuLbt but only when HAS_PA_LNA; not sure this is correct. I expect not.
 
-
+#if __has_include("_myDebugOptions.h") // && __has_include(<stdint.h>)
+    # include "_myDebugOptions.h"
+#endif
 
 #undef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
@@ -30,6 +33,14 @@
 
 #include <SPI.h>
 #include "_config.h"
+#ifdef USE_MY_CONFIG
+    #if __has_include("_MyConfig.h") // && __has_include(<stdint.h>)
+        # include "_MyConfig.h"
+    #else
+        #error _MyConfig.h file must exist when USE_MY_CONFIG is activated in _config.h
+    #endif
+#endif
+#include "_configValidation.h"
 #include "pins.h"
 #include "iface_sx1280.h"
 #include "MiLo_FHSS.h"
@@ -558,9 +569,8 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
         SX1280_SetFrequencyReg(GetCurrFreq());
     }
     #ifdef HAS_PA_LNA
-        #ifdef EU_LBT
-            BeginClearChannelAssessment();
-        #endif
+        if ( flagEuLbt ) BeginClearChannelAssessment();   // !!!!!!!!!!!!!! not sure it is correct to have it under HAS_PA_LNA;
+                                                          // even without PA, module could be above 10 mw 
     #endif
     missingPackets = 0;  // reset the number of consecutive missing packets
     if (aPacketSeen < 10 )  aPacketSeen++ ;  // increase number of packets up to 10
@@ -603,7 +613,7 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
 
 void saveRcFrame() {
     // save the channels values in sbusChannel[] (and ServoData[]) 
-    flagEuLbt = RxData[0] & 0X08
+    flagEuLbt = RxData[0] & 0X08 ;
     uint16_t c[8];    
     //uint16_t wordTemp;
     // process a valid RC frame (can be a frame with failsafe data)
@@ -839,7 +849,8 @@ void loop()
         { // next slot must be used to send a downlink telemetry packet but only if there is a connection.
           // here we send a downlink tlm frame even if we just miss one or a few frames (but not loss the connection)
             #ifdef HAS_PA_LNA
-                if ( (flagEuLbt) && (!ChannelIsClear()) ) {
+                if ( (flagEuLbt) && (!ChannelIsClear()) ) { // !!!!!!!!!!!!!! not sure it is correct to have it under HAS_PA_LNA;
+                                                          // even without PA, module could be above 10 mw 
                   SX1280_SetOutputPower(MinPower);  
                 } else {
                     SX1280_SetOutputPower(MaxPower);
