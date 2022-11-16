@@ -11,15 +11,17 @@
     - Uplink telemetry rate(1:6)
     - Hardware CRC is ON.
     
-    # Normal frame channels 1-8; frame rate 7ms.
-    
-    //0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | reserve (bit 3) | Frame type(bits 2..0 (3 lsb bits))
-    0.- bits 7..6 next expected telemetry down link frame counter(sequence) (2 bits=4 val))
-      - bits 5..3 Failsafe ID (3 bits) 
-      - bits 2..0 Frame type (3 bits)
+    # Normal frame channels 1-8 or 9-16; frame rate 7ms.
+    ----------------------------------------------------
+    0. - bits 7..6 = reserve (2 bits)
+       - bits 5..4 = next expected telemetry down link frame counter(sequence) (2 bits=4 val)
+       - bit 3     = Flag EU LBT
+       - bits 2..0 = Frame type (3 bits)
     1. txid1 TXID on 16 bits
     2. txid2
-    3. flag next frame must be dwn tlm frame (bit 7) | flag requesing starting WIFI (bit 6) | Model ID /Rx_Num(bits 5....0 = 6 bits) 
+    3. - bit 7     = flag next frame must be dwn tlm frame
+       - bit 6     = flag requesing starting WIFI
+       - bits 5..0 = Model ID /Rx_Num (6 bits) 
     4. channels 8 channels/frame ; 11bits/channel
     5. channels total 11 bytes of channels data in the packet frame
     6. channels
@@ -33,29 +35,16 @@
     14. channels
     15. Index of RF channel (0...37) ; used by Rx to (check) synchronize
 
-    # Normal frame channels 9-16 separate; frame rate 7ms.
-    0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | reserve (bit 3) | Frame type(bits 2..0 (3 lsb bits))
-    1. txid1 TXID on 16 bits
-    2. txid2
-    3. flag next frame must be dwn tlm frame (bit 7) | flag requesing starting WIFI (bit 6) | Model ID /Rx_Num(bits 5....0 = 6 bits) 
-    4. channels 8 channels/frame ; 11bits/channel
-    5. channels total 11 bytes of channels data in the packet frame
-    6. channels
-    7. channels
-    8. channels
-    9. channels
-    10. channels
-    11. channels
-    12. channels
-    13. channels
-    14. channels
-    15. Index of RF channel (0...37) ; used by Rx to (check) synchronize
-    
     # TX uplink telemetry frame can be sent separate ;frame rate 7ms;1:6 telemetry data rate.
-    0. reserve 2 bits (bits 7..6) | next expected telemetry down link frame counter(sequence) (bits 5..4 (2 bits=4 val)) | reserve (bit 3) | Frame type(bits 2..0 (3 lsb bits))
+    -----------------------------------------------------------------------------------------
+    0. - bits 7..6 = reserve (2 bits)
+       - bits 5..4 = next expected telemetry down link frame counter(sequence) (2 bits=4 val)
+       - bit 3     = reserve
+       - bits 2..0 = Frame type (3 bits)
     1. txid1 TXID on 16 bits
     2. txid2
-    3. telemetry uplink counter sequence(2 bits 7..6)  | Model ID /Rx_Num(bits 5....0 = 6 bits)
+    3. - bits 7..6 = telemetry uplink counter sequence(2 bits)
+       - bits 5..0 = Model ID /Rx_Num(6 bits)
     4.Sport data byte1
     5.Sport data byte 2
     6.Sport data byte 3
@@ -64,12 +53,13 @@
     9.SPort data byte 6
     10.SPort data byte 7
     11.SPort data byte 8
-    12.SPort data byte 9
-    13.SPort data byte 10
-    14.SPort data byte 11 ; 
+    12.Reserve
+    13.Reserve
+    14.Reserve  
     15.Index of RF channel (0...37) ; used by Rx to (check) synchronize
 
-    # RX downlink telemetry frame sent separate at a fixed rate of 1:3;frame rate 7ms. Can contain 2 Sport frame 
+    # RX downlink telemetry frame sent separate at a fixed rate of 1:3;frame rate 7ms. Can contain 2 Sport frames 
+    -------------------------------------------------------------------------------------------------------------
     0. - bits 7...2 : MSB of TXID1 (6 bits)
        - bits 1...0 : current downlink tlm counter (2 bits); when received TX should send this counter + 1type of link data packet(RSSI/SNR /LQI) (2 bits= 3 values currently) 
     1. - bits 7...2 : MSB of TXID2 (6 bits)
@@ -89,6 +79,7 @@
     
     
     # bind packet
+    -------------
     0. Frame type = BIND_PACKET = 0
     1. rx_tx_addr[3];
     2. rx_tx_addr[2];
@@ -100,6 +91,7 @@
 
 
     # Frame Sequence for sub protocol MCH16 or MEU_16
+    -------------------------------------------------
     0- downlink telemetry
     1- RC channels 1_8
     2- RC channels 9_16
@@ -117,8 +109,9 @@
     14- RC channels 9_16
     15- downlink telemetry
     
-    
-    0 - downlink telemetry for sub protocol MCH8 or MEU_8
+    # Frame Sequence for sub protocol MCH_8 or MEU_8
+    -------------------------------------------------
+    0 - downlink telemetry
     1- RC channels 1_8         
     2- RC channels 1_8      
     3- downlink telemetry      
