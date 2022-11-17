@@ -20,6 +20,7 @@
 // to do : add CRC to the data stored in EEPROM; when reading EEPROM, if CRC is wrong use default values.
 // test failsafe and sbus
 // in main while loop, avoid calling some functions if we are closed to the end of the timeout (to ensure handling timeout as soon as possible)
+// adapt some parameters to allow using the ESP8266 at 160Mhz instead of 80MHz (mainly in Sport Serial)
 
 #if __has_include("_myDebugOptions.h") // && __has_include(<stdint.h>)
     # include "_myDebugOptions.h"
@@ -71,6 +72,10 @@
         return 0;
     }
 #endif
+
+#define PREAMBLE_LENGTH 12     // length of preamble in LORA
+#define NBR_BYTES_IN_PACKET 16 // number of bytes in a LORA packet
+
 
 #define RATE_DEFAULT 0
 #define RATE_BINDING 0
@@ -131,7 +136,6 @@ uint32_t microsInDioISR ;         // timestamp of processing the DIO interrupt o
 uint32_t dioISRMicros;            // saved value of microsInDioISR when a frame with CRC OK is received for processing if frame is really valid
 volatile bool dioOccured = false ;     // true when a dio1 interrupt occurs
 bool frameReceived = false;           // becomes true when a frame with good CRC has been received
-
 //Debug
 uint32_t debugTimer;
 char debug_buf[64];
@@ -207,7 +211,6 @@ void   SetupTarget();
 void ICACHE_RAM_ATTR dioISR();
 void ICACHE_RAM_ATTR3 callSportSwSerial(void);
 void ICACHE_RAM_ATTR SportPollISR(void);
-void ICACHE_RAM_ATTR3 MiloTlmSent(void);
 void ICACHE_RAM_ATTR3 MiLoTlm_build_frame();
 //void ICACHE_RAM_ATTR3 MiLoTlm_append_sport_data(uint8_t *buf);
 uint8_t ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t pas);
@@ -232,6 +235,31 @@ uint32_t FreqCorrectionRegValue;
 uint16_t timeout = 0xFFFF; // this means that the SX1280 runs in continous mode
 uint8_t packetLengthType;
 
+//RF PARAMETRS
+typedef struct MiLo_mod_settings_s
+{
+//    uint8_t index;//
+//    uint8_t radio_type;//RADIO_TYPE_SX128x_LORA
+    uint8_t frame_rate_type;          // 
+    uint8_t bw;
+    uint8_t sf;
+    uint8_t cr;
+    uint32_t interval;          // interval in us seconds that corresponds to that frequency 
+    uint32_t intervalBeforeDwnlnk1;
+    uint32_t intervalBeforeDwnlnk2;
+    uint32_t intervalAfterDwnlnk2;
+} MiLo_mod_settings_t;
+
+MiLo_mod_settings_s *MiLo_currAirRate_Modparams;
+    
+    MiLo_mod_settings_s MiLo_AirRateConfig[RATE_MAX] = { 
+        {RATE_LORA_150HZ,  SX1280_LORA_BW_0800,SX1280_LORA_SF6,  SX1280_LORA_CR_LI_4_7, 7000, 5400 , 7600 , 1000 }, // TOA= 5222, Rx sens= -108 db
+        {RATE_LORA_100HZ,  SX1280_LORA_BW_0800, SX1280_LORA_SF7,  SX1280_LORA_CR_LI_4_6, 9000, 8500 , 8500, 1000} // TOA= 7912, Rx sens= -108 db
+//        {RATE_LORA_100HZ,  SX1280_LORA_BW_0800, SX1280_LORA_SF7,  SX1280_LORA_CR_LI_4_5, 9000, 8500 , 8500, 1000} // TOA= 6075, Rx sens= -108 db
+        };
+    
+
+/*
 typedef struct MiLo_mod_settings_s
 {
     uint8_t index;
@@ -300,7 +328,20 @@ void  ICACHE_RAM_ATTR3 MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link
     MiLo_currAirRate_RFperfParams = RFperf;
 }
 //end MILO-RF parameters
+*/
 
+void  MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link (hz) index values
+    {
+        MiLo_mod_settings_s *const ModParams = &MiLo_AirRateConfig[index];
+        bool invertIQ = 0x01;//inverted
+        if ((ModParams == MiLo_currAirRate_Modparams) && (invertIQ == IQinverted))
+            return;
+        //uint32_t interval = ModParams->interval;
+        SX1280_Config(ModParams->bw, ModParams->sf, ModParams->cr, GetCurrFreq(),
+            PREAMBLE_LENGTH, invertIQ, NBR_BYTES_IN_PACKET);
+        MiLo_currAirRate_Modparams = ModParams;
+    }
+    
 void setup()
 {
     SetupTarget();
@@ -377,7 +418,7 @@ void setup()
     //MiLo_SetRFLinkRate(RATE_100HZ));
     MiLo_SetRFLinkRate(RATE_150HZ);
     SX1280_SetFrequencyReg(currFreq);
-    PayloadLength = MiLo_currAirRate_Modparams->PayloadLength;
+    PayloadLength = NBR_BYTES_IN_PACKET;
     SX1280_SetOutputPower(MaxPower); // set power to max. We do not start sending tlm immediately so it is not an issue
     #ifdef HAS_PA_LNA
         SX1280_SetTxRxMode(RX_EN);//LNA enable
@@ -564,10 +605,13 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
     } else { // when next frame is not a downlink, we skip to next channel
         packetSeq = 0; // 0 means that we got a first RC channel and so next slot will NOT be downlink telemetry packet
         nextChannel(1);
-        G3PULSE(1);
         SX1280_SetFrequencyReg(GetCurrFreq());
+        G3PULSE(1);
     }
-    if ( flagEuLbt ) BeginClearChannelAssessment(); 
+    //if ( flagEuLbt ) {
+    //    SX1280_SetTxRxMode(RX_EN);// do first to enable LNA 
+    //    SX1280_SetMode(SX1280_MODE_RX); // BeginClearChannelAssessment();
+    //}     
     missingPackets = 0;  // reset the number of consecutive missing packets
     if (aPacketSeen < 10 )  aPacketSeen++ ;  // increase number of packets up to 10
     if (jumper == 0){
@@ -840,20 +884,26 @@ void loop()
 
     // when we arrive here, it means that OR a valid frame has been received OR a time out (short ot long) occurs
     
+    #define TIME_TO_START_DWNLINK 500 // in usec; aproximative delay between receiving a frame and stating sending a downlink tlm frame 
     #if defined(TELEMETRY) // process downlink tlm
         if ( (packetSeq == 1 ) && ( isConnected2Tx) ) 
         { // next slot must be used to send a downlink telemetry packet but only if there is a connection.
           // here we send a downlink tlm frame even if we just miss one or a few frames (but not loss the connection)
+            MiLoTlm_build_frame();
+            while ( ( micros() - slotBeginAt) < TIME_TO_START_DWNLINK ) { NOP();} // Wait some delay in order to start sending downlink 
+                // at the same time if we got a valid frame (before end or time out) or if we had to wait end of time out to arrive here
+                // slotBeginAt is about when really received the last valid frame (resyncronize) or
+                //                      when we should have received it (so 7500 msec before the new timeout)
             if ( (flagEuLbt) && (!ChannelIsClear()) ) {  
                 SX1280_SetOutputPower(MinPower);  
             } else {
                 SX1280_SetOutputPower(MaxPower);
             }
-            MiloTlmSent();  // perhaps add some code to better synchronize with Tx slot timing
-                          // if we send just after having received a valid frame, it will be about 5msec after TX started sending the previous frame
-                          // if we did not get a valid frame, then we had first to wait for the end of the timeout before we reach this point
-                          //     So we are about 7.5msec after the TX started sending the missinf frame.   
-            
+            #ifdef HAS_PA_LNA
+                SX1280_SetTxRxMode(TX_EN);//PA enabled
+            #endif
+            SX1280_WriteBuffer(0x00, frame, PayloadLength); //
+            SX1280_SetMode(SX1280_MODE_TX);  
         }    
     #endif
     #ifdef STATISTIC
@@ -1091,7 +1141,7 @@ void MiLoRxBind(void)
         } 
     }
     #endif
-    void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()  // just create a downlink tlm frame ; sending is done in MiloTlmSent()
+    void  ICACHE_RAM_ATTR3 MiLoTlm_build_frame()  // just create a downlink tlm frame 
     {     
         frame[0] = (MiLoStorage.txid[0] & 0XFC ) | downlinkTlmId; 
         frame[1] = (MiLoStorage.txid[1] & 0XFC ) | uplinkTlmId;
@@ -1144,18 +1194,6 @@ void MiLoRxBind(void)
             }     
         #endif  
     }
-
-    void  ICACHE_RAM_ATTR3 MiloTlmSent() // create and send a downlink tlm frame to TX
-    {
-        MiLoTlm_build_frame();
-        delayMicroseconds(500);//just in case  // mstrens : this is probably not enough to let TX being in receiving mode at the end of his sending slot
-        #ifdef HAS_PA_LNA
-            SX1280_SetTxRxMode(TX_EN);//PA enabled
-        #endif
-        SX1280_WriteBuffer(0x00, frame, PayloadLength); //
-        SX1280_SetMode(SX1280_MODE_TX);
-    }
-
     
 #endif // end TELEMETRY
 
