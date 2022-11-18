@@ -557,6 +557,8 @@ void handleLongTimeout()
         currentPacketRate = (currentPacketRate + 1) & 0X01; // alternate rate
         MiLo_SetRFLinkRate(currentPacketRate);              // apply it
         smoothedInterval = MiLo_currAirRate_Modparams->interval;// set interval based on new rate
+        t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // update time out
+        debugln("t_out=%d",t_outMicros);
     } 
     nextChannel(1); // frequency hop after 37 slots. So Rx stays listening on the same channel while Tx hop every slot 
                     // note: when we are trying to (re)synchronize RX with Tx, we use only the n first channels in the list (this is performed in the function
@@ -851,7 +853,8 @@ void loop()
             else// it means no connection or connection has already been lost (after to many missing packets) 
             {
                 G3PULSE(30);// to debug when a long time out occurs
-                slotBeginAt += FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT;
+                //slotBeginAt += FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT;
+                slotBeginAt = micros();
                 handleLongTimeout(); //process LED, failsafe setup and frequency hop
             }
             break;// exit while() when a time out occurs
