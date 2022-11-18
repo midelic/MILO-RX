@@ -88,7 +88,7 @@
     bool setFSfromTx = false;
 #endif
 uint32_t lastReceivedRcFrameMicros = 0;
-#define FAILSAFE_INTERVAL 1000 // ms
+//#define FAILSAFE_INTERVAL 1000 // ms  // currently not used but could be used instead of reacting on missing packets
 uint16_t countFS = 0; // used to blink the led when pressing the button to reset the failsafe values
 
 //EEPROM
@@ -110,7 +110,7 @@ enum{ // types of packet being received from TX
 #define MARGIN_LONG_TIMEOUT 10000 // margin (usec) to be added to the timeout used when not connected (to cover clock difference between TX and RX)
 #define MARGIN_SHORT_TIMEOUT 500 // margin (usec) to be added to the first timeout used when connected 
 
-uint8_t flagEuLbt = 0;
+uint8_t flagEuLbt = 0;   // 1 means that EU_LBT must be used (reduce power for downlink tlm frame when freq is occupied)
 uint16_t ServoData[16]; // rc channels values used for ppm (generated from sbusChannel[])
 volatile int32_t missingPackets = 0; // number of consecutive missing packets
 bool packetToDecode = false; // true means that a valid packet (any type with Rc or FS channels ot uplinl tlm) has been received from Tx and must be decoded
@@ -121,6 +121,8 @@ bool isConnected2Tx = false; // true means that the RX got a RC/FS channels or a
 uint32_t t_outMicros ;  // time out for main while() loop
 uint32_t t_tune = 500;
 
+uint8_t currentPacketRate = RATE_150HZ; 
+uint32_t nbrValidPacketReceived = 0; // count the nbr of valid rc packet received; when > 0, we should not anymore try to change rate when not connected 
 bool sbusAllowed = false;   // true means sbus/pwm can be generated because at least 1 rc signal has been received (and if failsafe values are applied, there is no NO PULSE)
 uint32_t slotBeginAt;       // theoretical timestamp when current slot starts 
 uint16_t LED_count = 0;     // used to toggle the LED when not connected
@@ -136,9 +138,10 @@ uint32_t microsInDioISR ;         // timestamp of processing the DIO interrupt o
 uint32_t dioISRMicros;            // saved value of microsInDioISR when a frame with CRC OK is received for processing if frame is really valid
 volatile bool dioOccured = false ;     // true when a dio1 interrupt occurs
 bool frameReceived = false;           // becomes true when a frame with good CRC has been received
+
 //Debug
 uint32_t debugTimer;
-char debug_buf[64];
+char debug_buf[100];     // could be used only when debuging ; so #ifdef could be added
 
 uint8_t packetSeq = 0;  // count the slots in a sequence 0, 1, 2; 1 means that next slot should be used for a downlink tlm frame 
                         // value is forced when a valid frame is received, it is increased by 1 in case of timeout when connected
@@ -317,7 +320,7 @@ void  ICACHE_RAM_ATTR3 MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link
     
     bool invertIQ = 0x01;
     if ((ModParams == MiLo_currAirRate_Modparams)
-            && (RFperf == MiLo_currAirRate_RFperfParams)
+            && (RFperf == MiLo_currAirRate_RFperfParams)MiLo_SetRFLinkRate
             && (invertIQ == IQinverted))
     return;
     //uint32_t interval = 0XFFFF;//use micros() instead
@@ -414,9 +417,9 @@ void setup()
         debugln("Init of SX1280 failed");
         while(1){};// while added by mstrens to block the MCU; comment line in order to start testing without a SX1280 module
     }
-    sbusAllowed = false ;    //no pulse
-    //MiLo_SetRFLinkRate(RATE_100HZ));
-    MiLo_SetRFLinkRate(RATE_150HZ);
+    sbusAllowed = false ;    //no pulse at start up
+    MiLo_SetRFLinkRate(currentPacketRate);
+    smoothedInterval = MiLo_currAirRate_Modparams->interval;
     SX1280_SetFrequencyReg(currFreq);
     PayloadLength = NBR_BYTES_IN_PACKET;
     SX1280_SetOutputPower(MaxPower); // set power to max. We do not start sending tlm immediately so it is not an issue
@@ -429,8 +432,7 @@ void setup()
     #ifdef SPORT_TELEMETRY
         ConfigTimer();  // start timer 1 to send the polling request or the uplink tlm frame to the sensor every 12 msec 
     #endif
-    smoothedInterval = MiLo_currAirRate_Modparams->interval;
-    t_outMicros= FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // at start up we use a long delay (476msev = 7000*68 usec) 
+    t_outMicros= FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // at start up we use a long delay (390msev = 7000*37 *3/2 usec) 
     slotBeginAt = micros();
     debugln("End of setup: SX1280 is OK");
     
@@ -551,7 +553,12 @@ void handleLongTimeout()
         jumper = 0;
     }
     G3PULSE(1);
-    nextChannel(1); // frequency hop after 68 slots. So Rx stays listening on the same channel while Tx hop every slot 
+    if ( nbrValidPacketReceived == 0 ){ // when we never got a valid packet, we alternate the rate
+        currentPacketRate = (currentPacketRate + 1) & 0X01; // alternate rate
+        MiLo_SetRFLinkRate(currentPacketRate);              // apply it
+        smoothedInterval = MiLo_currAirRate_Modparams->interval;// set interval based on new rate
+    } 
+    nextChannel(1); // frequency hop after 37 slots. So Rx stays listening on the same channel while Tx hop every slot 
                     // note: when we are trying to (re)synchronize RX with Tx, we use only the n first channels in the list (this is performed in the function
     SX1280_SetFrequencyReg(GetCurrFreq());
     SX1280_SetMode(SX1280_MODE_FS);//  This help perhaps in case a frame is just being received when time out occurs 
@@ -610,7 +617,7 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
     }
     //if ( flagEuLbt ) {
     //    SX1280_SetTxRxMode(RX_EN);// do first to enable LNA 
-    //    SX1280_SetMode(SX1280_MODE_RX); // BeginClearChannelAssessment();
+    //    SX1280_SetMode(SX1280_MODE_RX); 
     //}     
     missingPackets = 0;  // reset the number of consecutive missing packets
     if (aPacketSeen < 10 )  aPacketSeen++ ;  // increase number of packets up to 10
@@ -818,12 +825,13 @@ void loop()
             cli();
             dioOccured = false; //reset the flag set in ISR  
             sei();
-            handleDio1(); // handle interrupt ( reset inyterrupt, read SX1280 incoming data and set frameReceived to true)     
+            handleDio1(); // handle interrupt ( reset interrupt, read SX1280 incoming data and set frameReceived to true)     
             if (frameReceived) 
             {             // a frame has been received from the TX with a good CRC (flag has been set in DioISR)
                 G3PULSE(5); // to debug when a frame has been received
                 if ( isReceivedFrameValid()) { //check if frame is valid
                     G3PULSE(10);// to debug when a frame is valid
+                    nbrValidPacketReceived++;
                     slotBeginAt = dioISRMicros ;  // resynchronise RX on TX
                     prepareNextSlot(); //  we first prepare next slot (e.g. frequency hop if allowed ) and update some flags/counters
                     decodeSX1280Packet();
@@ -1198,7 +1206,7 @@ void MiLoRxBind(void)
 #endif // end TELEMETRY
 
 #ifdef SPORT_TELEMETRY
-    void  sportMSPstuff(uint8_t *p)// add START + stuff uplink tlm data + CRC
+    void  sportMSPstuff(uint8_t *p)// add START + stuff uplink tlm data + CRC to data to be sent to sensor (uplink tlm)
     {
         if (sportMspCount > 3) return; // discard if array is full
         uint16_t crc_s = 0;
