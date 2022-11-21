@@ -248,9 +248,9 @@ typedef struct MiLo_mod_settings_s
     uint8_t sf;
     uint8_t cr;
     uint32_t interval;          // interval in us seconds that corresponds to that frequency 
-    uint32_t intervalBeforeDwnlnk1;
-    uint32_t intervalBeforeDwnlnk2;
-    uint32_t intervalAfterDwnlnk2;
+    //uint32_t intervalBeforeDwnlnk1; // not used on Rx side
+    //uint32_t intervalBeforeDwnlnk2;
+    //uint32_t intervalAfterDwnlnk2;
 } MiLo_mod_settings_t;
 
 MiLo_mod_settings_s *MiLo_currAirRate_Modparams;
