@@ -256,8 +256,8 @@ typedef struct MiLo_mod_settings_s
 MiLo_mod_settings_s *MiLo_currAirRate_Modparams;
     
     MiLo_mod_settings_s MiLo_AirRateConfig[RATE_MAX] = { 
-        {RATE_LORA_150HZ,  SX1280_LORA_BW_0800,SX1280_LORA_SF6,  SX1280_LORA_CR_LI_4_7, 7000, 5400 , 7600 , 1000 }, // TOA= 5222, Rx sens= -108 db
-        {RATE_LORA_100HZ,  SX1280_LORA_BW_0800, SX1280_LORA_SF7,  SX1280_LORA_CR_LI_4_6, 9000, 8500 , 8500, 1000} // TOA= 7912, Rx sens= -108 db
+        {RATE_LORA_150HZ,  SX1280_LORA_BW_0800,SX1280_LORA_SF6,  SX1280_LORA_CR_LI_4_7, 7000 }, // TOA= 5222, Rx sens= -108 db
+        {RATE_LORA_100HZ,  SX1280_LORA_BW_0800, SX1280_LORA_SF7,  SX1280_LORA_CR_LI_4_6, 9000} // TOA= 7912, Rx sens= -108 db
 //        {RATE_LORA_100HZ,  SX1280_LORA_BW_0800, SX1280_LORA_SF7,  SX1280_LORA_CR_LI_4_5, 9000, 8500 , 8500, 1000} // TOA= 6075, Rx sens= -108 db
         };
     
