@@ -5,9 +5,10 @@
         #define LBT_RSSI_THRESHOLD_OFFSET_DB 0
     #endif
 
-    static uint32_t rxStartTime;
-    extern int8_t CurrentPower;
+    //static uint32_t rxStartTime;
+    //extern int8_t CurrentPower;
 
+    /*
     uint32_t ICACHE_RAM_ATTR3 SpreadingFactorToRSSIvalidDelayUs(uint8_t SF)
     {
     // The necessary wait time from RX start to valid instant RSSI reading
@@ -36,7 +37,8 @@
         default: return 218; // Values above 100mW are not relevant, default to 100mW threshold
         }
     }
-
+    */
+    /*
     int8_t ICACHE_RAM_ATTR3 PowerEnumToLBTLimit(uint8_t  txPower)
     {
     // Calculated from EN 300 328, adjusted for 800kHz BW for sx1280
@@ -56,16 +58,7 @@
             default: return -71 + LBT_RSSI_THRESHOLD_OFFSET_DB;
         }
     }
-
-    void ICACHE_RAM_ATTR3 BeginClearChannelAssessment(void)
-    {
-        #ifdef HAS_PA_LNA
-            SX1280_SetTxRxMode(RX_EN);// do first to enable LNA 
-        #endif
-        SX1280_SetMode(SX1280_MODE_RX);//start RX mode in order to get RSSI
-        rxStartTime = micros();
-    }
-
+    */
     bool ICACHE_RAM_ATTR3 ChannelIsClear(void)
     {
     // Read rssi after waiting the minimum RSSI valid delay.
@@ -81,16 +74,9 @@
     // But for now, FHSShops and telemetry rates does not divide evenly, so telemetry will some times happen
     // right after FHSS and we need wait here.
 
-        uint32_t validRSSIdelayUs = SpreadingFactorToRSSIvalidDelayUs(MiLo_currAirRate_Modparams->sf);
-        uint32_t elapsed = micros() - rxStartTime;
-        if(elapsed < validRSSIdelayUs)
-        {
-            delayMicroseconds(validRSSIdelayUs - elapsed);
-        }
-
-        int8_t rssiInst = SX1280_GetRssiInst();
+        int8_t rssiInst = SX1280_GetRssiInst(); 
         SX1280_SetMode(SX1280_MODE_FS);//SX1280_SetTxIdleMode();
-        bool channelClear = rssiInst < PowerEnumToLBTLimit(CurrentPower);//CurrentPower
+        bool channelClear = rssiInst < -71;//// TL = -70 dBm/MHz + 10*log10(0.8MHz) + 10 × log10 (100 mW / Pout) (Pout in mW e.i.r.p.)
         return channelClear;
     }
 

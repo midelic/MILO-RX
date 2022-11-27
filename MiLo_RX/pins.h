@@ -3,8 +3,10 @@
 //***********************************************************
 //SX1280
 #define BIND_pin         0 //GPIO 0 ;Flashing  pin
+#undef LED_pin              // #undef are added to avoid compilation warning
 #define LED_pin          16
 #define SX1280_RST_pin   2      
+#undef SX1280_BUSY_pin
 #define SX1280_BUSY_pin  5
 #define SX1280_DIO1_pin  4  
 //SPI   

@@ -30,7 +30,8 @@ along with Multiprotocol.  If not, see <http://www.gnu.org/licenses/>.
 #define SX1280_XTAL_FREQ 52000000
 #define FREQ_STEP ((double)(SX1280_XTAL_FREQ / pow(2.0, 18.0)))
 
-#define NBR_BYTES_IN_PACKET 16 // number of bytes in a packet
+//#define NBR_BYTES_IN_PACKET 16 // number of bytes in a packet
+
 
 enum {
     SX1280_STDBY_RC = 0x00,
