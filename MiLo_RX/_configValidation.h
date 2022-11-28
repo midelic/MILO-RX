@@ -60,7 +60,7 @@
     #define G3PULSE(usec) digitalWrite(G3PIN,HIGH);delayMicroseconds(usec); digitalWrite(G3PIN,LOW)
 #elif defined(DEBUG_ON_GPIO3) && defined(RP2040_PLATFORM)
     #ifndef G3PIN
-        #define G3PIN 1
+        #define G3PIN 14
     #endif
     #define G3ON gpio_put(G3PIN,true)
     #define G3OFF gpio_put(G3PIN,false)
@@ -104,7 +104,7 @@
     #undef DEBUG_LOOP_TIMING
     #undef DEBUG_SERVODATA
     #ifndef G1PIN
-        #define G1PIN 0
+        #define G1PIN 15
     #endif
     #define G1ON gpio_put(G1PIN,true)
     #define G1OFF gpio_put(G1PIN,false)

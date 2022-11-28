@@ -57,8 +57,8 @@
     #undef SPORT_pin
     #undef SBUS_pin
 
-    #define BIND_pin         29 
-    #define LED_pin           -1  
+    #define BIND_pin         -1 
+    #define LED_pin          16   // is a RGB LED on RP2040 zero  
     #define SX1280_RST_pin   8      
     #define SX1280_BUSY_pin  7  
     #define SX1280_DIO1_pin  6  
@@ -91,9 +91,5 @@
 #define SX1280_ANT_SEL_off         if (SX1280_ANTENNA_SELECT_pin != -1) digitalWrite(SX1280_ANTENNA_SELECT_pin,LOW)
 #define SX1280_CSN_on              digitalWrite(SX1280_CSN_pin,HIGH)
 #define SX1280_CSN_off             digitalWrite(SX1280_CSN_pin,LOW)
-
-#define LED_on                     digitalWrite(LED_pin,HIGH)
-#define LED_off                    digitalWrite(LED_pin,LOW)
-#define LED_toggle                 digitalWrite(LED_pin ,!digitalRead(LED_pin))
 
 #define USE_SX1280_DCDC

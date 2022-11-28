@@ -43,6 +43,8 @@
 #ifdef RP2040_PLATFORM
     #define ICACHE_RAM_ATTR // no need for RP2040
     #include <tusb.h>
+    #include "ws2812.h"
+    //#include "ws2812.pio.h"
     //#include <stdio.h>
     //#include "pico/stdlib.h"
 #else
@@ -361,6 +363,34 @@ void  MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link (hz) index value
         MiLo_currAirRate_Modparams = ModParams;
     }
     
+#ifdef ESP8266_PLATFORM 
+    void LED_on(){
+        if (LED_pin != -1) digitalWrite(LED_pin,HIGH);
+    }    
+    void LED_off() {
+        if (LED_pin != -1) digitalWrite(LED_pin,LOW);
+    }    
+    void LED_toggle(){
+        if (LED_pin != -1) {
+            digitalWrite(LED_pin ,!digitalRead(LED_pin));
+        }
+    }
+#endif            
+#ifdef RP2040_PLATFORM
+    void LED_on(){
+        setRgbOn();
+    }    
+    void LED_off(){
+        setRgbOff();
+    }
+    void LED_toggle(){
+        toggleRgb();
+    }    
+#endif
+
+
+
+
 void setup()
 {
     #ifdef RP2040_PLATFORM
@@ -414,7 +444,7 @@ void setup()
     #if defined(DEBUG_EEPROM)
         delay(1000);
         debugln("txid1 = %d,txid2 = %d,rx_num = %d,chanskip = %d", MiLoStorage.txid[0], MiLoStorage.txid[1], MiLoStorage.rx_num, MiLoStorage.chanskip);
-        debugln("MP_id = %d" ,MProtocol_id );
+        debugln("MP_id = %u" ,(unsigned int) MProtocol_id );
         //for(uint8_t i = 0 ;i < 16;i++)
         //{
         //   Serial.println(MiLoStorage.FS_data[i]);
@@ -558,7 +588,11 @@ void handleLongTimeout()
     { // When button is not pressed toggle LED to show that link is lost
         LED_count++;
         if (LED_pin != -1) {
-            (LED_count & 0x02) ? LED_on : LED_off;
+            if (LED_count & 0x02) {
+                LED_on();
+            } else {
+                LED_off();
+            }    
         }    
     }
     else
@@ -566,7 +600,7 @@ void handleLongTimeout()
         uint8_t n = 10;
         while (n--)
         { //fast blinking until resetting  FS data from RX
-            if ( LED_pin != -1) LED_toggle;
+            if ( LED_pin != -1) LED_toggle();
             delay(100); //blink LED
         }
         bool  saveFsToEprom = false;
@@ -592,7 +626,7 @@ void handleLongTimeout()
         MiLo_SetRFLinkRate(currentPacketRate);              // apply it
         smoothedInterval = MiLo_currAirRate_Modparams->interval;// set interval based on new rate
         t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // update time out
-        debugln("t_out=%d",t_outMicros);
+        debugln("t_out=%d",(int) t_outMicros);
     } 
     nextChannel(1); // frequency hop after 37 slots. So Rx stays listening on the same channel while Tx hop every slot 
                     // note: when we are trying to (re)synchronize RX with Tx, we use only the n first channels in the list (this is performed in the function
@@ -658,7 +692,7 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
     missingPackets = 0;  // reset the number of consecutive missing packets
     if (aPacketSeen < 10 )  aPacketSeen++ ;  // increase number of packets up to 10
     if (jumper == 0){
-        if(LED_pin != -1) LED_on;
+        if(LED_pin != -1) LED_on();
     }    
 }
 
@@ -747,7 +781,13 @@ void saveRcFrame() {
         {  // when button is pressed, while connected, the Rc channels are stored in EEPROM as failsafe values after blinking  
             if (countFS++ >= MAX_MISSING_PKT)
             { 
-                if(LED_pin != -1) (countFS & 0x10) ? LED_off : LED_on;
+                if(LED_pin != -1) {
+                    if (countFS & 0x10){
+                        LED_off();
+                    } else {
+                        LED_on();
+                    }
+                }        
             }
             if (countFS >= (2 * MAX_MISSING_PKT))
             {
@@ -968,7 +1008,14 @@ void loop()
 
 void   SetupTarget()
 {
-    if (LED_pin != -1) pinMode(LED_pin, OUTPUT);
+    //LED
+    #ifdef ESP8266_PLATFORM
+        if (LED_pin != -1) pinMode(LED_pin, OUTPUT);
+    #endif
+    #ifdef RP2040_PLATFORM
+        setupRgb();
+        setRgbColor(0, 10, 0); // red, green, blue
+    #endif
     if (BIND_pin != -1) pinMode(BIND_pin, INPUT);
     digitalWrite(SX1280_RST_pin,HIGH);
     pinMode(SX1280_RST_pin , OUTPUT);
@@ -988,6 +1035,8 @@ void   SetupTarget()
         pinMode(G1PIN,OUTPUT);
     #endif
     
+
+
     //SPI
     #ifdef RP2040_PLATFORM
         SPI.setSCK(SX1280_SCK_pin);
@@ -1008,7 +1057,7 @@ void MiLoRxBind(void)
     #if defined(DEBUG_BIND)
       debugln("Entering MiloRx Bind; waiting for a bind frame from Tx"); 
     #endif
-    if(LED_pin != -1) LED_on;
+    if(LED_pin != -1) LED_on();
     is_in_binding = true;
     #ifndef TUNE_FREQ
         currFreq = GetBindFreq(); //set frequency first or an error will occur!!!
@@ -1055,18 +1104,18 @@ void MiLoRxBind(void)
     MProtocol_id = (RxData[1] | (RxData[2] << 8) | (RxData[3] << 16) | (RxData[4] << 24));
     #if defined(DEBUG_BIND)
         debugln("txid1 = %d,txid2= %d,rx_num = %d,chanskip = %d", MiLoStorage.txid[0], MiLoStorage.txid[1], MiLoStorage.rx_num, MiLoStorage.chanskip);
-        debugln("FreqCorr = %d ", FreqCorrection);
-        debugln("FreqCorrRegV = %d ", FreqCorrectionRegValue);
-        debugln("MP_id = %d", MProtocol_id);
+        debugln("FreqCorr = %u ", (unsigned int) FreqCorrection);
+        debugln("FreqCorrRegV = %ud ", (unsigned int) FreqCorrectionRegValue);
+        debugln("MP_id = %u", (unsigned int) MProtocol_id);
     #endif
     for (uint8_t i = 0; i < 16; i++)
         MiLoStorage.FS_data[i] = NO_PULSE;
     StoreEEPROMdata(address);
     while (1)
     {
-        if(LED_pin != -1) LED_on;
+        if(LED_pin != -1) LED_on();
         delay(500);
-        if(LED_pin != -1) LED_off;
+        if(LED_pin != -1) LED_off();
         delay(500);
     }
 } // end MiloRxBind
