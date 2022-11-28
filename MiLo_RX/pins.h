@@ -69,7 +69,8 @@
     #define SX1280_CSN_pin     5
     //Serial
     #define SPORT_pin          1 // RX and TX SPORT
-    #define SBUS_pin           0 //SBUS output
+    #define SBUS_pin           0 //SBUS output from UART0 TX = Serial1
+    #define UART0_RX_pin       17 // select a pin that is not used but is available for UART0
 #endif
 
 

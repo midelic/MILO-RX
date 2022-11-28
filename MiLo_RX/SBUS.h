@@ -6,16 +6,37 @@ uint16_t sbusChannel[16];     // values to generate the sbus frame; is used to s
     #define SBUS_SYNCBYTE 0x0F 
     #define SBUS_ENDBYTE 0x00
     #define TXBUFFER_SIZE 25
-    #define SBUS_INTERVAL 9 // in msec
+    #define SBUS_INTERVAL 9000 // in usec
     
     uint16_t sbus[TXBUFFER_SIZE]; // frame to be sent via Serial.print()
     
     uint32_t lastSbusMicros = 0; // last time that sbus has been generated
 
+    
     void init_SBUS()
     {
-        Serial.begin(100000,SERIAL_8E2,SERIAL_TX_ONLY);
-        USC0(UART0) |= BIT(UCTXI);//inverted signal
+        #ifdef ESP8266_PLATFORM
+            Serial.begin(100000,SERIAL_8E2,SERIAL_TX_ONLY);
+            USC0(UART0) |= BIT(UCTXI);//inverted signal
+        #endif
+        #ifdef RP2040_PLATFORM
+            // Set up our UART with the required speed.
+            uart_init(uart0, 100000);
+            // Set the TX and RX pins by using the function select on the GPIO
+            // Set datasheet for more information on function select
+            gpio_set_function(SBUS_pin, GPIO_FUNC_UART);
+            gpio_set_function(UART0_RX_pin, GPIO_FUNC_UART);
+            // Set our data format (UART_ID, DATA_BITS, STOP_BITS, PARITY);
+            uart_set_format(uart0, 8, 2, UART_PARITY_EVEN);
+            uart_set_fifo_enabled (uart0 ,true); // enable the fifo (32 bytes)
+
+            //Serial1.setTX(SBUS_pin);
+            //Serial1.setRX(UART0_RX_pin);
+            //Serial1.begin(100000, SERIAL_8N2);
+            gpio_set_outover(SBUS_pin,  GPIO_OVERRIDE_INVERT) ; // inverted UART signal for Sbus
+            gpio_pull_down(SBUS_pin); 
+        #endif
+
     }
        
     void  SBUS_frame() 

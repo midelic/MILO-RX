@@ -44,6 +44,7 @@
     #define ICACHE_RAM_ATTR // no need for RP2040
     #include <tusb.h>
     #include "ws2812.h"
+    #include "hardware/uart.h"
     //#include "ws2812.pio.h"
     //#include <stdio.h>
     //#include "pico/stdlib.h"
@@ -958,7 +959,13 @@ void loop()
                 if (sbusAllowed) 
                 {  // at least Rx has been connected and Failsafe is not activated with NO PULSE(sbusAllowed)
                     SBUS_frame(); // fill Sbus frame with channels data from sbusData[]
-                    for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial.write(sbus[i]);
+                    #ifdef ESP8266_PLATFORM
+                        for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial.write(sbus[i]);
+                    #endif
+                    #ifdef RP2040_PLATFORM
+                        //for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial1.write(sbus[i]);
+                        for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) uart_putc_raw (uart0 , (char) sbus[i]);
+                    #endif    
                 }
             }        
         #endif

@@ -92,7 +92,6 @@
     #define G1TOGGLE digitalWrite(G1PIN,!digitalRead(G1PIN))
     #define G1PULSE(usec) digitalWrite(G1PIN,HIGH);delayMicroseconds(usec); digitalWrite(G1PIN,LOW)
 #elseif defined(DEBUG_ON_GPIO1) && defined(RP2040_PLATFORM)
-    #undef SBUS
     #undef DEBUG_HELP_FUNCTIONS
     #undef DEBUG_EEPROM
     #undef DEBUG_BIND
@@ -129,7 +128,9 @@
         defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_SERVODATA) ||\
         defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA) || defined(DEBUG_FHSS) || defined(DEBUG_RC_CHANNEL_DATA) ||\
         defined(DEBUG_UPLINK_TLM_DATA) || defined(DEBUG_SEQUENCE) || defined(DEBUG_UPLINK_TLM_SENT_TO_SPORT)
-    #undef SBUS  // disable SBUS because it uses the same pin
+    #ifdef ESP8286_PLATFORM
+        #undef SBUS  // disable SBUS because it uses the same pin
+    #endif
     #define DEBUG_WITH_SERIAL_PRINT
     #define debugln(msg, ...)  { sprintf(debug_buf, msg "\r\n", ##__VA_ARGS__); Serial.write(debug_buf);}
     #define debug(msg, ...)  { sprintf(debug_buf, msg , ##__VA_ARGS__); Serial.write(debug_buf);}
