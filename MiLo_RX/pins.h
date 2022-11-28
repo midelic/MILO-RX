@@ -11,8 +11,8 @@
 #define SX1280_DIO1_pin  4  
 //SPI   
 #define SX1280_MOSI_pin    13
-#define SX1280_MISO        12
-#define SX1280_SCK         14
+#define SX1280_MISO_pin    12
+#define SX1280_SCK_pin     14
 #define SX1280_CSN_pin     15
 //Serial
 #define SPORT_pin 3 // RX and TX SPORT
@@ -43,7 +43,37 @@
     #define SX1280_RXEN_pin -1
     #define SX1280_TXEN_pin  5
 #endif
-    
+
+#ifdef RP2040_E28_2G4M12S
+    #undef BIND_pin    // #undef are added to avoid compilation warning
+    #undef LED_pin 
+    #undef SX1280_RST_pin         
+    #undef SX1280_BUSY_pin
+    #undef SX1280_DIO1_pin  
+    #undef SX1280_MOSI_pin
+    #undef SX1280_MISO_pin
+    #undef SX1280_SCK_pin
+    #undef SX1280_CSN_pin
+    #undef SPORT_pin
+    #undef SBUS_pin
+
+    #define BIND_pin         29 
+    #define LED_pin           -1  
+    #define SX1280_RST_pin   8      
+    #define SX1280_BUSY_pin  7  
+    #define SX1280_DIO1_pin  6  
+    //SPI   
+    #define SX1280_MOSI_pin    3
+    #define SX1280_MISO_pin    4
+    #define SX1280_SCK_pin     2
+    #define SX1280_CSN_pin     5
+    //Serial
+    #define SPORT_pin          1 // RX and TX SPORT
+    #define SBUS_pin           0 //SBUS output
+#endif
+
+
+
 #define IS_BIND_BUTTON_on   ( (BIND_pin != -1) && (digitalRead(BIND_pin)==LOW))
     
 #define IS_SX1280_DIO1_on       ( digitalRead(SX1280_DIO1_pin)==HIGH )

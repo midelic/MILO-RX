@@ -39,11 +39,11 @@ void StoreEEPROMdata(uint32_t startAddress)
     #ifdef DEBUG_BIND
         if (eeRes) 
         {
-            Serial.println("EEPROM successfully committed");
+            debugln("EEPROM successfully committed");
         } 
         else
         {
-            Serial.println("ERROR! EEPROM commit failed");
+            debugln("ERROR! EEPROM commit failed");
         }
     #endif
 }

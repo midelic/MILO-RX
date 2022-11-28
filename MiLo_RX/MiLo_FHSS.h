@@ -190,9 +190,6 @@ uint16_t prng(void)
             used_flag[ch] = false;               // mark all channels as unused
             blocked_flag[ch] = false; // mark all channels as not blocked
         }
-        //Serial.print("Starting generation");
-        //printAllChannels();
-        //printBlockedChannels();
         firstChannel = prng() % 76 ; // get a first channel (random number) 
         markChannel(0, firstChannel );       // save it as first
         uint8_t midChannelIdx = 37/2 + 1; 
@@ -201,12 +198,9 @@ uint16_t prng(void)
         for ( channelIdx = 1; channelIdx < 37 ; channelIdx++) { //Process each channelIdx 
             if (channelIdx == midChannelIdx){
                 markChannel(channelIdx , firstChannel);
-                //printAllChannels();
-                //printBlockedChannels();
             } else {
                 rndChannel = getNextFreeChannel(channelIdx);
                 markChannel(channelIdx , rndChannel);
-                //printBlockedChannels();
             }
         }
         #ifdef DEBUG_WITH_FIXED_FHSS
@@ -227,8 +221,7 @@ uint16_t prng(void)
                 if ( (ch_list[i] >= 38) && (ch_list[i] <= 56)) r3++;
                 if ( (ch_list[i] >= 57) && (ch_list[i] <= 75)) r4++;
             }
-            Serial.print("per range="); Serial.print(r1); Serial.print(" ; "); Serial.print(r2); Serial.print(" ; ");
-            Serial.print(r3); Serial.print(" ; "); Serial.print(r4); Serial.println(" "); 
+            debugln("per range= %d ; %d ; %d ; %d", r1 , r2 , r3 , r4);  
         #endif
         //mark all channels as equally bad
         for (uint8_t k = 0; k < FHSS_CHANNELS_NUM; k++) {
