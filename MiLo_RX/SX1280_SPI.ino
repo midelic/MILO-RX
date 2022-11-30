@@ -1,5 +1,5 @@
 #include "iface_sx1280.h"
-#include "pins.h"
+//#include "pins.h"
 
 #define RX_TIMEOUT_PERIOD_BASE SX1280_RADIO_TICK_SIZE_0015_US
 #define RX_TIMEOUT_PERIOD_BASE_NANOS 15625
@@ -148,10 +148,12 @@ void  ICACHE_RAM_ATTR3 SX1280_ReadCommandMulti(uint8_t command, uint8_t *data, u
 void  ICACHE_RAM_ATTR3 SX1280_Reset()
 {
     pinMode(SX1280_RST_pin, OUTPUT);
+    digitalWrite(SX1280_RST_pin,HIGH);
     delay(50);
     digitalWrite(SX1280_RST_pin,LOW);
     delay(50);
     digitalWrite(SX1280_RST_pin,HIGH);
+    G3PULSE(10); G3PULSE(1);G3PULSE(20); G3PULSE(30);
     delay(100); // typically 2ms observed
     WaitOnBusy(); // instead of waiting to long, we look at the bysy pin (goes low when reset is done)
 
@@ -478,6 +480,7 @@ bool  ICACHE_RAM_ATTR3 SX1280_Begin()
         // SPI communication failed, just return without configuration
         return false;
     }
+    debugln("firmware version %d", firmwareRev);
     SX1280_SetMode(SX1280_MODE_STDBY_XOSC); // in this mode, some commands are processed faster                                              
     SX1280_WriteCommand(SX1280_RADIO_SET_PACKETTYPE, SX1280_PACKET_TYPE_LORA,15);//Set packet type to LoRa  
     SX1280_SetFrequencyReg(currFreq);                                                                                                    //Set Freq
