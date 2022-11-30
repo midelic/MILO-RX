@@ -91,17 +91,17 @@
     #define G1OFF digitalWrite(G1PIN,LOW)
     #define G1TOGGLE digitalWrite(G1PIN,!digitalRead(G1PIN))
     #define G1PULSE(usec) digitalWrite(G1PIN,HIGH);delayMicroseconds(usec); digitalWrite(G1PIN,LOW)
-#elseif defined(DEBUG_ON_GPIO1) && defined(RP2040_PLATFORM)
-    #undef DEBUG_HELP_FUNCTIONS
-    #undef DEBUG_EEPROM
-    #undef DEBUG_BIND
-    #undef DEBUG_SPORT_SPORTDATA
-    #undef DEBUG_SPORT_SIM_GENERATION
-    #undef DEBUG_DOWNLINK_TLM_FRAME
-    #undef DEBUG_SEND_POLLING
-    #undef DEBUG_MSP
-    #undef DEBUG_LOOP_TIMING
-    #undef DEBUG_SERVODATA
+#elif defined(DEBUG_ON_GPIO1) && defined(RP2040_PLATFORM)
+    //#undef DEBUG_HELP_FUNCTIONS
+    //#undef DEBUG_EEPROM
+    //#undef DEBUG_BIND
+    //#undef DEBUG_SPORT_SPORTDATA
+    //#undef DEBUG_SPORT_SIM_GENERATION
+    //#undef DEBUG_DOWNLINK_TLM_FRAME
+    //#undef DEBUG_SEND_POLLING
+    //#undef DEBUG_MSP
+    //#undef DEBUG_LOOP_TIMING
+    //#undef DEBUG_SERVODATA
     #ifndef G1PIN
         #define G1PIN 15
     #endif

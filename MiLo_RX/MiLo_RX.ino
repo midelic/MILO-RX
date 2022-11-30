@@ -134,6 +134,7 @@ bool isConnected2Tx = false; // true means that the RX got a RC/FS channels or a
 //uint8_t t_out = FHSS_CHANNELS_NUM; // replaced by a flag isConnected2Tx
 uint32_t t_outMicros ;  // time out for main while() loop
 uint32_t t_tune = 500;
+uint32_t nowLoopMicros;
 
 uint8_t currentPacketRate = RATE_150HZ; 
 uint32_t nbrValidPacketReceived = 0; // count the nbr of valid rc packet received; when > 0, we should not anymore try to change rate when not connected 
@@ -212,8 +213,8 @@ uint8_t downlinkTlmId;
     uint32_t tlmDataLinkType = 0;
     uint8_t dwnlnkTlmExpectedId;
     uint8_t uplinkTlmId = 0;
-    volatile bool sportPollIsrFlag = false ; // flag to inform main loop that sport polling timer fire.
-    
+    //volatile bool sportPollIsrFlag = false ; // flag to inform main loop that sport polling timer fire.
+    uint32_t lastSportPoolMicros = 0;
     // to send uplink tlm to sensor
     struct sportMsp_t{
         uint8_t len;        // number of used bytes in frame
@@ -231,12 +232,12 @@ uint8_t downlinkTlmId;
 void   SetupTarget();
 void ICACHE_RAM_ATTR dioISR();
 void ICACHE_RAM_ATTR3 callSportSwSerial(void);
-void ICACHE_RAM_ATTR SportPollISR(void);
-bool  ICACHE_RAM_ATTR SportPollISRRP2040(struct repeating_timer *t);
+//void ICACHE_RAM_ATTR SportPollISR(void);
+//bool  ICACHE_RAM_ATTR SportPollISRRP2040(struct repeating_timer *t);
 void ICACHE_RAM_ATTR3 MiLoTlm_build_frame();
 //void ICACHE_RAM_ATTR3 MiLoTlm_append_sport_data(uint8_t *buf);
 uint8_t ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t pas);
-void  ConfigTimer();
+//void  ConfigTimer();
 void SX1280_SetTxRxMode(uint8_t mode);
 void  smartPortDataReceive(uint8_t c);
 void  ICACHE_RAM_ATTR3 handleSportPoll();
@@ -416,7 +417,7 @@ void setup()
             //watchdog_update();
             }
         delay(3000); // delay to let the IDE USB monitor to start
-        Serial.print("Starting RP2040 ");
+        Serial.println("Starting RP2040 ");
     #endif
     #ifdef DEBUG_ON_GPIO1
         pinMode(G1PIN , OUTPUT);
@@ -433,11 +434,11 @@ void setup()
     #endif
 
     #if defined SPORT_TELEMETRY
-        initSportUart();// sport to sensort uses SW serial with the same pin for TX and Rx, signal is inverted
         #if defined(G3PIN) && defined(SPORT_pin) && (G3PIN == SPORT_pin) 
         #else
-            pinMode(SPORT_pin,INPUT);
+            pinMode(SPORT_pin,INPUT); // note: for RP2040, this is overwritten in initSportUart
         #endif
+        initSportUart();// sport to sensort uses SW serial with the same pin for TX and Rx, signal is inverted
         sportHead = sportTail = 0;
     #endif
     
@@ -494,9 +495,9 @@ void setup()
     SX1280_SetMode(SX1280_MODE_RX);
     frameReceived = false;
     bindingTime = millis() ;
-    #ifdef SPORT_TELEMETRY
-        ConfigTimer();  // start timer 1 to send the polling request or the uplink tlm frame to the sensor every 12 msec 
-    #endif
+    //#ifdef SPORT_TELEMETRY
+    //    ConfigTimer();  // start timer 1 to send the polling request or the uplink tlm frame to the sensor every 12 msec 
+    //#endif
     t_outMicros= FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // at start up we use a long delay (390msev = 7000*37 *3/2 usec) 
     slotBeginAt = micros();
     debugln("End of setup: SX1280 is OK");
@@ -910,6 +911,9 @@ void loop()
                 G3PULSE(5); // to debug when a frame has been received
                 if ( isReceivedFrameValid()) { //check if frame is valid
                     G3PULSE(10);// to debug when a frame is valid
+                    #ifdef DEBUG_IN_OUT_PACKET
+                        debugln("<");
+                    #endif
                     nbrValidPacketReceived++;
                     slotBeginAt = dioISRMicros ;  // resynchronise RX on TX
                     prepareNextSlot(); //  we first prepare next slot (e.g. frequency hop if allowed ) and update some flags/counters
@@ -925,6 +929,9 @@ void loop()
             if ( isConnected2Tx )// if we where connected and just waited for 1 interval = 7 msec
             {
                 slotBeginAt += smoothedInterval; // to avoid cumulative jitter, we just add the theoretical slot interval to the previous theoretical frame begin.  
+                #ifdef DEBUG_IN_OUT_PACKET
+                    debugln("-");
+                #endif    
                 handleShortTimeout(); //change antenna, update some counters and perform a freq hop (not when next slot is for dwnlnk)
             }
             else// it means no connection or connection has already been lost (after to many missing packets) 
@@ -932,44 +939,60 @@ void loop()
                 G3PULSE(30);// to debug when a long time out occurs
                 //slotBeginAt += FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT;
                 slotBeginAt = micros();
+                #ifdef DEBUG_IN_OUT_PACKET
+                    debugln("L to");
+                #endif    
                 handleLongTimeout(); //process LED, failsafe setup and frequency hop
             }
             break;// exit while() when a time out occurs
         }
-                
-        #if defined( MSW_SERIAL) 
-            callSportSwSerial(); // get data from sport that have been stored by sportbuff[] (filled by an interrup)
-                                    // accumulate bytes it in sRxData[]
-                                   // when frame is full, check it, convert it and 
-                                   // put data in a circular buffer (sportData[]) that will be handled by downlink tlm slot.
-        #endif
-        #ifdef RP2040_PLATFORM
-            callSportRP2040();   // idem callSportSWSerial but for RP2040 that uses a queue to get the data
-        #endif    
-    
-        #ifdef SPORT_TELEMETRY
-        if ( sportPollIsrFlag){  // flag is set by an interrupt from a timer 
-            handleSportPoll(); // perform a polling (or forward a uplink tlm frame) at regular interval (12msec)
-        }
-        #endif
-        #ifdef SBUS
-            // send Sbus frame on Serial once evey xx msec 
-            if ( ( micros() - lastSbusMicros) > SBUS_INTERVAL ) {
-                lastSbusMicros = micros();
-                if (sbusAllowed) 
-                {  // at least Rx has been connected and Failsafe is not activated with NO PULSE(sbusAllowed)
-                    SBUS_frame(); // fill Sbus frame with channels data from sbusData[]
-                    #ifdef ESP8266_PLATFORM
-                        for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial.write(sbus[i]);
+
+        nowLoopMicros = micros();
+        if((micros() - slotBeginAt) < (t_outMicros-500)){
+            #if defined( MSW_SERIAL) 
+                callSportSwSerial(); // get data from sport that have been stored by sportbuff[] (filled by an interrup)
+                                        // accumulate bytes it in sRxData[]
+                                    // when frame is full, check it, convert it and 
+                                    // put data in a circular buffer (sportData[]) that will be handled by downlink tlm slot.
+            #endif
+            #ifdef RP2040_PLATFORM
+                callSportRP2040();   // idem callSportSWSerial but for RP2040 that uses a queue to get the data
+            #endif    
+            nowLoopMicros = micros();
+            if((micros() - slotBeginAt) < (t_outMicros-500)){        
+                #ifdef SPORT_TELEMETRY
+                //if ( sportPollIsrFlag){  // flag is set by an interrupt from a timer 
+                //    handleSportPoll(); // perform a polling (or forward a uplink tlm frame) at regular interval (12msec)
+                //    debugln("p");
+                //}
+                    if ( (nowLoopMicros - lastSportPoolMicros) > 12000 ){
+                        lastSportPoolMicros = nowLoopMicros;
+                        handleSportPoll(); // perform a polling (or forward a uplink tlm frame) at regular interval (12msec)
+                        debugln("p");   
+                    }
+                #endif
+                nowLoopMicros = micros();
+                if((micros() - slotBeginAt) < (t_outMicros-500)){        
+                    #ifdef SBUS
+                        // send Sbus frame on Serial once evey xx msec 
+                        if ( ( micros() - lastSbusMicros) > SBUS_INTERVAL ) {
+                            lastSbusMicros = micros();
+                            if (sbusAllowed) 
+                            {  // at least Rx has been connected and Failsafe is not activated with NO PULSE(sbusAllowed)
+                                SBUS_frame(); // fill Sbus frame with channels data from sbusData[]
+                                #ifdef ESP8266_PLATFORM
+                                    for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial.write(sbus[i]);
+                                #endif
+                                #ifdef RP2040_PLATFORM
+                                    //for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial1.write(sbus[i]);
+                                    for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) uart_putc_raw (uart0 , (char) sbus[i]);
+                                #endif    
+                            }
+                        }        
                     #endif
-                    #ifdef RP2040_PLATFORM
-                        //for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial1.write(sbus[i]);
-                        for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) uart_putc_raw (uart0 , (char) sbus[i]);
-                    #endif    
-                }
-            }        
-        #endif
-        
+                }    
+            }
+        }
         if (! isConnected2Tx) { // not needed to yield when connected because it is already done at begining of the loop
                                 // it is only when not connected that we can stay in while more that 7000 msec
                                 // avoiding yield is good because it can take up to 300 msec on ESP8266 
@@ -1001,7 +1024,10 @@ void loop()
                 SX1280_SetTxRxMode(TX_EN);//PA enabled
             #endif
             SX1280_WriteBuffer(0x00, frame, PayloadLength); //
-            SX1280_SetMode(SX1280_MODE_TX);  
+            SX1280_SetMode(SX1280_MODE_TX);
+            #ifdef DEBUG_IN_OUT_PACKET
+                    debugln(">");
+            #endif          
         }    
     #endif
     #ifdef STATISTIC
@@ -1127,7 +1153,9 @@ void MiLoRxBind(void)
     }
 } // end MiloRxBind
 
+
 #ifdef SPORT_TELEMETRY
+/*
     void  ConfigTimer()
     {
         #ifdef ESP8266_PLATFORM
@@ -1139,11 +1167,14 @@ void MiLoRxBind(void)
         #endif
         #ifdef RP2040_PLATFORM
         
-        add_repeating_timer_ms(-6000, SportPollISRRP2040, NULL, &timerRP2040);
+        if (!add_repeating_timer_us(-12000, SportPollISRRP2040, NULL, &timerRP2040)){
+            debugln("failed to add timer");
+        }
 
         #endif    
     }
-
+*/
+    /*
     void  ICACHE_RAM_ATTR SportPollISR()
     {       
         sportPollIsrFlag = true;
@@ -1154,12 +1185,13 @@ void MiLoRxBind(void)
         sportPollIsrFlag = true;
         return true;
     }
-
+    */
     void  ICACHE_RAM_ATTR3 handleSportPoll() // this is called in main loop if timer for Sport fires
     {
-        noInterrupts();
-        sportPollIsrFlag = false; // reset the ISR flag    
-        interrupts();
+        //noInterrupts();
+        //sportPollIsrFlag = false; // reset the ISR flag    
+        //interrupts();
+        
         if (sportMspCount)   // We have some uplink tlm data in sportMspData[] to send to sensor
         {
             #ifdef DEBUG_UPLINK_TLM_SENT_TO_SPORT

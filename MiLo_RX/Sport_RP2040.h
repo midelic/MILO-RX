@@ -62,8 +62,6 @@ uint sportRxMillis ;
 
 //extern volatile boolean txIrqFired ;
 
-#define SPORT_PIN 1 // pin used for sport
-
 // PIO0_IRQ_0 is used for TX
 // PIO0_IRQ_1 is used for RX
 
@@ -79,11 +77,12 @@ void sportPioTxHandlerIrq(void){    // when all bytes have been sent, disable th
     // clear the irq flag at the origin of the interrupt
     pio_interrupt_clear(pio0, 0);    
     // disable TX state machine
-    sport_uart_tx_program_stop(sportPio, sportSmTx, SPORT_PIN); // stop transmitting
+    sport_uart_tx_program_stop(sportPio, sportSmTx, SPORT_pin); // stop transmitting
     // enable RX state machine
-    sport_uart_rx_program_restart(sportPio, sportSmRx, SPORT_PIN , true);     
+    sport_uart_rx_program_restart(sportPio, sportSmRx, SPORT_pin , true);     
+    
     //txIrqFired = true;    
-    //printf("inirq\n");
+    //debugln("pooling done");
 }
 
 void sportPioRxHandlerIrq(){    // when a byte is received on the Sport, read the pio Sport fifo and push the data to a queue (to be processed in the main loop)
@@ -91,8 +90,8 @@ void sportPioRxHandlerIrq(){    // when a byte is received on the Sport, read th
   irq_clear (PIO0_IRQ_1 );
   while (  ! pio_sm_is_rx_fifo_empty (sportPio ,sportSmRx)){ // when some data have been received
      uint8_t c = pio_sm_get (sportPio , sportSmRx) >> 24;         // read the data
-     //printf("%x", c);
-     queue_try_add (&sportRxQueue, &c);          // push to the queue
+     //Serial.print("c="); Serial.println(c,HEX);//printf("%x", c);
+    queue_try_add (&sportRxQueue, &c);          // push to the queue
     sportStuffTime = micros();                    // save the timestamp of last received byte.
   }
 }
@@ -118,7 +117,7 @@ void initSportUart() {  // setup dma, pio to manage sport bus (send and receive)
     );
 // Set up the state machine for transmit but do not yet start it (it starts only when a request from receiver is received)
     sportOffsetTx = pio_add_program(sportPio, &sport_uart_tx_program);
-    sport_uart_tx_program_init(sportPio, sportSmTx, sportOffsetTx, SPORT_PIN, 57600 , true); 
+    sport_uart_tx_program_init(sportPio, sportSmTx, sportOffsetTx, SPORT_pin, 57600 , true); 
                     // we use the same pin and baud rate for tx and rx, true means thet UART is inverted 
 // set an irq on pio to handle when all Tx bytes have been sent; irq is activated by the pio
     irq_set_exclusive_handler( PIO0_IRQ_0 , sportPioTxHandlerIrq) ;
@@ -131,15 +130,16 @@ void initSportUart() {  // setup dma, pio to manage sport bus (send and receive)
     irq_set_enabled (PIO0_IRQ_1 , true) ;
 // Set up the state machine we're going to use to receive them.
     sportOffsetRx = pio_add_program(sportPio, &sport_uart_rx_program);
-    sport_uart_rx_program_init(sportPio, sportSmRx, sportOffsetRx, SPORT_PIN, 57600 , true);  
+    sport_uart_rx_program_init(sportPio, sportSmRx, sportOffsetRx, SPORT_pin, 57600 , true);  
 }
 
 void sendSTxData(){
-    sport_uart_rx_program_stop(sportPio, sportSmRx, SPORT_PIN); // stop receiving
-    sport_uart_tx_program_start(sportPio, sportSmTx, SPORT_PIN, true); // prepare to transmit
+    sport_uart_rx_program_stop(sportPio, sportSmRx, SPORT_pin); // stop receiving
+    sport_uart_tx_program_start(sportPio, sportSmTx, SPORT_pin, true); // prepare to transmit
     sport_uart_tx_program_set_y(sportPio, sportSmTx, sportTxCount-1);  // load pio reg Y with nbr of bytes
     dma_channel_set_read_addr (sport_dma_chan, &sTxData[0], false);
     dma_channel_set_trans_count (sport_dma_chan, sportTxCount, true) ; // start the DMA to send n bytes to pio
+    //Serial.print(pio_sm_get_pc(sportPio, sportSmTx)); Serial.print(" ");Serial.println(pio_sm_get_pc(sportPio, sportSmTx));
 }
         
 void getSportFromQueue(){  // fill sportbuff[]

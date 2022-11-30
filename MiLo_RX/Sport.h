@@ -128,8 +128,7 @@ void  ICACHE_RAM_ATTR3 tx_sport_poll()  // send the polling code
     sTxData[0] = START_STOP;
     sTxData[1] = sport_ID[pindex];
     sendSTxData();
-    #ifdef DEBUG_SIM_SPORT_
-    SENSOR
+    #ifdef DEBUG_SIM_SPORT_SENSOR
         generateDummySportDataFromSensor(); // simulate immediately a reply from sensor adding data to sRxData and processing them
     #endif
 }

@@ -153,10 +153,7 @@ void  ICACHE_RAM_ATTR3 SX1280_Reset()
     digitalWrite(SX1280_RST_pin,LOW);
     delay(50);
     digitalWrite(SX1280_RST_pin,HIGH);
-    pinMode(1,OUTPUT);
     G3PULSE(10); G3PULSE(1);G3PULSE(20); G3PULSE(30);
-    
-
     delay(100); // typically 2ms observed
     WaitOnBusy(); // instead of waiting to long, we look at the bysy pin (goes low when reset is done)
 
