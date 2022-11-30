@@ -127,7 +127,8 @@
 #if defined(DEBUG_SPORT_SPORTDATA) || defined(DEBUG_SPORT_SIM_GENERATION) || defined(DEBUG_DOWNLINK_TLM_FRAME) ||\
         defined(DEBUG_BIND) || defined (DEBUG_EEPROM) || defined (DEBUG_MSP) || defined (DEBUG_LOOP_TIMING)||defined (DEBUG_SERVODATA) ||\
         defined(DEBUG_SEND_POLLING) || defined(DEBUG_INCOMMING_SPORTDATA) || defined(DEBUG_FHSS) || defined(DEBUG_RC_CHANNEL_DATA) ||\
-        defined(DEBUG_UPLINK_TLM_DATA) || defined(DEBUG_SEQUENCE) || defined(DEBUG_UPLINK_TLM_SENT_TO_SPORT)
+        defined(DEBUG_UPLINK_TLM_DATA) || defined(DEBUG_SEQUENCE) || defined(DEBUG_UPLINK_TLM_SENT_TO_SPORT) |\
+        defined(DEBUG_IN_OUT_PACKET)
     #ifdef ESP8286_PLATFORM
         #undef SBUS  // disable SBUS because it uses the same pin
     #endif
