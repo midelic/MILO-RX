@@ -22,14 +22,7 @@
 // in main while loop, avoid calling some functions if we are closed to the end of the timeout (to ensure handling timeout as soon as possible)
 // adapt some parameters to allow using the ESP8266 at 160Mhz instead of 80MHz (mainly in Sport Serial)
 
-#if __has_include("_myDebugOptions.h") // && __has_include(<stdint.h>)
-    # include "_myDebugOptions.h"
-#endif
 
-#undef ICACHE_RAM_ATTR
-#define ICACHE_RAM_ATTR IRAM_ATTR
-#define ICACHE_RAM_ATTR3
-#define WORD_ALIGNED_ATTR __attribute__((aligned(4)))
 
 #include <SPI.h>
 #include "_config.h"
@@ -40,11 +33,32 @@
         #error _MyConfig.h file must exist when USE_MY_CONFIG is activated in _config.h
     #endif
 #endif
+#if __has_include("_myDebugOptions.h") // && __has_include(<stdint.h>)
+    # include "_myDebugOptions.h"
+#endif
+
 #include "_configValidation.h"
+
+#undef ICACHE_RAM_ATTR
+#ifdef RP2040_PLATFORM
+    #define ICACHE_RAM_ATTR // no need for RP2040
+    #include <tusb.h>
+    #include "ws2812.h"
+    #include "hardware/uart.h"
+    //#include "ws2812.pio.h"
+    //#include <stdio.h>
+    //#include "pico/stdlib.h"
+#else
+    #define ICACHE_RAM_ATTR IRAM_ATTR
+#endif
+#define ICACHE_RAM_ATTR3
+#define WORD_ALIGNED_ATTR __attribute__((aligned(4)))
+
 #include "pins.h"
 #include "iface_sx1280.h"
 #include "MiLo_FHSS.h"
 #include "SX1280.h"
+
 
 #if defined DEBUG_HELP_FUNCTIONS
     void callMicrosSerial(){
@@ -120,6 +134,7 @@ bool isConnected2Tx = false; // true means that the RX got a RC/FS channels or a
 //uint8_t t_out = FHSS_CHANNELS_NUM; // replaced by a flag isConnected2Tx
 uint32_t t_outMicros ;  // time out for main while() loop
 uint32_t t_tune = 500;
+uint32_t nowLoopMicros;
 
 uint8_t currentPacketRate = RATE_150HZ; 
 uint32_t nbrValidPacketReceived = 0; // count the nbr of valid rc packet received; when > 0, we should not anymore try to change rate when not connected 
@@ -187,15 +202,19 @@ typedef struct
 MiLo_statistics MiLoStats;
 
 uint8_t downlinkTlmId;
-    
+
+#ifdef RP2040_PLATFORM
+    struct repeating_timer timerRP2040;
+#endif
+
 //TELEMETRY
 #ifdef TELEMETRY
     uint8_t frame[NBR_BYTES_IN_PACKET];// frame to be sent to TX
     uint32_t tlmDataLinkType = 0;
     uint8_t dwnlnkTlmExpectedId;
     uint8_t uplinkTlmId = 0;
-    volatile bool sportPollIsrFlag = false ; // flag to inform main loop that sport polling timer fire.
-    
+    //volatile bool sportPollIsrFlag = false ; // flag to inform main loop that sport polling timer fire.
+    uint32_t lastSportPoolMicros = 0;
     // to send uplink tlm to sensor
     struct sportMsp_t{
         uint8_t len;        // number of used bytes in frame
@@ -213,11 +232,12 @@ uint8_t downlinkTlmId;
 void   SetupTarget();
 void ICACHE_RAM_ATTR dioISR();
 void ICACHE_RAM_ATTR3 callSportSwSerial(void);
-void ICACHE_RAM_ATTR SportPollISR(void);
+//void ICACHE_RAM_ATTR SportPollISR(void);
+//bool  ICACHE_RAM_ATTR SportPollISRRP2040(struct repeating_timer *t);
 void ICACHE_RAM_ATTR3 MiLoTlm_build_frame();
 //void ICACHE_RAM_ATTR3 MiLoTlm_append_sport_data(uint8_t *buf);
 uint8_t ICACHE_RAM_ATTR3 MiLoTlmDataLink(uint8_t pas);
-void  ConfigTimer();
+//void  ConfigTimer();
 void SX1280_SetTxRxMode(uint8_t mode);
 void  smartPortDataReceive(uint8_t c);
 void  ICACHE_RAM_ATTR3 handleSportPoll();
@@ -225,7 +245,7 @@ void  ICACHE_RAM_ATTR3 handleSportPoll();
 uint8_t bind_jumper(void);
 
 #ifdef SPORT_TELEMETRY
-    #include "Sport_serial.h"
+    #include "Sport.h"
 #endif
 
 //MILO-SX1280 RF parameters
@@ -345,36 +365,80 @@ void  MiLo_SetRFLinkRate(uint8_t index) // Set speed of RF link (hz) index value
         MiLo_currAirRate_Modparams = ModParams;
     }
     
+#ifdef ESP8266_PLATFORM 
+    void LED_on(){
+        if (LED_pin != -1) digitalWrite(LED_pin,HIGH);
+    }    
+    void LED_off() {
+        if (LED_pin != -1) digitalWrite(LED_pin,LOW);
+    }    
+    void LED_toggle(){
+        if (LED_pin != -1) {
+            digitalWrite(LED_pin ,!digitalRead(LED_pin));
+        }
+    }
+#endif            
+#ifdef RP2040_PLATFORM
+    void LED_on(){
+        setRgbOn();
+    }    
+    void LED_off(){
+        setRgbOff();
+    }
+    void LED_toggle(){
+        toggleRgb();
+    }    
+#endif
+
+
+
+
 void setup()
 {
+    #ifdef RP2040_PLATFORM
+        //stdio_init_all();
+    #endif    
+    
     SetupTarget();
     delay(10);//wait for stabilization
-    
-    #if defined(DEBUG_WITH_SERIAL_PRINT) // in this case, SBUS is disabled (in _config.h)
-        Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
-        delay(3000); // added to have time to get first msg on arduino IDE terminal
-        Serial.println("Starting");       
+    #ifdef ESP8266_PLATFORM
+        #if defined(DEBUG_WITH_SERIAL_PRINT) // in this case, SBUS is disabled (in _config.h)
+            Serial.begin(115200, SERIAL_8N1, SERIAL_TX_ONLY);
+            delay(3000); // added to have time to get first msg on arduino IDE terminal
+            Serial.println("Starting");       
+        #endif
+    #endif
+    #ifdef RP2040_PLATFORM
+        uint16_t counter = 0;                      // after an upload, watchdog_cause_reboot is true.
+        if ( watchdog_caused_reboot() ) counter = 0; // avoid the UDC wait time when reboot is caused by the watchdog   
+        while ( (!tud_cdc_connected()) && (counter--)) { 
+            sleep_ms(200); 
+            //toggleRgb();
+            //watchdog_update();
+            }
+        delay(3000); // delay to let the IDE USB monitor to start
+        Serial.println("Starting RP2040 ");
     #endif
     #ifdef DEBUG_ON_GPIO1
-      pinMode(1 , OUTPUT);
-      G1OFF;
-      G1PULSE(5); delay(5);G1PULSE(5); delay(5);G1PULSE(5); 
+        pinMode(G1PIN , OUTPUT);
+        G1OFF; 
     #endif
-    
     #ifdef DEBUG_ON_GPIO3
-      pinMode(3 , OUTPUT);
-      G3OFF;
-
+        pinMode(G3PIN , OUTPUT);
+        G3OFF;
     #endif
+
+
     #ifdef SBUS
         init_SBUS(); // sbus uses Serial.begin with inverted signal
     #endif
 
     #if defined SPORT_TELEMETRY
-        initSportUart();// sport to sensort uses SW serial with the same pin for TX and Rx, signal is inverted
-        #ifndef DEBUG_ON_GPIO3
-            pinMode(SPORT_pin,INPUT);
+        #if defined(G3PIN) && defined(SPORT_pin) && (G3PIN == SPORT_pin) 
+        #else
+            pinMode(SPORT_pin,INPUT); // note: for RP2040, this is overwritten in initSportUart
         #endif
+        initSportUart();// sport to sensort uses SW serial with the same pin for TX and Rx, signal is inverted
         sportHead = sportTail = 0;
     #endif
     
@@ -382,7 +446,7 @@ void setup()
     #if defined(DEBUG_EEPROM)
         delay(1000);
         debugln("txid1 = %d,txid2 = %d,rx_num = %d,chanskip = %d", MiLoStorage.txid[0], MiLoStorage.txid[1], MiLoStorage.rx_num, MiLoStorage.chanskip);
-        debugln("MP_id = %d" ,MProtocol_id );
+        debugln("MP_id = %u" ,(unsigned int) MProtocol_id );
         //for(uint8_t i = 0 ;i < 16;i++)
         //{
         //   Serial.println(MiLoStorage.FS_data[i]);
@@ -401,7 +465,7 @@ void setup()
     is_in_binding = false;
     #ifdef DEBUG_FHSS
     // we generate several fhss sequence just to see if the aglo is OK
-        for (uint8_t i ; i< 20; i++){ 
+        for (uint8_t i = 0; i< 20; i++){ 
             Fhss_Init();// setup some fhss fixed variables
             Fhss_generate(MProtocol_id+i*1000); // generates the used frequency (based on param in EEPROM)
             yield();
@@ -415,7 +479,9 @@ void setup()
     if (!init_success)
     {
         debugln("Init of SX1280 failed");
-        while(1){};// while added by mstrens to block the MCU; comment line in order to start testing without a SX1280 module
+        while(1){
+            
+        };// while added by mstrens to block the MCU; comment line in order to start testing without a SX1280 module
     }
     sbusAllowed = false ;    //no pulse at start up
     MiLo_SetRFLinkRate(currentPacketRate);
@@ -429,9 +495,9 @@ void setup()
     SX1280_SetMode(SX1280_MODE_RX);
     frameReceived = false;
     bindingTime = millis() ;
-    #ifdef SPORT_TELEMETRY
-        ConfigTimer();  // start timer 1 to send the polling request or the uplink tlm frame to the sensor every 12 msec 
-    #endif
+    //#ifdef SPORT_TELEMETRY
+    //    ConfigTimer();  // start timer 1 to send the polling request or the uplink tlm frame to the sensor every 12 msec 
+    //#endif
     t_outMicros= FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // at start up we use a long delay (390msev = 7000*37 *3/2 usec) 
     slotBeginAt = micros();
     debugln("End of setup: SX1280 is OK");
@@ -524,7 +590,11 @@ void handleLongTimeout()
     { // When button is not pressed toggle LED to show that link is lost
         LED_count++;
         if (LED_pin != -1) {
-            (LED_count & 0x02) ? LED_on : LED_off;
+            if (LED_count & 0x02) {
+                LED_on();
+            } else {
+                LED_off();
+            }    
         }    
     }
     else
@@ -532,7 +602,7 @@ void handleLongTimeout()
         uint8_t n = 10;
         while (n--)
         { //fast blinking until resetting  FS data from RX
-            if ( LED_pin != -1) LED_toggle;
+            if ( LED_pin != -1) LED_toggle();
             delay(100); //blink LED
         }
         bool  saveFsToEprom = false;
@@ -558,7 +628,7 @@ void handleLongTimeout()
         MiLo_SetRFLinkRate(currentPacketRate);              // apply it
         smoothedInterval = MiLo_currAirRate_Modparams->interval;// set interval based on new rate
         t_outMicros = FHSS_CHANNELS_NUM * smoothedInterval * 3 / 2 + MARGIN_LONG_TIMEOUT; // update time out
-        debugln("t_out=%d",t_outMicros);
+        debugln("t_out=%d",(int) t_outMicros);
     } 
     nextChannel(1); // frequency hop after 37 slots. So Rx stays listening on the same channel while Tx hop every slot 
                     // note: when we are trying to (re)synchronize RX with Tx, we use only the n first channels in the list (this is performed in the function
@@ -566,9 +636,9 @@ void handleLongTimeout()
     SX1280_SetMode(SX1280_MODE_FS);//  This help perhaps in case a frame is just being received when time out occurs 
     SX1280_ClearIrqStatus(0XFFFF); //  This is to avoid that we perform here a frequency hop and another just after  
     SX1280_SetMode(SX1280_MODE_RX);//      because frameReceived would be true
-    cli();
+    noInterrupts() ;
     dioOccured = false;  // reset the flag saying a DIO interrupt occured
-    sei();
+    interrupts();
 }
 
 bool isReceivedFrameValid() { // return true for a valid frame
@@ -624,7 +694,7 @@ void prepareNextSlot() { // a valid frame has been received; perform frequency h
     missingPackets = 0;  // reset the number of consecutive missing packets
     if (aPacketSeen < 10 )  aPacketSeen++ ;  // increase number of packets up to 10
     if (jumper == 0){
-        if(LED_pin != -1) LED_on;
+        if(LED_pin != -1) LED_on();
     }    
 }
 
@@ -713,7 +783,13 @@ void saveRcFrame() {
         {  // when button is pressed, while connected, the Rc channels are stored in EEPROM as failsafe values after blinking  
             if (countFS++ >= MAX_MISSING_PKT)
             { 
-                if(LED_pin != -1) (countFS & 0x10) ? LED_off : LED_on;
+                if(LED_pin != -1) {
+                    if (countFS & 0x10){
+                        LED_off();
+                    } else {
+                        LED_on();
+                    }
+                }        
             }
             if (countFS >= (2 * MAX_MISSING_PKT))
             {
@@ -740,7 +816,7 @@ void handleDio1() {
     if (irqStatus & (SX1280_IRQ_RX_DONE | SX1280_IRQ_CRC_ERROR | SX1280_IRQ_RX_TX_TIMEOUT))
     {
         if (irqStatus & SX1280_IRQ_CRC_ERROR) {
-            G3PULSE(1);G3PULSE(3); G3PULSE(1);
+            G3PULSE(1);G3PULSE(5); G3PULSE(1);
             #ifdef STATISTIC
                 TotalCrcErrors += 1 ;//bad packets that not pass the crc check
             #endif
@@ -816,7 +892,9 @@ void loop()
         }
     if ((millis() - bindingTime) > 20000 && aPacketSeen == 0)
     { //Perform automatically a bind 20 sec after startup if a packet has not yet been received
-        timer0_detachInterrupt();//timer0 is needed for wifi
+        #ifdef ESP8266_PLATFORM
+            timer0_detachInterrupt();//timer0 is needed for wifi
+        #endif
         MiLoRxBind();  // note : we never exit this process: when binding is done, led is blinking and RX must be powerwed off and on again
     }
     G3PULSE(50); // to debug when we enter a new while loop
@@ -824,22 +902,25 @@ void loop()
     {
         if (dioOccured)
         { // an interrupt occured on DIO1
-            cli();
+            noInterrupts();
             dioOccured = false; //reset the flag set in ISR  
-            sei();
+            interrupts();
             handleDio1(); // handle interrupt ( reset interrupt, read SX1280 incoming data and set frameReceived to true)     
             if (frameReceived) 
             {             // a frame has been received from the TX with a good CRC (flag has been set in DioISR)
                 G3PULSE(5); // to debug when a frame has been received
                 if ( isReceivedFrameValid()) { //check if frame is valid
                     G3PULSE(10);// to debug when a frame is valid
+                    #ifdef DEBUG_IN_OUT_PACKET
+                        debugln("<");
+                    #endif
                     nbrValidPacketReceived++;
                     slotBeginAt = dioISRMicros ;  // resynchronise RX on TX
                     prepareNextSlot(); //  we first prepare next slot (e.g. frequency hop if allowed ) and update some flags/counters
                     decodeSX1280Packet();
                     break; // exit while(1)
                 } else {
-                    Serial.println("Not valid");
+                    debugln("Not valid");
                 }
             }
         }
@@ -848,6 +929,9 @@ void loop()
             if ( isConnected2Tx )// if we where connected and just waited for 1 interval = 7 msec
             {
                 slotBeginAt += smoothedInterval; // to avoid cumulative jitter, we just add the theoretical slot interval to the previous theoretical frame begin.  
+                #ifdef DEBUG_IN_OUT_PACKET
+                    debugln("-");
+                #endif    
                 handleShortTimeout(); //change antenna, update some counters and perform a freq hop (not when next slot is for dwnlnk)
             }
             else// it means no connection or connection has already been lost (after to many missing packets) 
@@ -855,34 +939,60 @@ void loop()
                 G3PULSE(30);// to debug when a long time out occurs
                 //slotBeginAt += FHSS_CHANNELS_NUM * smoothedInterval + MARGIN_LONG_TIMEOUT;
                 slotBeginAt = micros();
+                #ifdef DEBUG_IN_OUT_PACKET
+                    debugln("L to");
+                #endif    
                 handleLongTimeout(); //process LED, failsafe setup and frequency hop
             }
             break;// exit while() when a time out occurs
         }
-                
-        #if defined( MSW_SERIAL) 
-            callSportSwSerial(); // get data from sport that have been stored by sportbuff[] (filled by an interrup)
-                                    // accumulate bytes it in sRxData[]
-                                   // when frame is full, check it, convert it and 
-                                   // put data in a circular buffer (sportData[]) that will be handled by downlink tlm slot.
-        #endif
-        #ifdef SPORT_TELEMETRY
-        if ( sportPollIsrFlag){  // flag is set by an interrupt from a timer 
-            handleSportPoll(); // perform a polling (or forward a uplink tlm frame) at regular interval (12msec)
+
+        nowLoopMicros = micros();
+        if((micros() - slotBeginAt) < (t_outMicros-500)){
+            #if defined( MSW_SERIAL) 
+                callSportSwSerial(); // get data from sport that have been stored by sportbuff[] (filled by an interrup)
+                                        // accumulate bytes it in sRxData[]
+                                    // when frame is full, check it, convert it and 
+                                    // put data in a circular buffer (sportData[]) that will be handled by downlink tlm slot.
+            #endif
+            #ifdef RP2040_PLATFORM
+                callSportRP2040();   // idem callSportSWSerial but for RP2040 that uses a queue to get the data
+            #endif    
+            nowLoopMicros = micros();
+            if((micros() - slotBeginAt) < (t_outMicros-500)){        
+                #ifdef SPORT_TELEMETRY
+                //if ( sportPollIsrFlag){  // flag is set by an interrupt from a timer 
+                //    handleSportPoll(); // perform a polling (or forward a uplink tlm frame) at regular interval (12msec)
+                //    debugln("p");
+                //}
+                    if ( (nowLoopMicros - lastSportPoolMicros) > 12000 ){
+                        lastSportPoolMicros = nowLoopMicros;
+                        handleSportPoll(); // perform a polling (or forward a uplink tlm frame) at regular interval (12msec)
+                        debugln("p");   
+                    }
+                #endif
+                nowLoopMicros = micros();
+                if((micros() - slotBeginAt) < (t_outMicros-500)){        
+                    #ifdef SBUS
+                        // send Sbus frame on Serial once evey xx msec 
+                        if ( ( micros() - lastSbusMicros) > SBUS_INTERVAL ) {
+                            lastSbusMicros = micros();
+                            if (sbusAllowed) 
+                            {  // at least Rx has been connected and Failsafe is not activated with NO PULSE(sbusAllowed)
+                                SBUS_frame(); // fill Sbus frame with channels data from sbusData[]
+                                #ifdef ESP8266_PLATFORM
+                                    for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial.write(sbus[i]);
+                                #endif
+                                #ifdef RP2040_PLATFORM
+                                    //for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial1.write(sbus[i]);
+                                    for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) uart_putc_raw (uart0 , (char) sbus[i]);
+                                #endif    
+                            }
+                        }        
+                    #endif
+                }    
+            }
         }
-        #endif
-        #ifdef SBUS
-            // send Sbus frame on Serial once evey xx msec 
-            if ( ( micros() - lastSbusMicros) > SBUS_INTERVAL ) {
-                lastSbusMicros = micros();
-                if (sbusAllowed) 
-                {  // at least Rx has been connected and Failsafe is not activated with NO PULSE(sbusAllowed)
-                    SBUS_frame(); // fill Sbus frame with channels data from sbusData[]
-                    for (uint8_t i = 0; i < TXBUFFER_SIZE; i++) Serial.write(sbus[i]);
-                }
-            }        
-        #endif
-        
         if (! isConnected2Tx) { // not needed to yield when connected because it is already done at begining of the loop
                                 // it is only when not connected that we can stay in while more that 7000 msec
                                 // avoiding yield is good because it can take up to 300 msec on ESP8266 
@@ -914,7 +1024,10 @@ void loop()
                 SX1280_SetTxRxMode(TX_EN);//PA enabled
             #endif
             SX1280_WriteBuffer(0x00, frame, PayloadLength); //
-            SX1280_SetMode(SX1280_MODE_TX);  
+            SX1280_SetMode(SX1280_MODE_TX);
+            #ifdef DEBUG_IN_OUT_PACKET
+                    debugln(">");
+            #endif          
         }    
     #endif
     #ifdef STATISTIC
@@ -928,7 +1041,14 @@ void loop()
 
 void   SetupTarget()
 {
-    if (LED_pin != -1) pinMode(LED_pin, OUTPUT);
+    //LED
+    #ifdef ESP8266_PLATFORM
+        if (LED_pin != -1) pinMode(LED_pin, OUTPUT);
+    #endif
+    #ifdef RP2040_PLATFORM
+        setupRgb();
+        setRgbColor(0, 10, 0); // red, green, blue
+    #endif
     if (BIND_pin != -1) pinMode(BIND_pin, INPUT);
     digitalWrite(SX1280_RST_pin,HIGH);
     pinMode(SX1280_RST_pin , OUTPUT);
@@ -936,17 +1056,28 @@ void   SetupTarget()
     pinMode(SX1280_DIO1_pin , INPUT);
     digitalWrite(SX1280_CSN_pin,HIGH);
     pinMode(SX1280_CSN_pin , OUTPUT); 
-    
     digitalWrite(SX1280_CSN_pin, HIGH);
     #ifdef DIVERSITY        
         if ( SX1280_ANTENNA_SELECT_pin != -1 ) pinMode(SX1280_ANTENNA_SELECT_pin , OUTPUT);    
         SX1280_ANT_SEL_on;
     #endif
+    #ifdef G3PIN                 // for debug
+        pinMode(G3PIN,OUTPUT);
+    #endif
+    #ifdef G1PIN                 // for debug
+        pinMode(G1PIN,OUTPUT);
+    #endif
+    
+
+
     //SPI
+    #ifdef RP2040_PLATFORM
+        SPI.setSCK(SX1280_SCK_pin);
+        SPI.setTX(SX1280_MOSI_pin);
+        SPI.setRX(SX1280_MISO_pin);
+    #endif
     SPI.begin();
-    SPI.setBitOrder(MSBFIRST);
-    SPI.setDataMode(SPI_MODE0);
-    SPI.setFrequency(10000000); 
+    SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
     #ifdef HAS_PA_LNA
         if (SX1280_TXEN_pin != -1) pinMode(SX1280_TXEN_pin , OUTPUT);
         if (SX1280_RXEN_pin != -1) pinMode(SX1280_RXEN_pin , OUTPUT);
@@ -959,7 +1090,7 @@ void MiLoRxBind(void)
     #if defined(DEBUG_BIND)
       debugln("Entering MiloRx Bind; waiting for a bind frame from Tx"); 
     #endif
-    if(LED_pin != -1) LED_on;
+    if(LED_pin != -1) LED_on();
     is_in_binding = true;
     #ifndef TUNE_FREQ
         currFreq = GetBindFreq(); //set frequency first or an error will occur!!!
@@ -975,21 +1106,29 @@ void MiLoRxBind(void)
     
     while (1)
     {
-        if (frameReceived)
-        {
-            frameReceived = false;
-            uint8_t const FIFOaddr = SX1280_GetRxBufferAddr();
-            SX1280_ReadBuffer(FIFOaddr, RxData, PayloadLength);
-            if ((RxData[0] & 0x07) == BIND_PACKET) { //bind frametype
-                MiLoStorage.txid[0] = RxData[1] ;
-                MiLoStorage.txid[1] = RxData[2];
-                MiLoStorage.rx_num = RxData[5];
-                MiLoStorage.chanskip = RxData[6];
-                LoRaBandwidth = LORA_BW_0800;
-                FreqCorrection = SX1280_GetFrequencyError();// get frequency offset in HZ
-                FreqCorrection /= 1000;
-                FreqCorrectionRegValue = SX1280_FREQ_MHZ_TO_REG(FreqCorrection);
-                break;
+        if (dioOccured)
+        { // an interrupt occured on DIO1
+            noInterrupts();
+            dioOccured = false; //reset the flag set in ISR  
+            interrupts();
+            handleDio1(); // handle interrupt ( reset interrupt, read SX1280 incoming data and set frameReceived to true)     
+            if (frameReceived)
+            {
+                debugln("Frame received");
+                frameReceived = false;
+                uint8_t const FIFOaddr = SX1280_GetRxBufferAddr();
+                SX1280_ReadBuffer(FIFOaddr, RxData, PayloadLength);
+                if ((RxData[0] & 0x07) == BIND_PACKET) { //bind frametype
+                    MiLoStorage.txid[0] = RxData[1] ;
+                    MiLoStorage.txid[1] = RxData[2];
+                    MiLoStorage.rx_num = RxData[5];
+                    MiLoStorage.chanskip = RxData[6];
+                    LoRaBandwidth = LORA_BW_0800;
+                    FreqCorrection = SX1280_GetFrequencyError();// get frequency offset in HZ
+                    FreqCorrection /= 1000;
+                    FreqCorrectionRegValue = SX1280_FREQ_MHZ_TO_REG(FreqCorrection);
+                    break;
+                }
             }
         }
         yield();//shut-up WDT
@@ -998,42 +1137,61 @@ void MiLoRxBind(void)
     MProtocol_id = (RxData[1] | (RxData[2] << 8) | (RxData[3] << 16) | (RxData[4] << 24));
     #if defined(DEBUG_BIND)
         debugln("txid1 = %d,txid2= %d,rx_num = %d,chanskip = %d", MiLoStorage.txid[0], MiLoStorage.txid[1], MiLoStorage.rx_num, MiLoStorage.chanskip);
-        debugln("FreqCorr = %d ", FreqCorrection);
-        debugln("FreqCorrRegV = %d ", FreqCorrectionRegValue);
-        debugln("MP_id = %d", MProtocol_id);
+        debugln("FreqCorr = %u ", (unsigned int) FreqCorrection);
+        debugln("FreqCorrRegV = %ud ", (unsigned int) FreqCorrectionRegValue);
+        debugln("MP_id = %u", (unsigned int) MProtocol_id);
     #endif
     for (uint8_t i = 0; i < 16; i++)
         MiLoStorage.FS_data[i] = NO_PULSE;
     StoreEEPROMdata(address);
     while (1)
     {
-        if(LED_pin != -1) LED_on;
+        if(LED_pin != -1) LED_on();
         delay(500);
-        if(LED_pin != -1) LED_off;
+        if(LED_pin != -1) LED_off();
         delay(500);
     }
 } // end MiloRxBind
 
+
 #ifdef SPORT_TELEMETRY
+/*
     void  ConfigTimer()
     {
-        noInterrupts();
-        timer1_attachInterrupt(SportPollISR);
-        timer1_enable(TIM_DIV16, TIM_EDGE, TIM_LOOP);
-        timer1_write(60000); //12000 us     
-        interrupts();
-    }
+        #ifdef ESP8266_PLATFORM
+            noInterrupts();
+            timer1_attachInterrupt(SportPollISR);
+            timer1_enable(TIM_DIV16, TIM_EDGE, TIM_LOOP);
+            timer1_write(60000); //12000 us     
+            interrupts();
+        #endif
+        #ifdef RP2040_PLATFORM
+        
+        if (!add_repeating_timer_us(-12000, SportPollISRRP2040, NULL, &timerRP2040)){
+            debugln("failed to add timer");
+        }
 
+        #endif    
+    }
+*/
+    /*
     void  ICACHE_RAM_ATTR SportPollISR()
     {       
         sportPollIsrFlag = true;
     }
 
+    bool  ICACHE_RAM_ATTR SportPollISRRP2040(struct repeating_timer *t)
+    {       
+        sportPollIsrFlag = true;
+        return true;
+    }
+    */
     void  ICACHE_RAM_ATTR3 handleSportPoll() // this is called in main loop if timer for Sport fires
     {
-        cli();
-        sportPollIsrFlag = false; // reset the ISR flag    
-        sei();
+        //noInterrupts();
+        //sportPollIsrFlag = false; // reset the ISR flag    
+        //interrupts();
+        
         if (sportMspCount)   // We have some uplink tlm data in sportMspData[] to send to sensor
         {
             #ifdef DEBUG_UPLINK_TLM_SENT_TO_SPORT
@@ -1171,7 +1329,7 @@ void MiLoRxBind(void)
                 sportTail = sportTailWhenAck;
             } else{ // when no Ack, roll back sportTailWhenAck to sportTail
                 sportTailWhenAck = sportTail;
-                Serial.println("Roll Tail back");
+                debugln("Roll Tail back");
             } 
         }
         #ifdef DEBUG_SEQUENCE
@@ -1269,9 +1427,28 @@ void MiLoRxBind(void)
                 }
             } 
         }
-
     #endif // MSW SERIAL
-
+    #ifdef RP2040_PLATFORM
+        void callSportRP2040(){
+            getSportFromQueue(); // transfert data from the queue to sportbuff[]
+            sport_index = sportindex;
+            if (sport_index >= 8) { // 
+                if ((micros() - sportStuffTime) > 500){//If not receiving any new sport data in 500us
+                    sportindex = 0; //reset the counter (number of received bytes) used when reading the queue 
+                    memcpy((void*)sRxData,(const void*)sportbuff,sport_index);
+                    #ifdef DEBUG_INCOMMING_SPORTDATA
+                        Serial.print("Incoming Sport=");
+                        for (uint8_t i=0 ; i < sport_index ; i++){
+                            Serial.print(sRxData[i],HEX) ; Serial.print(";");
+                        }
+                        Serial.println(" ");
+                    #endif
+                    ProcessSportData();                
+                }
+            } 
+        }
+    
+    #endif
 #endif //end SPORT_TELEMETRY
 
 uint8_t bind_jumper(void)
@@ -1287,13 +1464,13 @@ uint8_t bind_jumper(void)
 
 void ICACHE_RAM_ATTR dioISR()
 {
-    #ifdef DEBUG_ON_GPIO3
-        GPOS =1<<3 ; // mstrens to debug : Make a pulse to measure the time in ISR ; GPOS is faster than digitalWrite()
+    #if defined(DEBUG_ON_GPIO3) 
+        G3ON ; // mstrens to debug : Make a pulse to measure the time in ISR ; GPOS is faster than digitalWrite()
     #endif
     dioOccured = true ;
     microsInDioISR= micros();
-    #ifdef DEBUG_ON_GPIO3
-        GPOC= 1<<3;  // mstrens to debug : End of pulse to measure the time in ISR
+    #if defined(DEBUG_ON_GPIO3)
+        G3OFF ;  // mstrens to debug : End of pulse to measure the time in ISR
     #endif    
 }    
 

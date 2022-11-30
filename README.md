@@ -103,10 +103,12 @@ Before compiling uncomment the line coresponding to your ExpressLRS receiver in 
 - Start Tx ,enter in protocol menu and start  bind process.
 
 ## Failsafe ##
-At the moment it is implemented only Failsafe from Rx.
+Failsafe can be configured from Rx or from Tx.
+- from Rx:
 When Tx is bound with Rx, you position your sticks, pots(you can use the mixer menu) as you want the to be for failsafe( alternatively you can use a script) and press the Rx button. Rx Led will blink for several seconds. When Led blinking stopped the FS data will be saved in Rx memory.
 Aditionally you have the option to resetting FS data to "NO PULSE" when pressing button, while Rx is not bound.
-There is also implemented FS from Tx. It is working the same as for FrskyX protocol in multi( OpenTX).Select FS mode from protocol menu screen.
+- from Tx:
+It is working the same as for FrskyX protocol in multi( OpenTX).Select FS mode from protocol menu screen.
 ## Colaborators ##
 @mstrens - https://github.com/mstrens
 
