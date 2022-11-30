@@ -39,18 +39,31 @@ Discussion thread at rcgroups: https://www.rcgroups.com/forums/showthread.php?41
 
 ## Project Status ##
 
-The project is work in progress,in testing, and there is more work and testing before it is completed.
+The project is work in progress.
 
-Main operation mode:
+ Operation modes:
 
+**RATE_LORA_150HZ**
 - LORA modulation
 - Frame rate 142 HZ (7ms)
 - Data Rate ~76kb/s (-108dBm)
 - Bw-812 ; SF6 ; CR - LI - 4/7 
 - Preamble 12 symbols
-- Fixed length packet format(implicit)->15 bytes
+- Fixed length packet format(implicit)->16 bytes
 - Sport downlink telemetry rate (1:3)
 - Sport uplink telemetry rate (1:6)
+
+**RATE_LORA_100HZ**
+- LORA modulation
+- Frame rate 111 HZ (9ms)
+- Data Rate ~44kb/s (-112dBm)
+- Bw-812 ; SF7 ; CR - LI - 4/6 
+- Preamble 12 symbols
+- Fixed length packet format(implicit)->16 bytes
+- Sport downlink telemetry rate (1:3)
+- Sport uplink telemetry rate (1:6)
+
+More informations about protocol you can find  on https://github.com/midelic/MILO-RX/blob/main/MiLo_RX/documentation.cpp
 
 ## Software Installation ##
 First Install in ARduino IDE the ESP8266 arduino core and coresponding libraries.
@@ -80,7 +93,6 @@ Before compiling uncomment the line coresponding to your ExpressLRS receiver in 
        - Board "Generic ESP8285 module";
        - Builtin  Led "16";
        - Flash size "2M(FS:64KB ~ OTA 992KB)";
-       - MMU: "16KB cache + 48 KB RAM(IRAM)"
        
 ## Flashing ##
 - Serial ,connect USB-FTDI serial device TX,RX,5V,GND pins to  coresponding receiver pins(TX ->RX and RX->TX) and power the receiver on with button pressed .Release the button and upload the firmware.For flashing OTA you need to get a .bin file. For that press Sketch ,select **Export compiled Binary**.Browse to the location of the binary(.bin file) to get the file and  store it in an acessible folder.
@@ -91,8 +103,13 @@ Before compiling uncomment the line coresponding to your ExpressLRS receiver in 
 - Start Tx ,enter in protocol menu and start  bind process.
 
 ## Failsafe ##
-At the moment it is implemented only Failsafe from Rx.
+Failsafe can be configured from Rx or from Tx.
+- from Rx:
 When Tx is bound with Rx, you position your sticks, pots(you can use the mixer menu) as you want the to be for failsafe( alternatively you can use a script) and press the Rx button. Rx Led will blink for several seconds. When Led blinking stopped the FS data will be saved in Rx memory.
 Aditionally you have the option to resetting FS data to "NO PULSE" when pressing button, while Rx is not bound.
-I planned to introduce also FS from Tx.It is not implemnted yet but it is intented to work the same as for FrSkyX(D16) protocol.
+- from Tx:
+It is working the same as for FrskyX protocol in multi( OpenTX).Select FS mode from protocol menu screen.
+## Colaborators ##
+@mstrens - https://github.com/mstrens
+
 

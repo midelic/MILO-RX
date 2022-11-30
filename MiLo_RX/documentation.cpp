@@ -1,15 +1,32 @@
 
 /*
     Protocol description:
+
     2.4Ghz LORA modulation
-    - 142 Hz frame rate(7ms)
-    - Data Rate ~76kb/s(-108dBm)
-    - Bw-812; SF6 ; CR -LI -4/7 .
-    - Preamble length 12 symbols
-    - Fixed length packet format(implicit) -16 bytes
-    - Downlink telemetry rate(1:3)
-    - Uplink telemetry rate(1:6)
-    - Hardware CRC is ON.
+  Operation modes:
+  
+# RATE_LORA_150HZ
+- LORA modulation
+- Frame rate 142 HZ (7ms)
+- Data Rate ~76kb/s (-108dBm)
+- Bw-812 ; SF6 ; CR - LI - 4/7 
+- Preamble 12 symbols
+- Fixed length packet format(implicit)->16 bytes
+- Sport downlink telemetry rate (1:3)
+- Sport uplink telemetry rate (1:6)
+
+# RATE_LORA_100HZ 
+- LORA modulation
+- Frame rate 111 HZ (9ms)
+- Data Rate ~44kb/s (-112dBm)
+- Bw-812 ; SF7 ; CR - LI - 4/6 
+- Preamble 12 symbols
+- Fixed length packet format(implicit)->16 bytes
+- Sport downlink telemetry rate (1:3)
+- Sport uplink telemetry rate (1:6)
+
+	
+	
     
     # Normal frame channels 1-8 or 9-16; frame rate 7ms.
     ----------------------------------------------------
