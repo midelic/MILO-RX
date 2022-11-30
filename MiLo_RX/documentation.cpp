@@ -2,7 +2,9 @@
 /*
     Protocol description:
 
-    2.4Ghz LORA modulation
+
+ 2.4Ghz LORA modulation
+
   Operation modes:
   
 # RATE_LORA_150HZ
